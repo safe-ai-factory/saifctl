@@ -1,0 +1,43 @@
+#!/bin/bash
+# Codex agent script — runs Codex with the task read from $FACTORY_TASK_PATH.
+#
+# Part of the codex agent profile. Selected via --agent codex.
+# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+#
+# CLI reference: https://developers.openai.com/codex/cli/reference
+#
+# Model and API key:
+#   Codex expects OPENAI_API_KEY. The factory provides LLM_API_KEY (generic) and
+#   LLM_MODEL. We fall back to LLM_API_KEY when OPENAI_API_KEY is not set, and
+#   pass LLM_MODEL via --model to override Codex's default.
+#   LLM_BASE_URL is forwarded as OPENAI_BASE_URL for custom endpoint support.
+#   If OPENAI_BASE_URL is already set in the environment, it takes precedence.
+#
+# Key flags:
+#   exec                       Non-interactive subcommand: run Codex headlessly and exit.
+#   --model                    Override the model for this run.
+#   -  (PROMPT arg)            Read the prompt from stdin instead of a string argument.
+#   --dangerously-bypass-approvals-and-sandbox / --yolo
+#                              Skip all approval prompts and sandbox restrictions.
+#                              Safe here because the factory container is already
+#                              sandboxed by Leash.
+#   --json                     Emit newline-delimited JSON events; compatible with the
+#                              factory's log parsing and lets the loop stream progress.
+#   --ephemeral                Do not persist session files to disk; each factory round
+#                              is independent.
+#
+# No turn/step limit is set, so Codex runs until it naturally finishes the task.
+
+set -euo pipefail
+
+export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
+if [ -n "${LLM_BASE_URL:-}" ]; then
+  export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$LLM_BASE_URL}"
+fi
+
+codex exec \
+  --model "$LLM_MODEL" \
+  --dangerously-bypass-approvals-and-sandbox \
+  --json \
+  --ephemeral \
+  - < "$FACTORY_TASK_PATH"

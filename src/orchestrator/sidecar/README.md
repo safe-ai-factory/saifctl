@@ -140,21 +140,20 @@ The binary is read into memory as a `Buffer` — it never touches the filesystem
 
 The injection happens **between `createContainer` and `container.start()`**, before the container has run a single instruction. This is the window where the Docker daemon (running as root) can write files into the container's filesystem via `putArchive`, regardless of what user the container will eventually run as.
 
-The orchestrator assembles a minimal tar archive in memory containing three files and pipes it directly into `/factory` inside the container:
+The orchestrator injects two files via `putArchive` (sidecar and staging-start.sh must be executable; bind mounts can lose the +x bit). stage.sh is mounted read-only instead — it's invoked via `sh /factory/stage.sh` so it need not be executable.
 
 ```
-/factory/sidecar          ← the Go binary, mode 0755
-/factory/staging-start.sh ← the entrypoint script
-/factory/stage.sh         ← the profile's startup script (e.g. pnpm run start)
+/factory/sidecar          ← injected via putArchive (Go binary, mode 0755)
+/factory/staging-start.sh ← injected via putArchive (entrypoint script)
+/factory/stage.sh         ← mounted from host (profile's startup script, e.g. pnpm run start)
 ```
 
-This is done with a single Docker API call:
+The archive injection:
 
 ```typescript
 const tarBuffer = createTarArchive([
   { filename: 'sidecar', content: SIDECAR_BINARY, mode: '0000755' },
   { filename: 'staging-start.sh', content: STAGING_START_SCRIPT, mode: '0000755' },
-  { filename: 'stage.sh', content: stageScript, mode: '0000755' },
 ]);
 await container.putArchive(tarBuffer, { path: '/factory' });
 ```

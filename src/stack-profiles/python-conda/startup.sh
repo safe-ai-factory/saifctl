@@ -9,7 +9,7 @@ echo "[factory-startup] Installing dependencies (conda)..."
 if [ -f environment.yml ]; then
   conda env update -n base -f environment.yml --prune
 elif [ -f requirements.txt ]; then
-  pip install -r requirements.txt --quiet
+  pip install -r requirements.txt
 else
   echo "[factory-startup] No environment.yml or requirements.txt found — skipping."
 fi

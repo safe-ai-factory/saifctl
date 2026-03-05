@@ -9,7 +9,7 @@ echo "[factory-startup] Installing Python dependencies (pip)..."
 if command -v uv > /dev/null 2>&1 && [ -f pyproject.toml ]; then
   uv sync
 elif [ -f requirements.txt ]; then
-  pip install -r requirements.txt --quiet
+  pip install -r requirements.txt
 else
   echo "[factory-startup] No requirements.txt or pyproject.toml found — skipping."
 fi

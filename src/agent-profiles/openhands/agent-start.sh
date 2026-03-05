@@ -2,7 +2,7 @@
 # OpenHands agent setup script — installs OpenHands if not already present.
 #
 # Runs once inside the coder container after the project startup script and
-# before the agent loop begins (FACTORY_AGENT_START_SCRIPT in factory-loop.sh).
+# before the agent loop begins (FACTORY_AGENT_START_SCRIPT in coder-start.sh).
 #
 # Installation order (first tool found wins):
 #   1. uv tool install openhands   — preferred: fast, isolated, reproducible
@@ -46,7 +46,7 @@ elif command -v pipx &>/dev/null; then
   ln -sf "$(readlink -f "$HOME/.local/bin/openhands")" /usr/local/bin/openhands
 else
   echo "[agent-start/openhands] Installing via pip..."
-  python3 -m pip install --quiet openhands
+  python3 -m pip install openhands
 fi
 
 echo "[agent-start/openhands] OpenHands installed: $(openhands --version)"

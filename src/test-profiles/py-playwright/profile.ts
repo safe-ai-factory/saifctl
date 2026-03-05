@@ -15,7 +15,7 @@ function pyPlaywrightValidateFiles(opts: ValidateFilesOpts): void {
 
   console.log(`\nValidating generated spec files (ruff)...`);
   try {
-    const result = spawnSync('ruff', ['check', '--select', 'E,F', '--quiet', ...pyFiles], {
+    const result = spawnSync('ruff', ['check', '--select', 'E,F', ...pyFiles], {
       cwd: testsDir,
       encoding: 'utf8',
       timeout: 30_000,
