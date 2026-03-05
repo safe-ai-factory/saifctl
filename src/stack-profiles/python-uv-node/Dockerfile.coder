@@ -1,0 +1,30 @@
+# Coder image — python-uv-node stack profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Python 3, uv, and Node.js.
+# Python is the primary runtime; Node.js 22 LTS is included on the side so Node-based
+# coder agents (claude-code, codex, etc.) can be installed at runtime by agent-start.sh.
+#
+# Build:
+#   docker build -f src/stack-profiles/python-uv-node/Dockerfile.coder \
+#                -t factory-coder-python-uv-node:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:coder:build --profile python-uv-node
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python toolchain, uv, and Node.js 22 LTS.
+# Python is the primary runtime; Node.js is included so Node-based coder agents
+# can be bootstrapped by agent-start.sh.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    python3 \
+    python3-venv \
+    && curl -fsSL https://astral.sh/uv/install.sh | sh \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.local/bin:$PATH"

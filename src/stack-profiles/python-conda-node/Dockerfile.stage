@@ -1,0 +1,26 @@
+# Staging image — python-conda-node stack profile.
+#
+# Provides Miniconda (conda + Python) and Node.js 22 LTS. Python is the primary
+# runtime; Node.js is available on the side. Project dependencies are NOT installed
+# here; startup.sh runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/stack-profiles/python-conda-node/Dockerfile.stage \
+#                -t factory-stage-python-conda-node:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:stage:build --profile python-conda-node
+FROM continuumio/miniconda3:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /workspace
+
+# Update conda and install Node.js 22 LTS to match Dockerfile.coder.
+RUN conda update -n base -c defaults conda --yes \
+    && conda clean -afy \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*

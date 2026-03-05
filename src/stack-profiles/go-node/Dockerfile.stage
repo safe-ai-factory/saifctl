@@ -1,0 +1,26 @@
+# Staging image — go-node stack profile.
+#
+# Provides the Go toolchain and Node.js 22 LTS. Go is the primary runtime; Node.js
+# is available on the side. Project dependencies are NOT installed here; startup.sh
+# runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/stack-profiles/go-node/Dockerfile.stage \
+#                -t factory-stage-go-node:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:stage:build --profile go-node
+FROM golang:1.23-bookworm
+
+WORKDIR /workspace
+
+# Install Node.js 22 LTS to match Dockerfile.coder.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure Go binaries installed via `go install` are on PATH.
+ENV GOPATH="/root/go"
+ENV PATH="$GOPATH/bin:$PATH"

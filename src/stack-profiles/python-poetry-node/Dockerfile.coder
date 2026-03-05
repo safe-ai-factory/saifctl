@@ -1,0 +1,35 @@
+# Coder image — python-poetry-node stack profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Python 3, Poetry, and Node.js.
+# Python is the primary runtime; Node.js 22 LTS is included on the side so Node-based
+# coder agents (claude-code, codex, etc.) can be installed at runtime by agent-start.sh.
+#
+# Build:
+#   docker build -f src/stack-profiles/python-poetry-node/Dockerfile.coder \
+#                -t factory-coder-python-poetry-node:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:coder:build --profile python-poetry-node
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python toolchain and Node.js 22 LTS.
+# Python is the primary runtime; Node.js is included so Node-based coder agents
+# can be bootstrapped by agent-start.sh.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    python3 \
+    python3-venv \
+    python3-pip \
+    pipx \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry — the primary Python package manager for this profile.
+RUN pipx install poetry
+
+# Ensure pipx-managed binaries are on PATH.
+ENV PATH="/root/.local/bin:$PATH"

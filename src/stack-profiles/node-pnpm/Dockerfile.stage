@@ -1,0 +1,17 @@
+# Staging image — node-pnpm stack profile.
+#
+# Provides Node.js 25 LTS and pnpm. No Python toolchain — use node-pnpm-python if
+# you need Python in the staging environment. Project dependencies are NOT installed
+# here; startup.sh runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/stack-profiles/node-pnpm/Dockerfile.stage \
+#                -t factory-stage-node-pnpm:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:stage:build --profile node-pnpm
+FROM node:25-alpine
+
+WORKDIR /workspace
+
+RUN npm install -g pnpm --no-progress

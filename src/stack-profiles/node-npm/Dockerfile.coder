@@ -1,0 +1,24 @@
+# Coder image — node-npm stack profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Node.js 22 LTS.
+# npm comes bundled with Node.js. No Python toolchain — use node-pnpm-python if
+# you need Python-based coder agents (OpenHands, Aider, etc.).
+#
+# Build:
+#   docker build -f src/stack-profiles/node-npm/Dockerfile.coder \
+#                -t factory-coder-node-npm:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:coder:build --profile node-npm
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Node.js 22 LTS via NodeSource.
+# Also installs git (required by most coder agents). npm is bundled with Node.js.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*

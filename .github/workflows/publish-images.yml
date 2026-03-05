@@ -66,11 +66,11 @@ jobs:
       - name: Build coder base image
         run: pnpm agents docker:coder-base:build
 
-      - name: Build coder image
-        run: pnpm agents docker:coder:build
+      - name: Build all coder images
+        run: pnpm agents docker:coder:build --all
 
-      - name: Build stage image
-        run: pnpm agents docker:stage:build
+      - name: Build all stage images
+        run: pnpm agents docker:stage:build --all
 
       - name: Tag and Push images
         run: |

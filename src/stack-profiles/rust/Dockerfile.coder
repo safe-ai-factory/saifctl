@@ -1,0 +1,31 @@
+# Coder image — rust stack profile.
+#
+# Extends coder-base (which provides coder-start.sh) with the Rust toolchain
+# (rustup + cargo + clippy + rustfmt). No Python or Node.js — use a combined
+# profile if you need coder agents that require Python (OpenHands, Aider) or
+# Node.js (claude-code, codex).
+#
+# Build:
+#   docker build -f src/stack-profiles/rust/Dockerfile.coder \
+#                -t factory-coder-rust:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:coder:build --profile rust
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies and git (required by most coder agents).
+# build-essential and pkg-config are needed by many Rust crates.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup (stable channel + clippy + rustfmt).
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+
+# Ensure cargo and rustup binaries are on PATH.
+ENV PATH="/root/.cargo/bin:$PATH"

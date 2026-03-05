@@ -1,0 +1,25 @@
+# Coder image — node-bun stack profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Bun.
+# Bun is a JavaScript runtime and package manager (drop-in Node.js alternative).
+# No Python toolchain — use node-pnpm-python if you need Python-based coder agents
+# (OpenHands, Aider, etc.).
+#
+# Build:
+#   docker build -f src/stack-profiles/node-bun/Dockerfile.coder \
+#                -t factory-coder-node-bun:latest .
+#
+# Or via CLI:
+#   pnpm agents docker:coder:build --profile node-bun
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install git (required by most coder agents) and Bun.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && curl -fsSL https://bun.sh/install | bash \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.bun/bin:$PATH"
