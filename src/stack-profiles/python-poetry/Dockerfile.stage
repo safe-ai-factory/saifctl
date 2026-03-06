@@ -10,7 +10,7 @@
 #                -t factory-stage-python-poetry:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile python-poetry
+#   pnpm docker build stage --profile python-poetry
 FROM python:3.13-slim
 
 ENV DEBIAN_FRONTEND=noninteractive

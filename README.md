@@ -45,6 +45,9 @@ pnpm install
 ## Usage
 
 ```bash
+# 0. One-time setup (OpenSpec + Shotgun + codebase index)
+saif init
+
 # 1. Scaffold proposal.md and edit it
 pnpm agents feat:new my-feature
 
@@ -268,7 +271,7 @@ See [docs/test-profiles.md](docs/test-profiles.md) for step-by-step usage.
 - [Sandbox profiles](./docs/sandbox-profiles.md)
 - [Test profiles](./docs/test-profiles.md)
 - [Shotgun](./docs/shotgun.md) - <!-- TODO -->
-- [Commands](docs/commands.md) - <!-- TODO -->
+- [Commands](docs/commands/README.md) - <!-- TODO -->
 - [Environment variable](docs/env-vars.md) - <!-- TODO -->
 - [Source control integrations](docs/source-control.md)
 

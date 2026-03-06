@@ -9,7 +9,7 @@
 #                -t factory-coder-python-pip-node:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile python-pip-node
+#   pnpm docker build coder --profile python-pip-node
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

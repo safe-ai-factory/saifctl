@@ -10,7 +10,7 @@
 #                -t factory-stage-node-npm-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-npm-python
+#   pnpm docker build stage --profile node-npm-python
 FROM node:25-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive

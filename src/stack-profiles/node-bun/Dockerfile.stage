@@ -9,7 +9,7 @@
 #                -t factory-stage-node-bun:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-bun
+#   pnpm docker build stage --profile node-bun
 FROM oven/bun:1
 
 WORKDIR /workspace

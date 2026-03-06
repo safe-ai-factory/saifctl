@@ -9,7 +9,7 @@
 #                -t factory-stage-node-yarn-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-yarn-python
+#   pnpm docker build stage --profile node-yarn-python
 FROM node:25-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive

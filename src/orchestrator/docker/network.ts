@@ -10,7 +10,7 @@ export interface CreateNetworkOpts {
  * Creates a dedicated Docker network for isolating a single verification run.
  *
  * Format: factory-net-{projectName}-{changeName}-{runId}
- * This allows `agents docker:clear` to scope network cleanup by project.
+ * This allows `docker clear` to scope network cleanup by project.
  *
  * How runId is built:
  * - runId = {sandboxSuffix}-r{attempts} (iterative loop: feat:start, feat:continue)

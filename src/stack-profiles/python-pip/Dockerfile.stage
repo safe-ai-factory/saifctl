@@ -9,7 +9,7 @@
 #                -t factory-stage-python-pip:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile python-pip
+#   pnpm docker build stage --profile python-pip
 FROM python:3.13-slim
 
 ENV DEBIAN_FRONTEND=noninteractive

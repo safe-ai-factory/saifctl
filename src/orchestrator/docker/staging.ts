@@ -49,7 +49,7 @@ export interface StartStagingContainerOpts {
   /**
    * Project name (from package.json "name" or --project flag).
    * Embedded in container/image names so they can be scoped per project
-   * when running `agents docker:clear` without --all.
+   * when running `docker clear` without --all.
    */
   projectName: string;
   catalog: TestCatalog;
@@ -375,7 +375,7 @@ interface StagingImageTagOpts {
  * Returns the ephemeral staging image tag for the current run.
  *
  * Format: factory-stage-{projectName}-{changeName}-img-{runId}
- * This allows `agents docker:clear` to scope cleanup by project or remove all.
+ * This allows `docker clear` to scope cleanup by project or remove all.
  */
 export function getStagingImageTag(catalog: TestCatalog, opts: StagingImageTagOpts): string | null {
   const build = (catalog.containers.staging as { build?: { dockerfile?: string | null } }).build;

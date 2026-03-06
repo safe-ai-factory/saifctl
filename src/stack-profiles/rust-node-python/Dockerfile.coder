@@ -11,7 +11,7 @@
 #                -t factory-coder-rust-node-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile rust-node-python
+#   pnpm docker build coder --profile rust-node-python
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

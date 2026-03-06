@@ -56,7 +56,7 @@ pnpm agents feat:run my-feature --profile python-uv
 | `rust-python`        | Rust + Python                |
 | `rust-node-python`   | Rust + Node.js + Python      |
 
-Use `--profile <id>` to switch. See [commands.md](commands.md) for full command options.
+Use `--profile <id>` to switch. See [commands](commands/README.md) for full command options.
 
 ## Overriding profiles
 

@@ -17,3 +17,11 @@ export function getRepoRoot(): string {
   const thisFile = fileURLToPath(import.meta.url);
   return resolve(dirname(thisFile), '..');
 }
+
+/** Environment variable names for LLM API keys. At least one must be set for init and agent workflows. */
+export const LLM_API_KEYS = [
+  'OPENAI_API_KEY',
+  'GEMINI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'OPENROUTER_API_KEY',
+] as const;

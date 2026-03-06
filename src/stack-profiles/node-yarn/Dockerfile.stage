@@ -9,7 +9,7 @@
 #                -t factory-stage-node-yarn:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-yarn
+#   pnpm docker build stage --profile node-yarn
 FROM node:25-alpine
 
 WORKDIR /workspace

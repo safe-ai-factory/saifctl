@@ -9,7 +9,7 @@
 #                -t factory-stage-python-conda:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile python-conda
+#   pnpm docker build stage --profile python-conda
 FROM continuumio/miniconda3:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

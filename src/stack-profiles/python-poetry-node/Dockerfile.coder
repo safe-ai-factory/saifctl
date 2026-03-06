@@ -9,7 +9,7 @@
 #                -t factory-coder-python-poetry-node:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile python-poetry-node
+#   pnpm docker build coder --profile python-poetry-node
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

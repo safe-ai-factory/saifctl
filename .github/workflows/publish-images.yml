@@ -61,16 +61,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build all test runner images
-        run: pnpm agents docker:test:build --all
+        run: pnpm docker build test --all
 
       - name: Build coder base image
-        run: pnpm agents docker:coder-base:build
+        run: pnpm docker build coder-base
 
       - name: Build all coder images
-        run: pnpm agents docker:coder:build --all
+        run: pnpm docker build coder --all
 
       - name: Build all stage images
-        run: pnpm agents docker:stage:build --all
+        run: pnpm docker build stage --all
 
       - name: Tag and Push images
         run: |

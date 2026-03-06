@@ -22,18 +22,18 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 
 ```bash
 # Build default test runner only (ts-vitest)
-pnpm agents docker:test:build
+pnpm docker build test
 
 # Build one profile
-pnpm agents docker:test:build --test-profile py-pytest
+pnpm docker build test --test-profile py-pytest
 
 # Build all test runner images
-pnpm agents docker:test:build --all
+pnpm docker build test --all
 
 # Build coder and stage images
-pnpm agents docker:coder-base:build
-pnpm agents docker:coder:build
-pnpm agents docker:stage:build
+pnpm docker build coder-base
+pnpm docker build coder
+pnpm docker build stage
 ```
 
 ## Publishing workflow
@@ -53,7 +53,7 @@ It does **not** run on push to `main` or on pull requests.
 
 1. **Validate** — Runs `pnpm run validate`. Publishing proceeds only if validation passes.
 2. **Build** — Builds all images:
-   - All test runner profiles (`pnpm agents docker:test:build --all`)
+   - All test runner profiles (`pnpm docker build test --all`)
    - Coder base, coder, and stage images
 3. **Publish** — Pushes each `factory-*` image to GHCR.
 

@@ -64,7 +64,7 @@ describe('filterPatchHunks', () => {
  *   image:      factory-stage-{projectName}-{changeName}-img-{runId}
  *   test runner: factory-test-{projectName}-{runId}
  *
- * The `agents docker:clear` command:
+ * The `docker clear` command:
  *   --all    → matches prefix "factory-stage-" and "factory-test-"
  *   default  → matches prefix "factory-stage-{projectName}-" and "factory-test-{projectName}-"
  */
@@ -117,7 +117,7 @@ describe('container/image naming convention (documentation)', () => {
 
     const name = buildTestRunnerName('crawlee-one', 'abc1234');
     expect(name.startsWith('factory-test-crawlee-one-')).toBe(true);
-    // test runner containers are scoped: docker:clear (no --all) uses factory-test-{proj}-
+    // test runner containers are scoped: docker clear (no --all) uses factory-test-{proj}-
     expect(name).not.toContain('factory-test-other-project');
   });
 });

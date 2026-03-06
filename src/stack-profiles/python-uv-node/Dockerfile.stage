@@ -10,7 +10,7 @@
 #                -t factory-stage-python-uv-node:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile python-uv-node
+#   pnpm docker build stage --profile python-uv-node
 FROM python:3.13-slim
 
 ENV DEBIAN_FRONTEND=noninteractive

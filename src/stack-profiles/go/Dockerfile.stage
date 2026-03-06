@@ -9,7 +9,7 @@
 #                -t factory-stage-go:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile go
+#   pnpm docker build stage --profile go
 FROM golang:1.23-bookworm
 
 WORKDIR /workspace

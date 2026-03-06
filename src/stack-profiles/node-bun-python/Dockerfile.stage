@@ -9,7 +9,7 @@
 #                -t factory-stage-node-bun-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-bun-python
+#   pnpm docker build stage --profile node-bun-python
 FROM oven/bun:1
 
 ENV DEBIAN_FRONTEND=noninteractive

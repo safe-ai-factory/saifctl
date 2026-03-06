@@ -10,7 +10,7 @@
 #                -t factory-coder-python-conda:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile python-conda
+#   pnpm docker build coder --profile python-conda
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

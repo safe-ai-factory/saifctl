@@ -9,7 +9,7 @@
 #                -t factory-stage-node-pnpm:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile node-pnpm
+#   pnpm docker build stage --profile node-pnpm
 FROM node:25-alpine
 
 WORKDIR /workspace

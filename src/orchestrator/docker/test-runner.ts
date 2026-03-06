@@ -84,7 +84,7 @@ export interface StartTestRunnerContainerOpts {
   changeName: string;
   /**
    * Project name (from package.json "name" or --project flag).
-   * Embedded in the test runner container name so `agents docker:clear` can scope
+   * Embedded in the test runner container name so `docker clear` can scope
    * cleanup by project.
    */
   projectName: string;

@@ -9,7 +9,7 @@
 #                -t factory-coder-node-pnpm:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile node-pnpm
+#   pnpm docker build coder --profile node-pnpm
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive

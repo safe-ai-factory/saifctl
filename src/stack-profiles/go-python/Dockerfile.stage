@@ -9,7 +9,7 @@
 #                -t factory-stage-go-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile go-python
+#   pnpm docker build stage --profile go-python
 FROM golang:1.23-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive

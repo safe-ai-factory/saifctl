@@ -10,7 +10,7 @@
 #                -t factory-stage-rust-node-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:stage:build --profile rust-node-python
+#   pnpm docker build stage --profile rust-node-python
 FROM rust:1.85-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive

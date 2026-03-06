@@ -201,6 +201,6 @@ pnpm agents feat:run my-feature --push myorg/myproject/myrepo --pr --git-provide
 
 ## See Also
 
-- [commands.md](commands.md) — Commands.
+- [commands](commands/README.md) — Commands.
 - [env-vars.md](env-vars.md) — Env vars.
 - [swf-git-provider.md](../openspec/specs/software-factory/swf-git-provider.md) — Provider implementation details and custom providers.

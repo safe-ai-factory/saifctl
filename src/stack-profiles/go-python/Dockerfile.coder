@@ -10,7 +10,7 @@
 #                -t factory-coder-go-python:latest .
 #
 # Or via CLI:
-#   pnpm agents docker:coder:build --profile go-python
+#   pnpm docker build coder --profile go-python
 FROM factory-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
