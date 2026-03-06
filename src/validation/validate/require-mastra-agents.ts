@@ -15,9 +15,10 @@ import { pathToFileURL } from 'node:url';
 
 import { Agent } from '@mastra/core/agent';
 
+import { getSaifRoot } from '../../constants.js';
 import { mastra } from '../../mastra/index.js';
 
-const MASTRA_DIR = join(process.cwd(), 'src', 'mastra');
+const MASTRA_DIR = join(getSaifRoot(), 'src', 'mastra');
 const AGENTS_DIR = join(MASTRA_DIR, 'agents');
 const TOOLS_DIR = join(MASTRA_DIR, 'tools');
 const WORKFLOWS_DIR = join(MASTRA_DIR, 'workflows');

@@ -16,7 +16,6 @@ import { defineCommand, runMain } from 'citty';
 
 import { runBlackboxDesign } from '../../blackbox/design.js';
 import { generateSpecTestScaffold } from '../../blackbox/impl.js';
-import { getRepoRoot } from '../../constants.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import { DEFAULT_INDEXER_PROFILE } from '../../indexer-profiles/index.js';
 import {
@@ -25,6 +24,7 @@ import {
   parseDesignerProfile,
   parseIndexerProfile,
   parseOpenspecDir,
+  parseProjectDir,
   parseTestProfile,
   requireLlmApiKey,
   resolveProjectName,
@@ -46,6 +46,10 @@ const featOpenspecDirArg = {
   type: 'string' as const,
   description: 'Path to openspec directory (default: openspec)',
 };
+const featProjectDirArg = {
+  type: 'string' as const,
+  description: 'Project directory (default: process.cwd())',
+};
 const featTestProfileArg = {
   type: 'string' as const,
   description: 'Test profile id (default: ts-vitest).',
@@ -58,7 +62,7 @@ const featIndexerArg = {
   type: 'string' as const,
   description: `Indexer profile for codebase search (default: ${DEFAULT_INDEXER_PROFILE.id}). Pass 'none' to disable.`,
 };
-const featProjetArg = {
+const featProjectArg = {
   type: 'string' as const,
   alias: 'p',
   description: 'Project name override for the indexer (default: package.json "name")',
@@ -77,6 +81,7 @@ const newCommand = defineCommand({
     },
     yes: featYesArg,
     'openspec-dir': featOpenspecDirArg,
+    'project-dir': featProjectDirArg,
     desc: {
       type: 'string',
       alias: 'd',
@@ -86,7 +91,7 @@ const newCommand = defineCommand({
   async run({ args }) {
     requireLlmApiKey();
 
-    const cwd = process.cwd();
+    const projectDir = parseProjectDir(args);
     const nonInteractive = args.yes === true;
     const namePreFill = getFeatNameFromArgs(args);
 
@@ -138,8 +143,8 @@ const newCommand = defineCommand({
 
     const openspecDir = parseOpenspecDir(args);
 
-    execSync(`npx openspec new change ${featName}`, { stdio: 'inherit', cwd });
-    const changeDir = resolve(cwd, openspecDir, 'changes', featName);
+    execSync(`npx openspec new change ${featName}`, { stdio: 'inherit', cwd: projectDir });
+    const changeDir = resolve(projectDir, openspecDir, 'changes', featName);
     if (description) {
       const proposalPath = resolve(changeDir, 'proposal.md');
       writeFileSync(proposalPath, `## What Changes\n\n${description}\n`, 'utf8');
@@ -167,19 +172,20 @@ const designCommand = defineCommand({
     'test-profile': featTestProfileArg,
     'openspec-dir': featOpenspecDirArg,
     indexer: featIndexerArg,
-    project: featProjetArg,
+    project: featProjectArg,
+    'project-dir': featProjectDirArg,
   },
   async run({ args }) {
     requireLlmApiKey();
 
-    const repoRoot = getRepoRoot();
-    const featName = await getFeatNameOrPrompt(args, repoRoot);
+    const projectDir = parseProjectDir(args);
+    const featName = await getFeatNameOrPrompt(args, projectDir);
     const openspecDir = parseOpenspecDir(args);
     const testProfile = parseTestProfile(args);
     const designerProfile = parseDesignerProfile(args);
 
     const specDir = `${openspecDir}/changes/${featName}`;
-    const designerBaseOpts = { cwd: repoRoot, featName, openspecDir };
+    const designerBaseOpts = { cwd: projectDir, featName, openspecDir };
 
     let runDesigner = !designerProfile.hasRun(designerBaseOpts);
     if (!runDesigner) {
@@ -206,7 +212,7 @@ const designCommand = defineCommand({
     }
 
     const indexerProfile = parseIndexerProfile(args);
-    const projectName = resolveProjectName(args, repoRoot);
+    const projectName = resolveProjectName(args, projectDir);
 
     console.log(`\nBlack Box Design + Impl: ${featName} (profile: ${testProfile.id})`);
     if (indexerProfile) {
@@ -214,7 +220,7 @@ const designCommand = defineCommand({
     }
     const designResult = await runBlackboxDesign({
       changeName: featName,
-      repoRoot,
+      projectDir,
       openspecDir,
       testProfile,
       indexerProfile,
@@ -226,7 +232,7 @@ const designCommand = defineCommand({
     console.log(`\nGenerating spec files from catalog...`);
     const implResult = await generateSpecTestScaffold({
       changeName: featName,
-      repoRoot,
+      projectDir,
       openspecDir,
       testProfile,
     });
@@ -245,7 +251,7 @@ const designCommand = defineCommand({
     await testProfile.validateFiles?.({
       testsDir: implResult.testsDir,
       generatedFiles: implResult.generatedFiles,
-      repoRoot,
+      projectDir,
       errMessage: `TypeScript validation failed. Fix the generated spec files or re-run feat design.`,
     });
 

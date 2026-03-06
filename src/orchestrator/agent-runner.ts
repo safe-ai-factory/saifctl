@@ -31,10 +31,12 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getRepoRoot } from '../constants.js';
+import { getSaifRoot } from '../constants.js';
 
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
+
+const CODER_START_SCRIPT = join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'coder-start.sh');
 
 export interface RunAgentOpts {
   /** Absolute path to the sandbox code directory (host path). */
@@ -258,10 +260,9 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   if (noLeash) {
     // ── No-Leash: run coder-start.sh directly on host via bash ────────────────
-    const coderStartPath = join(getRepoRoot(), 'src', 'orchestrator', 'scripts', 'coder-start.sh');
     cmd = 'bash';
-    args = [coderStartPath];
-    argsForPrint = [coderStartPath];
+    args = [CODER_START_SCRIPT];
+    argsForPrint = [CODER_START_SCRIPT];
     spawnCwd = codePath;
     spawnEnv = {
       ...Object.fromEntries(
@@ -284,7 +285,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
       FACTORY_TASK_PATH: join(codePath, '.factory_task.md'),
     };
     console.log('[agent-runner] Mode: no-leash (host execution, filesystem sandbox only)');
-    console.log(`[agent-runner] Coder start script: ${coderStartPath}`);
+    console.log(`[agent-runner] Coder start script: ${CODER_START_SCRIPT}`);
     console.log(`[agent-runner] Agent start script: ${agentStartPath}`);
     console.log(`[agent-runner] Agent script: ${agentPath}`);
     console.log(`[agent-runner] Startup script: ${startupPath}`);
@@ -374,7 +375,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
     cmd = 'npx';
     args = leashArgs;
-    spawnCwd = getRepoRoot();
+    spawnCwd = codePath;
     spawnEnv = {
       ...Object.fromEntries(
         Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],

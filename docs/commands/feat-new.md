@@ -23,6 +23,7 @@ saif feature new [options]
 | `--desc`         | `-d`  | string  | Brief description. When omitted, prompts interactively.                                         |
 | `--yes`          | `-y`  | boolean | Non-interactive mode. Requires `--name`/`-n`. Skips all prompts; description defaults to empty. |
 | `--openspec-dir` | —     | string  | Path to openspec directory (default: `openspec`)                                                |
+| `--project-dir`  | —     | string  | Project directory (default: current working directory)                                         |
 
 ## Examples
 
@@ -55,6 +56,12 @@ Custom openspec directory:
 
 ```bash
 saif feat new -n greet-cmd --openspec-dir ./my-openspec
+```
+
+Custom project directory (e.g. when running from a parent monorepo):
+
+```bash
+saif feat new -n greet-cmd --project-dir ./packages/my-app
 ```
 
 ## What it does

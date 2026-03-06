@@ -16,15 +16,15 @@
 import type { Tool } from '@mastra/core/tools';
 
 export interface IndexerInitOpts {
-  /** Absolute path to the repo root (where indexing commands are run). */
-  cwd: string;
+  /** Absolute path to the project directory (where indexing commands are run). */
+  projectDir: string;
   /** Project name used to identify the index (e.g. package.json "name"). */
   projectName: string;
 }
 
 export interface IndexerGetToolOpts {
-  /** Absolute path to the repo root. */
-  cwd: string;
+  /** Absolute path to the project directory. */
+  projectDir: string;
   /** Project name — same value passed to init(). Used to locate the index. */
   projectName: string;
 }

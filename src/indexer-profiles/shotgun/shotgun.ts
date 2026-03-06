@@ -23,8 +23,8 @@ export interface ShotgunQueryResult {
 export interface QueryShotgunIndexOptions {
   graphId: string;
   question: string;
-  /** Repo root (where pyproject.toml lives). Defaults to process.cwd(). */
-  cwd?: string;
+  /** Project directory (where pyproject.toml lives). */
+  projectDir: string;
 }
 
 /**
@@ -37,8 +37,8 @@ export function resolveShotgunPython(): string {
 
 /** Options for runShotgunCli. */
 export interface RunShotgunCliOptions {
-  /** Working directory. Defaults to process.cwd(). */
-  cwd?: string;
+  /** Project directory. */
+  projectDir: string;
   /** Environment overrides (merged with process.env). */
   env?: Record<string, string>;
   /** Print the command to stdout before running (e.g. `  $ python -m shotgun.main ...`). */
@@ -55,7 +55,7 @@ function formatArgForDisplay(arg: string): string {
  */
 export function runShotgunCli(
   args: string[],
-  opts?: RunShotgunCliOptions,
+  opts: RunShotgunCliOptions,
 ): SpawnSyncReturns<string> {
   const python = resolveShotgunPython();
   const allArgs = ['-m', 'shotgun.main', ...args];
@@ -67,7 +67,7 @@ export function runShotgunCli(
   }
   const result = spawnSync(python, allArgs, {
     stdio: 'inherit',
-    cwd: opts?.cwd ?? process.cwd(),
+    cwd: opts.projectDir,
     env: opts?.env ? { ...process.env, ...opts.env } : process.env,
     encoding: 'utf-8',
   });
@@ -81,8 +81,11 @@ export function runShotgunCli(
  * Runs `<python> -m shotgun.main codebase query <graphId> "<question>"` and returns the raw output.
  */
 export function queryShotgunIndex(opts: QueryShotgunIndexOptions): ShotgunQueryResult {
-  const { graphId, question, cwd = process.cwd() } = opts;
-  const result = runShotgunCli(['codebase', 'query', graphId, question], { cwd, printCmd: true });
+  const { graphId, question, projectDir } = opts;
+  const result = runShotgunCli(['codebase', 'query', graphId, question], {
+    projectDir,
+    printCmd: true,
+  });
   if (result.status !== 0) {
     throw new Error(
       `shotgun-sh codebase query failed: ${result.stderr?.trim() ?? result.error?.message ?? 'unknown'}`,

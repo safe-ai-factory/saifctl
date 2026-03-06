@@ -31,7 +31,7 @@ export class BitbucketProvider implements GitProvider {
    * HTTPS credential injection requires both BITBUCKET_USERNAME and BITBUCKET_TOKEN.
    * When only one is set or neither is set, the URL is returned unchanged.
    */
-  resolvePushUrl(push: string, repoRoot: string): string {
+  resolvePushUrl(push: string, projectDir: string): string {
     if (push.startsWith('https://') || push.startsWith('git@') || push.startsWith('ssh://')) {
       return this.injectToken(push);
     }
@@ -44,7 +44,7 @@ export class BitbucketProvider implements GitProvider {
 
     // Treat as a named remote — resolve its URL from the local git config
     try {
-      const url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+      const url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
       return this.injectToken(url);
     } catch {
       throw new Error(
@@ -64,14 +64,14 @@ export class BitbucketProvider implements GitProvider {
    * This differs from the GitLab provider, which URL-encodes its project path
    * (e.g. `group%2Frepo`) for a single-segment project identifier.
    */
-  extractRepoSlug(push: string, repoRoot: string): string {
+  extractRepoSlug(push: string, projectDir: string): string {
     let url = push;
 
     // Resolve remote name to URL first
     if (!push.startsWith('https://') && !push.startsWith('git@') && !push.startsWith('ssh://')) {
       if (!push.includes('/')) {
         try {
-          url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+          url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
         } catch {
           throw new Error(`[orchestrator] Cannot resolve remote "${push}" to extract repo slug.`);
         }

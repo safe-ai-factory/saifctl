@@ -303,6 +303,18 @@ pnpm agents feat:design my-feature --indexer none
 
 _NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
 
+## Access control with Cedar
+
+By default the factory restricts the agent's filesystem access using a [Cedar](https://www.cedarpolicy.com/) policy enforced by [Leash](https://github.com/strongdm/leash). The agent can read and write anywhere in the workspace — except `openspec/` (reward-hacking prevention) and `.git/` (sandbox-escape prevention).
+
+Override with `--cedar` to supply your own policy:
+
+```bash
+pnpm agents feat:run my-feature --cedar ./my-policy.cedar
+```
+
+[See the full default policy and customization guide here](./docs/cedar-access-control.md).
+
 ## Commands
 
 <!-- TODO: COMMANDS IN DEPTH (ALL OPTIONS & WHAT THEY DO - OWN DOC FILE?) -->
@@ -319,6 +331,7 @@ _NOTE: Currently Shotgun is the only supported option. If you want to add your t
 - [Test profiles](./docs/test-profiles.md)
 - [Spec designers](./docs/designers/README.md)
 - [Codebase indexers](./docs/indexer/README.md)
+- [Access control with Cedar](./docs/cedar-access-control.md)
 - [Commands](docs/commands/README.md) - <!-- TODO -->
 - [Environment variable](docs/env-vars.md) - <!-- TODO -->
 - [Source control integrations](docs/source-control.md)

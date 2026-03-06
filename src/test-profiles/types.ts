@@ -68,7 +68,7 @@ export interface TestProfile {
 export interface ValidateFilesOpts {
   testsDir: string;
   generatedFiles: string[];
-  repoRoot: string;
+  projectDir: string;
   errMessage: string;
 }
 

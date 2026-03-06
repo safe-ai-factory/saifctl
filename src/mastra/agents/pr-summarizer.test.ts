@@ -48,7 +48,7 @@ describe('generatePRSummary', () => {
   const baseOpts = {
     changeName: 'greet-cmd',
     openspecDir: 'openspec',
-    repoRoot: '/repo',
+    projectDir: '/repo',
     patchFile: '/sandbox/patch.diff',
   };
 

@@ -98,7 +98,7 @@ describe('GitHubProvider.resolvePushUrl', () => {
   });
 
   it('throws for an unknown remote name when git remote get-url fails', () => {
-    // Uses a non-existent repoRoot so git fails — covers the execSync error branch.
+    // Uses a non-existent projectDir so git fails — covers the execSync error branch.
     const p = makeProvider();
     expect(() => p.resolvePushUrl('nonexistent-remote', '/tmp/not-a-real-git-repo')).toThrow(
       /Cannot resolve push target "nonexistent-remote"/,

@@ -7,34 +7,13 @@
  *   clear   Remove sandbox entries for this project (--all: everything)
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { rm as rmAsync } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
 import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
-
-function resolveProjectName(opts: { project?: string }): string {
-  const fromOpt = typeof opts.project === 'string' ? opts.project.trim() : '';
-  if (fromOpt) return fromOpt;
-
-  const projectRoot = resolve(process.cwd());
-  try {
-    const pkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as {
-      name?: unknown;
-    };
-    if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim();
-  } catch {
-    throw new Error(
-      `Cannot determine project name: no package.json found at ${resolve(projectRoot, 'package.json')}. Specify -p/--project.`,
-    );
-  }
-
-  throw new Error(
-    `Cannot determine project name: package.json has no "name" field. Specify -p/--project.`,
-  );
-}
+import { parseProjectDir, resolveProjectName } from '../utils.js';
 
 const listCommand = defineCommand({
   meta: {
@@ -44,6 +23,10 @@ const listCommand = defineCommand({
   args: {
     all: { type: 'boolean', description: 'List entries for all projects' },
     project: { type: 'string', alias: 'p', description: 'Project name override' },
+    'project-dir': {
+      type: 'string',
+      description: 'Project directory (default: current working directory)',
+    },
     'sandbox-base-dir': {
       type: 'string',
       description: `Sandbox base directory (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
@@ -75,7 +58,8 @@ const listCommand = defineCommand({
       return;
     }
 
-    const projName = resolveProjectName(args);
+    const projectDir = parseProjectDir(args);
+    const projName = resolveProjectName(args, projectDir);
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 
@@ -101,6 +85,10 @@ const clearCommand = defineCommand({
   args: {
     all: { type: 'boolean', description: 'Remove entries for all projects' },
     project: { type: 'string', alias: 'p', description: 'Project name override' },
+    'project-dir': {
+      type: 'string',
+      description: 'Project directory (default: process.cwd())',
+    },
     'sandbox-base-dir': {
       type: 'string',
       description: `Sandbox base directory (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
@@ -138,7 +126,8 @@ const clearCommand = defineCommand({
       return;
     }
 
-    const projName = resolveProjectName(args);
+    const projectDir = parseProjectDir(args);
+    const projName = resolveProjectName(args, projectDir);
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 

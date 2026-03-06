@@ -35,7 +35,7 @@ export class AzureReposProvider implements GitProvider {
    * are modified; all other URLs are returned unchanged.
    * SSH URLs (git@ssh.dev.azure.com:...) are always passed through unchanged.
    */
-  resolvePushUrl(push: string, repoRoot: string): string {
+  resolvePushUrl(push: string, projectDir: string): string {
     if (push.startsWith('https://') || push.startsWith('git@') || push.startsWith('ssh://')) {
       return this.injectToken(push);
     }
@@ -48,7 +48,7 @@ export class AzureReposProvider implements GitProvider {
 
     // Treat as a named remote — resolve its URL from the local git config
     try {
-      const url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+      const url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
       return this.injectToken(url);
     } catch {
       throw new Error(
@@ -72,14 +72,14 @@ export class AzureReposProvider implements GitProvider {
    *   Slug:           org/project/repo
    *   Remote:         origin (resolved via git remote get-url)
    */
-  extractRepoSlug(push: string, repoRoot: string): string {
+  extractRepoSlug(push: string, projectDir: string): string {
     let url = push;
 
     // Resolve remote name to URL first
     if (!push.startsWith('https://') && !push.startsWith('git@') && !push.startsWith('ssh://')) {
       if (!this.isAzureSlug(push)) {
         try {
-          url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+          url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
         } catch {
           throw new Error(`[orchestrator] Cannot resolve remote "${push}" to extract repo slug.`);
         }

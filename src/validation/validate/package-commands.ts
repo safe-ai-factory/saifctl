@@ -7,9 +7,9 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { getRepoRoot } from '../../constants.js';
+import { getSaifRoot } from '../../constants.js';
 
-const commandsDir = join(getRepoRoot(), 'scripts', 'commands');
+const commandsDir = join(getSaifRoot(), 'scripts', 'commands');
 
 const REQUIRED_FIELDS = ['name', 'description', 'usage', 'options', 'handler'] as const;
 

@@ -41,7 +41,8 @@ function writeGateScript(gatePath: string, gateScript: string): void {
 
 export interface OrchestratorOpts {
   changeName: string;
-  repoRoot: string;
+  /** Absolute path to the project directory */
+  projectDir: string;
   /**
    * How many times to re-run the full test suite on a single assessment before
    * declaring it failed. Useful for flaky test environments.
@@ -339,7 +340,7 @@ type Fail2PassOpts = Pick<
   OrchestratorOpts,
   | 'stackProfileId'
   | 'changeName'
-  | 'repoRoot'
+  | 'projectDir'
   | 'openspecDir'
   | 'projectName'
   | 'sandboxBaseDir'
@@ -359,7 +360,7 @@ async function runFail2PassCore(
   const {
     stackProfileId,
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -376,7 +377,7 @@ async function runFail2PassCore(
 
   const sandbox = createSandbox({
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -386,9 +387,9 @@ async function runFail2PassCore(
     agentScript,
     stageScript,
   });
-  const catalog = loadCatalog({ repoRoot, changeName, openspecDir });
+  const catalog = loadCatalog({ projectDir, changeName, openspecDir });
   const testRunnerOpts = getTestRunnerOpts({
-    repoRoot,
+    projectDir,
     changeName,
     openspecDir,
     sandboxBasePath: sandbox.sandboxBasePath,
@@ -400,7 +401,7 @@ async function runFail2PassCore(
     const result = await runAssessmentWithContainers({
       stackProfileId,
       codePath: sandbox.codePath,
-      repoRoot,
+      projectDir,
       changeName,
       projectName,
       catalog,
@@ -465,7 +466,7 @@ async function runStartCore(
 ): Promise<OrchestratorResult> {
   const {
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -480,7 +481,7 @@ async function runStartCore(
 
   const sandbox = createSandbox({
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -580,7 +581,7 @@ type AssessOpts = Pick<
   OrchestratorOpts,
   | 'stackProfileId'
   | 'changeName'
-  | 'repoRoot'
+  | 'projectDir'
   | 'patchPath'
   | 'assessRetries'
   | 'openspecDir'
@@ -612,7 +613,7 @@ async function runAssessCore(
   const {
     stackProfileId,
     changeName,
-    repoRoot,
+    projectDir,
     patchPath,
     assessRetries,
     openspecDir,
@@ -644,7 +645,7 @@ async function runAssessCore(
 
   const sandbox = createSandbox({
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -654,9 +655,9 @@ async function runAssessCore(
     agentScript,
     stageScript,
   });
-  const catalog = loadCatalog({ repoRoot, changeName, openspecDir });
+  const catalog = loadCatalog({ projectDir, changeName, openspecDir });
   const testRunnerOpts = getTestRunnerOpts({
-    repoRoot,
+    projectDir,
     changeName,
     openspecDir,
     sandboxBasePath: sandbox.sandboxBasePath,
@@ -679,7 +680,7 @@ async function runAssessCore(
       const result = await runAssessmentWithContainers({
         stackProfileId,
         codePath: sandbox.codePath,
-        repoRoot,
+        projectDir,
         changeName,
         projectName,
         catalog,
@@ -705,7 +706,7 @@ async function runAssessCore(
         console.log('\n[orchestrator] ✓ ASSESSMENT PASSED');
         await applyPatchToHost({
           codePath: sandbox.codePath,
-          repoRoot,
+          projectDir,
           changeName,
           runId,
           push,
@@ -725,7 +726,7 @@ async function runAssessCore(
 
       if (resolveAmbiguity !== 'off' && result.testSuites) {
         const arbiterResult = await runArbiterForFailure({
-          repoRoot,
+          projectDir,
           changeName,
           openspecDir,
           patchPath,
@@ -773,7 +774,7 @@ export async function runDebug(
     OrchestratorOpts,
     | 'stackProfileId'
     | 'changeName'
-    | 'repoRoot'
+    | 'projectDir'
     | 'openspecDir'
     | 'projectName'
     | 'sandboxBaseDir'
@@ -787,7 +788,7 @@ export async function runDebug(
   const {
     stackProfileId,
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -802,7 +803,7 @@ export async function runDebug(
 
   const sandbox = createSandbox({
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -812,7 +813,7 @@ export async function runDebug(
     agentScript,
     stageScript,
   });
-  const catalog = loadCatalog({ repoRoot, changeName, openspecDir });
+  const catalog = loadCatalog({ projectDir, changeName, openspecDir });
   const runId = extractRunId(sandbox.sandboxBasePath);
 
   const net = await createSandboxNetwork({ projectName, changeName, runId });
@@ -827,7 +828,7 @@ export async function runDebug(
     await debugStagingContainer({
       stackProfileId,
       codePath: sandbox.codePath,
-      repoRoot,
+      projectDir,
       changeName,
       projectName,
       catalog,

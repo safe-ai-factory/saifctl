@@ -281,7 +281,7 @@ async function startContainers({
 export interface RunAssessmentWithContainersOpts {
   stackProfileId: SupportedStackProfileId;
   codePath: string;
-  repoRoot: string;
+  projectDir: string;
   changeName: string;
   projectName: string;
   catalog: TestCatalog;
@@ -305,7 +305,7 @@ export interface RunAssessmentWithContainersOpts {
 export async function runAssessmentWithContainers({
   stackProfileId,
   codePath,
-  repoRoot,
+  projectDir,
   changeName,
   projectName,
   catalog,
@@ -333,7 +333,7 @@ export async function runAssessmentWithContainers({
       stagingContainer: {
         stackProfileId,
         codePath,
-        repoRoot,
+        projectDir,
         changeName,
         projectName,
         catalog,

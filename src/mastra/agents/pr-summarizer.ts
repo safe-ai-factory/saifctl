@@ -126,8 +126,8 @@ export interface GeneratePRSummaryOpts {
    * The agent reads <openspecDir>/changes/<changeName>/specification.md etc.
    */
   openspecDir: string;
-  /** Absolute path to the repo root (used to resolve openspecDir when relative). */
-  repoRoot: string;
+  /** Absolute path to the project directory (used to resolve openspecDir when relative). */
+  projectDir: string;
   /** Absolute path to the patch.diff file written by extractPatch. */
   patchFile: string;
 }
@@ -139,9 +139,9 @@ export interface GeneratePRSummaryOpts {
  * if the diff file is missing or the agent fails, the caller should use generic strings.
  */
 export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PRSummary> {
-  const { changeName, openspecDir, repoRoot, patchFile } = opts;
+  const { changeName, openspecDir, projectDir, patchFile } = opts;
 
-  const changeDir = join(repoRoot, openspecDir, 'changes', changeName);
+  const changeDir = join(projectDir, openspecDir, 'changes', changeName);
 
   const specContent = readFileSafe(join(changeDir, 'specification.md'));
   const proposalContent = readFileSafe(join(changeDir, 'proposal.md'));

@@ -42,7 +42,7 @@ export async function runIterativeLoop(
   const {
     stackProfileId,
     changeName,
-    repoRoot,
+    projectDir,
     maxAttempts = 10,
     keepSandbox = false,
     model,
@@ -77,9 +77,9 @@ export async function runIterativeLoop(
     ...(opts.patchExclude ?? []),
   ];
 
-  const catalog = loadCatalog({ repoRoot, changeName, openspecDir });
+  const catalog = loadCatalog({ projectDir, changeName, openspecDir });
   const testRunnerOpts = getTestRunnerOpts({
-    repoRoot,
+    projectDir,
     changeName,
     openspecDir,
     sandboxBasePath: sandbox.sandboxBasePath,
@@ -87,7 +87,7 @@ export async function runIterativeLoop(
   });
 
   // Read the task from plan.md if available
-  const task = buildInitialTask({ repoRoot, changeName, openspecDir });
+  const task = buildInitialTask({ projectDir, changeName, openspecDir });
 
   let errorFeedback = '';
   let attempts = 0;
@@ -147,7 +147,7 @@ export async function runIterativeLoop(
       const result = await runAssessmentWithContainers({
         stackProfileId,
         codePath: sandbox.codePath,
-        repoRoot,
+        projectDir,
         changeName,
         projectName,
         catalog,
@@ -173,7 +173,7 @@ export async function runIterativeLoop(
         console.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
         await applyPatchToHost({
           codePath: sandbox.codePath,
-          repoRoot,
+          projectDir,
           changeName,
           runId,
           push,
@@ -206,14 +206,14 @@ export async function runIterativeLoop(
       // The Arbiter sanitizes the failure reason before it reaches OpenHands.
       if (resolveAmbiguity !== 'off' && result.testSuites) {
         const arbiterResult = await runArbiterForFailure({
-          repoRoot,
+          projectName,
+          projectDir,
           changeName,
           openspecDir,
           patchPath,
           testSuites: result.testSuites,
           resolveAmbiguity,
           testProfile,
-          projectName,
         });
 
         if (arbiterResult.ambiguityResolved) {
@@ -276,7 +276,8 @@ export async function runIterativeLoop(
 
 interface RunArbiterForFailureOpts {
   projectName: string;
-  repoRoot: string;
+  /** Absolute path to the project directory */
+  projectDir: string;
   changeName: string;
   openspecDir: string;
   testProfile: TestProfile;
@@ -311,7 +312,7 @@ export async function runArbiterForFailure(
   opts: RunArbiterForFailureOpts,
 ): Promise<ArbiterForFailureResult> {
   const {
-    repoRoot,
+    projectDir,
     changeName,
     openspecDir,
     patchPath,
@@ -321,7 +322,7 @@ export async function runArbiterForFailure(
     projectName,
   } = opts;
 
-  const specPath = join(repoRoot, openspecDir, 'changes', changeName, 'specification.md');
+  const specPath = join(projectDir, openspecDir, 'changes', changeName, 'specification.md');
   const specContent = existsSync(specPath)
     ? readFileSync(specPath, 'utf8')
     : '(specification.md not found)';
@@ -412,8 +413,8 @@ export async function runArbiterForFailure(
   // then scaffold generates the spec files via the coder agent).
   console.log('[spec-arbiter] Regenerating blackbox design with updated spec...');
   try {
-    await runBlackboxDesign({ changeName, repoRoot, openspecDir, testProfile, projectName });
-    await generateSpecTestScaffold({ changeName, repoRoot, openspecDir, testProfile });
+    await runBlackboxDesign({ changeName, projectDir, openspecDir, testProfile, projectName });
+    await generateSpecTestScaffold({ changeName, projectDir, openspecDir, testProfile });
     console.log('[spec-arbiter] Tests regenerated successfully.');
   } catch (err) {
     console.warn(`[spec-arbiter] Test regeneration failed (non-fatal): ${String(err)}`);
@@ -433,8 +434,8 @@ export async function runArbiterForFailure(
 interface ApplyPatchOpts {
   /** Absolute path to the sandbox code directory (sandboxBasePath/code) */
   codePath: string;
-  /** Absolute path to the host repository root */
-  repoRoot: string;
+  /** Absolute path to the project directory */
+  projectDir: string;
   changeName: string;
   /**
    * Unique run id used to construct the branch name (factory/<changeName>-<runId>),
@@ -448,7 +449,7 @@ interface ApplyPatchOpts {
   /** Git hosting provider. Default: GitHubProvider. */
   gitProvider: GitProvider;
   /**
-   * Path to the openspec directory root (e.g. "openspec"), relative to repoRoot.
+   * Path to the openspec directory root (e.g. "openspec"), relative to project directory.
    * Used by the PR summarizer agent to read specification and proposal docs.
    */
   openspecDir: string;
@@ -471,7 +472,7 @@ interface ApplyPatchOpts {
  * is deleted, otherwise git's internal worktree registry gets stale entries.
  */
 export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
-  const { codePath, repoRoot, changeName, runId, push, pr, gitProvider, openspecDir } = opts;
+  const { codePath, projectDir, changeName, runId, push, pr, gitProvider, openspecDir } = opts;
 
   // patch.diff is written to sandboxBasePath (parent of codePath) by extractPatch,
   // deliberately outside the git working tree so `git clean -fd` cannot delete it.
@@ -507,7 +508,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   // Capture the current branch for the PR base *before* touching anything
   let baseBranch = 'main';
   try {
-    const current = execSync('git branch --show-current', { cwd: repoRoot }).toString().trim();
+    const current = execSync('git branch --show-current', { cwd: projectDir }).toString().trim();
     baseBranch = current || 'main';
   } catch {
     // fall back to 'main'
@@ -516,7 +517,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   console.log(`[orchestrator] Creating worktree at ${wtPath} on branch ${branchName}...`);
 
   // 1. Create worktree + branch — main worktree HEAD is never touched
-  execSync(`git worktree add "${wtPath}" -b "${branchName}"`, { cwd: repoRoot, env: gitEnv });
+  execSync(`git worktree add "${wtPath}" -b "${branchName}"`, { cwd: projectDir, env: gitEnv });
 
   try {
     // 2. Apply patch inside the worktree
@@ -537,12 +538,12 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
       // Untracked paths like openspec/changes/<name>/ therefore exist in the sandbox
       // (and the main working tree) but not in the worktree. Since `openspec archive`
       // requires that directory to move it to archive/ and update specs, we copy
-      // it from repoRoot into the worktree before running the command. See swf-git.md
+      // it from projectDir into the worktree before running the command. See swf-git.md
       // §8 "Sandbox vs. worktree source asymmetry" for details.
-      const srcChangeDir = join(repoRoot, openspecDir, 'changes', changeName);
+      const srcChangeDir = join(projectDir, openspecDir, 'changes', changeName);
       const destChangeDir = join(wtPath, openspecDir, 'changes', changeName);
       if (existsSync(srcChangeDir) && !existsSync(destChangeDir)) {
-        execSync(`cp -r "${srcChangeDir}" "${destChangeDir}"`, { cwd: repoRoot });
+        execSync(`cp -r "${srcChangeDir}" "${destChangeDir}"`, { cwd: projectDir });
       }
 
       execSync(`npx openspec archive --yes ${changeName}`, { cwd: wtPath, env: gitEnv });
@@ -561,14 +562,14 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
 
     // 4. Push
     if (push) {
-      const pushUrl = gitProvider.resolvePushUrl(push, repoRoot);
+      const pushUrl = gitProvider.resolvePushUrl(push, projectDir);
       console.log(`[orchestrator] Pushing ${branchName} to remote...`);
       execSync(`git push "${pushUrl}" "${branchName}"`, { cwd: wtPath, env: gitEnv });
       console.log(`[orchestrator] Branch ${branchName} pushed.`);
 
       // 5. Create PR
       if (pr) {
-        const repoSlug = gitProvider.extractRepoSlug(push, repoRoot);
+        const repoSlug = gitProvider.extractRepoSlug(push, projectDir);
 
         // 5a. Generate AI title + body; fall back to generic strings on any error.
         let prTitle = `feat(${changeName}): auto-generated implementation`;
@@ -578,7 +579,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
           const summary = await generatePRSummary({
             changeName,
             openspecDir,
-            repoRoot,
+            projectDir,
             patchFile,
           });
           prTitle = summary.title;
@@ -609,11 +610,11 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   } finally {
     // 6. Deregister the worktree from git's registry before destroySandbox deletes the dir
     try {
-      execSync(`git worktree remove --force "${wtPath}"`, { cwd: repoRoot });
+      execSync(`git worktree remove --force "${wtPath}"`, { cwd: projectDir });
     } catch (err) {
       // If the directory is already gone somehow, prune stale entries
       try {
-        execSync('git worktree prune', { cwd: repoRoot });
+        execSync('git worktree prune', { cwd: projectDir });
       } catch {
         // best-effort
       }
@@ -623,15 +624,15 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
 }
 
 interface BuildInitialTaskOpts {
-  repoRoot: string;
+  projectDir: string;
   changeName: string;
   openspecDir: string;
 }
 
 function buildInitialTask(opts: BuildInitialTaskOpts): string {
-  const { repoRoot, changeName, openspecDir } = opts;
-  const planPath = join(repoRoot, openspecDir, 'changes', changeName, 'plan.md');
-  const specPath = join(repoRoot, openspecDir, 'changes', changeName, 'specification.md');
+  const { projectDir, changeName, openspecDir } = opts;
+  const planPath = join(projectDir, openspecDir, 'changes', changeName, 'plan.md');
+  const specPath = join(projectDir, openspecDir, 'changes', changeName, 'specification.md');
 
   const parts = [
     `Implement the feature '${changeName}' as described in the plan below.`,
@@ -655,14 +656,14 @@ function buildInitialTask(opts: BuildInitialTaskOpts): string {
 // ---------------------------------------------------------------------------
 
 interface LoadCatalogOpts {
-  repoRoot: string;
+  projectDir: string;
   changeName: string;
   openspecDir: string;
 }
 
 export function loadCatalog(opts: LoadCatalogOpts) {
-  const { repoRoot, changeName, openspecDir } = opts;
-  const testsJsonPath = join(repoRoot, openspecDir, 'changes', changeName, 'tests', 'tests.json');
+  const { projectDir, changeName, openspecDir } = opts;
+  const testsJsonPath = join(projectDir, openspecDir, 'changes', changeName, 'tests', 'tests.json');
   if (!existsSync(testsJsonPath)) {
     throw new Error(
       `tests.json not found at ${testsJsonPath}. Run 'pnpm agents feat:design ${changeName}' first.`,
@@ -679,7 +680,7 @@ export function loadCatalog(opts: LoadCatalogOpts) {
 }
 
 interface GetTestRunnerOptsArgs {
-  repoRoot: string;
+  projectDir: string;
   changeName: string;
   openspecDir: string;
   /** Sandbox root — the test runner writes results.xml here (via /test-runner-output bind-mount). */
@@ -702,7 +703,7 @@ interface GetTestRunnerOptsArgs {
  * Spec files are expected to already exist — generated by `agents feat:design`.
  */
 export function getTestRunnerOpts({
-  repoRoot,
+  projectDir,
   changeName,
   openspecDir,
   sandboxBasePath,
@@ -711,7 +712,7 @@ export function getTestRunnerOpts({
   StartTestRunnerContainerOpts,
   'testsDir' | 'reportDir' | 'testScriptPath'
 > {
-  const testsDir = join(repoRoot, openspecDir, 'changes', changeName, 'tests');
+  const testsDir = join(projectDir, openspecDir, 'changes', changeName, 'tests');
 
   const testScriptPath = join(sandboxBasePath, 'test.sh');
   writeFileSync(testScriptPath, testScript, { encoding: 'utf8', mode: 0o755 });

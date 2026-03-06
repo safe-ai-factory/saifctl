@@ -45,7 +45,7 @@ export const shotgunDesignerProfile: DesignerProfile = {
     if (model?.trim()) runArgs.splice(0, 0, '--model', model.trim());
 
     runShotgunCli(['--spec-dir', specDir, 'run', ...runArgs], {
-      cwd,
+      projectDir: cwd,
       // Shotgun needs these environment variables to stream the output to the console.
       env: { PYTHONUNBUFFERED: '1', SHOTGUN_LOGGING_TO_CONSOLE: '1' },
       printCmd: true,

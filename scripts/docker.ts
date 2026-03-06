@@ -16,6 +16,7 @@ import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
+import { getSaifRoot } from '../src/constants.js';
 import {
   DEFAULT_STACK_PROFILE,
   resolveStackCoderDockerfilePath,
@@ -32,16 +33,12 @@ import {
   type TestProfile,
 } from '../src/test-profiles/index.js';
 
-function getRepoRootForDocker(): string {
-  return resolve(process.cwd());
-}
-
 function parseProjectName(opts: { project?: string }): string {
   const fromOpt =
     typeof opts.project === 'string' && opts.project.trim() ? opts.project.trim() : '';
   if (fromOpt) return fromOpt;
 
-  const repoRoot = getRepoRootForDocker();
+  const repoRoot = getSaifRoot();
   try {
     const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
       name?: unknown;
@@ -78,7 +75,7 @@ const testBuildCommand = defineCommand({
     'test-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
-    const repoRoot = getRepoRootForDocker();
+    const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
 
     const profilesToBuild: TestProfile[] = buildAll
@@ -138,7 +135,7 @@ const coderBaseBuildCommand = defineCommand({
     'coder-base-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
-    const repoRoot = getRepoRootForDocker();
+    const repoRoot = getSaifRoot();
     const tag = args['coder-base-image']?.trim() || 'factory-coder-base:latest';
     if (args['coder-base-image']) validateImageTag(tag, '--coder-base-image');
 
@@ -183,7 +180,7 @@ const coderBuildCommand = defineCommand({
     'coder-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
-    const repoRoot = getRepoRootForDocker();
+    const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
 
     const profilesToBuild: StackProfile[] = buildAll
@@ -248,7 +245,7 @@ const stageBuildCommand = defineCommand({
     'stage-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
-    const repoRoot = getRepoRootForDocker();
+    const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
 
     const profilesToBuild: StackProfile[] = buildAll

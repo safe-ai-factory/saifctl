@@ -34,23 +34,29 @@ export const shotgunIndexerProfile: IndexerProfile = {
   id: 'shotgun',
   displayName: 'Shotgun',
 
-  init({ cwd, projectName }: IndexerInitOpts): void {
+  init({ projectDir, projectName }: IndexerInitOpts): void {
     const context7Key = process.env.CONTEXT7_API_KEY?.trim();
 
-    runShotgunCli(['config', 'init'], { cwd, printCmd: true });
+    runShotgunCli(['config', 'init'], { projectDir, printCmd: true });
 
     // Optionally set Context7 integration with Shotgun
     if (context7Key) {
-      runShotgunCli(['config', 'set-context7', '--api-key', context7Key], { cwd, printCmd: true });
+      runShotgunCli(['config', 'set-context7', '--api-key', context7Key], {
+        projectDir,
+        printCmd: true,
+      });
     } else {
       console.log('CONTEXT7_API_KEY not set — skipping Context7 configuration (optional).');
     }
 
     // Index the codebase
-    runShotgunCli(['codebase', 'index', '.', '--name', projectName], { cwd, printCmd: true });
+    runShotgunCli(['codebase', 'index', '.', '--name', projectName], {
+      projectDir,
+      printCmd: true,
+    });
   },
 
-  getMastraTool({ cwd, projectName }: IndexerGetToolOpts): Tool {
+  getMastraTool({ projectDir, projectName }: IndexerGetToolOpts): Tool {
     return createTool({
       id: 'queryCodebaseIndex',
       description:
@@ -66,14 +72,14 @@ export const shotgunIndexerProfile: IndexerProfile = {
           ),
       }),
       execute: async ({ question }: { question: string }) => {
-        const graphId = resolveGraphId(projectName, cwd);
+        const graphId = resolveGraphId(projectName, projectDir);
         if (!graphId) {
           throw new Error(
             `Could not find a READY Shotgun index for project "${projectName}". ` +
               'Run `saif init` to index the codebase first.',
           );
         }
-        const result = queryShotgunIndex({ graphId, question, cwd });
+        const result = queryShotgunIndex({ graphId, question, projectDir });
         return result.raw;
       },
     }) as unknown as Tool;
@@ -84,10 +90,13 @@ export const shotgunIndexerProfile: IndexerProfile = {
  * Returns the graph ID of the first READY codebase whose `name` field exactly
  * matches `projectName`. Falls back to the first READY entry if no exact match.
  */
-function resolveGraphId(projectName: string, cwd: string): string | null {
+function resolveGraphId(projectName: string, projectDir: string): string | null {
   let raw: string;
   try {
-    const result = runShotgunCli(['codebase', 'list', '--format', 'json'], { cwd, printCmd: true });
+    const result = runShotgunCli(['codebase', 'list', '--format', 'json'], {
+      projectDir,
+      printCmd: true,
+    });
     raw = result.stdout ?? '';
   } catch {
     return null;

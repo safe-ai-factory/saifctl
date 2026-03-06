@@ -35,7 +35,7 @@ export class GitLabProvider implements GitProvider {
    *   - A GitLab path slug (group/project or group/subgroup/project) → expanded using GITLAB_URL
    *   - A git remote name (e.g. 'origin') → resolved via `git remote get-url`
    */
-  resolvePushUrl(push: string, repoRoot: string): string {
+  resolvePushUrl(push: string, projectDir: string): string {
     if (push.startsWith('https://') || push.startsWith('git@') || push.startsWith('ssh://')) {
       return this.injectToken(push);
     }
@@ -48,7 +48,7 @@ export class GitLabProvider implements GitProvider {
 
     // Treat as a named remote — resolve its URL from the local git config
     try {
-      const url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+      const url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
       return this.injectToken(url);
     } catch {
       throw new Error(
@@ -64,14 +64,14 @@ export class GitLabProvider implements GitProvider {
    * "group%2Fsubgroup%2Fproject" for a project at group/subgroup/project.
    * Single-segment paths (bare project names) are not valid on GitLab.com.
    */
-  extractRepoSlug(push: string, repoRoot: string): string {
+  extractRepoSlug(push: string, projectDir: string): string {
     let url = push;
 
     // Resolve remote name to URL first
     if (!push.startsWith('https://') && !push.startsWith('git@') && !push.startsWith('ssh://')) {
       if (!push.includes('/')) {
         try {
-          url = execSync(`git remote get-url ${push}`, { cwd: repoRoot }).toString().trim();
+          url = execSync(`git remote get-url ${push}`, { cwd: projectDir }).toString().trim();
         } catch {
           throw new Error(`[orchestrator] Cannot resolve remote "${push}" to extract repo slug.`);
         }

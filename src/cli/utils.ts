@@ -51,6 +51,16 @@ export function validateChangeName(name: string): void {
 }
 
 /**
+ * Resolves the project directory from --project-dir.
+ * Returns the absolute path. Defaults to process.cwd() when omitted or empty.
+ */
+export function parseProjectDir(args: { 'project-dir'?: string }): string {
+  const raw = args['project-dir'];
+  const dir = typeof raw === 'string' && raw.trim() ? raw.trim() : '.';
+  return resolve(process.cwd(), dir);
+}
+
+/**
  * Resolves the openspec directory from --openspec-dir. Returns 'openspec' when omitted or empty.
  */
 export function parseOpenspecDir(args: { 'openspec-dir'?: string }): string {
@@ -62,24 +72,24 @@ export function parseOpenspecDir(args: { 'openspec-dir'?: string }): string {
  * Resolves the project name: --project override, else package.json "name" from repo root.
  * Throws if neither yields a usable name.
  */
-export function resolveProjectName(opts: { project?: string }, repoRoot: string): string {
+export function resolveProjectName(opts: { project?: string }, projectDir: string): string {
   const fromOpt = typeof opts.project === 'string' ? opts.project.trim() : '';
   if (fromOpt) return fromOpt;
 
   try {
-    const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(readFileSync(resolve(projectDir, 'package.json'), 'utf8')) as {
       name?: unknown;
     };
     if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim();
   } catch {
     throw new Error(
-      `Cannot determine project name: no package.json found at ${resolve(repoRoot, 'package.json')}. ` +
+      `Cannot determine project name: no package.json found at ${resolve(projectDir, 'package.json')}. ` +
         `Specify -p/--project.`,
     );
   }
 
   throw new Error(
-    `Cannot determine project name: package.json at ${resolve(repoRoot, 'package.json')} has no "name" field. ` +
+    `Cannot determine project name: package.json at ${resolve(projectDir, 'package.json')} has no "name" field. ` +
       `Specify -p/--project.`,
   );
 }
@@ -99,12 +109,12 @@ export function getFeatNameFromArgs(args: { name?: string }): string | undefined
  */
 export async function getFeatNameOrPrompt(
   args: { name?: string },
-  repoRoot: string,
+  projectDir: string,
 ): Promise<string> {
   const fromArgs = getFeatNameFromArgs(args);
   if (fromArgs) return fromArgs;
 
-  const raw = execSync('npx openspec list --json', { encoding: 'utf-8', cwd: repoRoot });
+  const raw = execSync('npx openspec list --json', { encoding: 'utf-8', cwd: projectDir });
   let changes: { name: string }[];
   try {
     const data = JSON.parse(raw) as { changes?: { name: string }[] };

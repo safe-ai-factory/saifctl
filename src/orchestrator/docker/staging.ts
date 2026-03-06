@@ -43,8 +43,8 @@ export interface StartStagingContainerOpts {
   stackProfileId: SupportedStackProfileId;
   /** Absolute path to the code directory inside the sandbox */
   codePath: string;
-  /** Absolute path to the host repository root (used to resolve build.dockerfile) */
-  repoRoot: string;
+  /** Absolute path to the project directory (used to resolve build.dockerfile) */
+  projectDir: string;
   changeName: string;
   /**
    * Project name (from package.json "name" or --project flag).
@@ -83,9 +83,9 @@ interface BuildStagingImageOpts {
   stackProfileId: SupportedStackProfileId;
   /** Absolute path to the sandbox code directory (build context). */
   codePath: string;
-  /** Absolute path to the host repo root (used to resolve custom Dockerfiles). */
-  repoRoot: string;
-  /** Path to a custom Dockerfile relative to repoRoot, or null/undefined to use the profile's Dockerfile.stage. */
+  /** Absolute path to the project directory (used to resolve custom Dockerfiles). */
+  projectDir: string;
+  /** Path to a custom Dockerfile relative to projectDir, or null/undefined to use the profile's Dockerfile.stage. */
   dockerfile?: string | null;
   /** Docker image tag to apply (e.g. 'factory-stage-img-abc123'). */
   imageTag: string;
@@ -100,12 +100,12 @@ interface BuildStagingImageOpts {
  * The image is tagged `factory-stage-img-{runId}` and cleaned up after each run.
  */
 async function buildStagingImage(opts: BuildStagingImageOpts): Promise<void> {
-  const { stackProfileId, codePath, repoRoot, dockerfile, imageTag } = opts;
+  const { stackProfileId, codePath, projectDir, dockerfile, imageTag } = opts;
   let dockerfilePath: string;
 
   if (dockerfile) {
     // Custom Dockerfile specified in tests.json
-    dockerfilePath = resolve(repoRoot, dockerfile);
+    dockerfilePath = resolve(projectDir, dockerfile);
     if (!existsSync(dockerfilePath)) {
       throw new Error(
         `[docker] tests.json specifies build.dockerfile "${dockerfile}" but the file was not found at ${dockerfilePath}`,
@@ -158,7 +158,7 @@ export async function startStagingContainer(
 ): Promise<ContainerHandle> {
   const {
     codePath,
-    repoRoot,
+    projectDir,
     changeName,
     projectName,
     catalog,
@@ -178,7 +178,7 @@ export async function startStagingContainer(
   await buildStagingImage({
     stackProfileId: opts.stackProfileId,
     codePath,
-    repoRoot,
+    projectDir,
     dockerfile: containerConfig.build?.dockerfile,
     imageTag,
   });

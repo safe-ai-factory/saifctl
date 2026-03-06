@@ -12,9 +12,13 @@ import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
-import { getRepoRoot } from '../../constants.js';
 import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../../indexer-profiles/index.js';
-import { parseOpenspecDir, requireLlmApiKey, resolveProjectName } from '../utils.js';
+import {
+  parseOpenspecDir,
+  parseProjectDir,
+  requireLlmApiKey,
+  resolveProjectName,
+} from '../utils.js';
 
 const initCommand = defineCommand({
   meta: {
@@ -36,6 +40,10 @@ const initCommand = defineCommand({
       type: 'string',
       description: 'Path to openspec directory (default: openspec)',
     },
+    'project-dir': {
+      type: 'string',
+      description: 'Project directory (default: process.cwd())',
+    },
     indexer: {
       type: 'string',
       description: `Indexer profile to use (default: ${DEFAULT_INDEXER_PROFILE.id})`,
@@ -46,14 +54,14 @@ const initCommand = defineCommand({
 
     const force = args.force === true;
     const openspecDir = parseOpenspecDir(args);
-    const repoRoot = getRepoRoot();
+    const projectDir = parseProjectDir(args);
     const indexerProfile = resolveIndexerProfile(args.indexer);
-    const projectName = resolveProjectName(args, repoRoot);
+    const projectName = resolveProjectName(args, projectDir);
 
-    const exec = (cmd: string) => execSync(cmd, { stdio: 'inherit', cwd: repoRoot });
+    const exec = (cmd: string) => execSync(cmd, { stdio: 'inherit', cwd: projectDir });
 
     // Set up openspec directory
-    if (force || !existsSync(resolve(repoRoot, openspecDir))) {
+    if (force || !existsSync(resolve(projectDir, openspecDir))) {
       exec('npx openspec init');
     } else {
       console.log(`${openspecDir}/ exists, skipping openspec init (use -f to force)`);
@@ -62,7 +70,7 @@ const initCommand = defineCommand({
     console.log(
       `\nIndexing codebase with ${indexerProfile.displayName} (project: ${projectName})...`,
     );
-    await indexerProfile.init({ cwd: repoRoot, projectName });
+    await indexerProfile.init({ projectDir, projectName });
 
     console.log('\nInit complete.');
   },

@@ -69,7 +69,8 @@ export const DEFAULT_SANDBOX_BASE_DIR = '/tmp/factory-sandbox';
 
 export interface CreateSandboxOpts {
   changeName: string;
-  repoRoot: string;
+  /** Absolute path to the project directory */
+  projectDir: string;
   /**
    * Project name prefix for the sandbox directory (e.g. 'crawlee-one').
    *
@@ -79,7 +80,7 @@ export interface CreateSandboxOpts {
   /** Caller-supplied runId; defaults to a random short id */
   runId?: string;
   /**
-   * Path to the openspec directory, relative to repoRoot.
+   * Path to the openspec directory, relative to project directory.
    */
   openspecDir: string;
   /**
@@ -158,7 +159,7 @@ export interface CreateSandboxOpts {
 export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   const {
     changeName,
-    repoRoot,
+    projectDir,
     openspecDir,
     projectName,
     sandboxBaseDir = DEFAULT_SANDBOX_BASE_DIR,
@@ -183,12 +184,12 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   mkdirSync(codePath, { recursive: true });
 
   // rsync the repo into code/, respecting .gitignore to skip node_modules etc.
-  execSync(`rsync -a --filter=':- .gitignore' --exclude='.git' "${repoRoot}/" "${codePath}/"`, {
+  execSync(`rsync -a --filter=':- .gitignore' --exclude='.git' "${projectDir}/" "${codePath}/"`, {
     stdio: 'inherit',
   });
 
   // Read the test catalog to discover which tests are hidden.
-  const testsJsonPath = join(repoRoot, openspecDir, 'changes', changeName, 'tests', 'tests.json');
+  const testsJsonPath = join(projectDir, openspecDir, 'changes', changeName, 'tests', 'tests.json');
   if (!existsSync(testsJsonPath)) {
     throw new Error(
       `tests.json not found at ${testsJsonPath}. Run 'pnpm agents feat:design ${changeName}' first.`,

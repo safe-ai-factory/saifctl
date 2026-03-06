@@ -47,7 +47,7 @@ describe('queryShotgunIndex', () => {
     const result = queryShotgunIndex({
       graphId: 'abc123',
       question: 'where is foo?',
-      cwd: '/repo',
+      projectDir: '/repo',
     });
     expect(result.raw).toContain('Results: 3 rows');
     expect(childProcess.spawnSync).toHaveBeenCalledWith(
@@ -66,7 +66,7 @@ describe('queryShotgunIndex', () => {
       error: undefined,
     } as ReturnType<typeof childProcess.spawnSync>);
 
-    queryShotgunIndex({ graphId: 'g1', question: 'q', cwd: '/repo' });
+    queryShotgunIndex({ graphId: 'g1', question: 'q', projectDir: '/repo' });
     expect(childProcess.spawnSync).toHaveBeenCalledWith(
       '/path/to/.venv/bin/python',
       ['-m', 'shotgun.main', 'codebase', 'query', 'g1', 'q'],
@@ -82,7 +82,7 @@ describe('queryShotgunIndex', () => {
       error: undefined,
     } as ReturnType<typeof childProcess.spawnSync>);
 
-    expect(() => queryShotgunIndex({ graphId: 'bad', question: 'q', cwd: '/repo' })).toThrow(
+    expect(() => queryShotgunIndex({ graphId: 'bad', question: 'q', projectDir: '/repo' })).toThrow(
       /shotgun-sh codebase query failed/,
     );
   });
