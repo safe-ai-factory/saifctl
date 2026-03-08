@@ -95,7 +95,7 @@ export interface CreateSandboxOpts {
    * and called by `coder-start.sh` after each OpenHands run. It must exit 0 to pass,
    * non-zero to fail (stdout+stderr are fed back to the agent as task feedback).
    *
-   * Defaults to the gate.sh from the resolved stack profile when not provided.
+   * Defaults to the gate.sh from the resolved sandbox profile when not provided.
    */
   gateScript: string;
   /**

@@ -1,0 +1,21 @@
+# Staging image — python-conda sandbox profile.
+#
+# Provides Miniconda (conda + Python). No Node.js — use python-pip-node if you need
+# Node.js in the staging environment. Project dependencies are NOT installed here;
+# startup.sh runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/python-conda/Dockerfile.stage \
+#                -t factory-stage-python-conda:latest .
+#
+# Or via CLI:
+#   pnpm docker build stage --profile python-conda
+FROM continuumio/miniconda3:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /workspace
+
+# Update conda to latest and clean up.
+RUN conda update -n base -c defaults conda --yes \
+    && conda clean -afy

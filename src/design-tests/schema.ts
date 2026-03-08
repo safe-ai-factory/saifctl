@@ -28,15 +28,15 @@ export type TestCase = z.infer<typeof TestCaseSchema>;
  * mounted at container start. startup.sh (same as coder) installs deps at
  * runtime.
  *
- * - `dockerfile` omitted or `undefined`: use the stack profile's `Dockerfile.stage`
+ * - `dockerfile` omitted or `undefined`: use the sandbox profile's `Dockerfile.stage`
  *   (e.g. node-pnpm-python profile: node + pnpm + Python; no code in image).
  * - `dockerfile: "path/to/Dockerfile"`: use a custom Dockerfile relative to
- *   the repo root for non-Node stacks.
+ *   the repo root for non-Node sandboxes.
  */
 const StagingContainerBuildSchema = z.object({
   /**
    * Path to a custom Dockerfile relative to the repo root.
-   * When omitted the orchestrator uses the stack profile's `Dockerfile.stage`.
+   * When omitted the orchestrator uses the sandbox profile's `Dockerfile.stage`.
    */
   dockerfile: z
     .string()

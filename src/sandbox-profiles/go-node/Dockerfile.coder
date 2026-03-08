@@ -1,0 +1,30 @@
+# Coder image — go-node sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with the Go toolchain and
+# Node.js 22 LTS. Go is the primary runtime; Node.js is included on the side so
+# Node-based coder agents (claude-code, codex, etc.) can be bootstrapped by
+# agent-start.sh.
+#
+# Build:
+#   docker build -f src/sandbox-profiles/go-node/Dockerfile.coder \
+#                -t factory-coder-go-node:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile go-node
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Go, git, and Node.js 22 LTS.
+# go get / go mod download need git for VCS-based dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    golang \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure Go binaries installed via `go install` are on PATH.
+ENV GOPATH="/root/go"
+ENV PATH="$GOPATH/bin:$PATH"

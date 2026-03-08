@@ -18,13 +18,13 @@ import { defineCommand, runMain } from 'citty';
 
 import { getSaifRoot } from '../src/constants.js';
 import {
-  DEFAULT_STACK_PROFILE,
-  resolveStackCoderDockerfilePath,
-  resolveStackProfile,
-  resolveStackStageDockerfilePath,
-  type StackProfile,
-  SUPPORTED_STACK_PROFILES,
-} from '../src/stack-profiles/index.js';
+  DEFAULT_SANDBOX_PROFILE,
+  resolveSandboxCoderDockerfilePath,
+  resolveSandboxProfile,
+  resolveSandboxStageDockerfilePath,
+  type SandboxProfile,
+  SUPPORTED_SANDBOX_PROFILES,
+} from '../src/sandbox-profiles/index.js';
 import {
   DEFAULT_PROFILE,
   resolveTestDockerfilePath,
@@ -172,20 +172,21 @@ const coderBaseBuildCommand = defineCommand({
 const coderBuildCommand = defineCommand({
   meta: {
     name: 'coder',
-    description: 'Build coder image. Default: node-pnpm-python. Use --all for all stack profiles.',
+    description:
+      'Build coder image. Default: node-pnpm-python. Use --all for all sandbox profiles.',
   },
   args: {
-    all: { type: 'boolean', description: 'Build all stack profiles' },
-    profile: { type: 'string', description: 'Stack profile (default: node-pnpm-python)' },
+    all: { type: 'boolean', description: 'Build all sandbox profiles' },
+    profile: { type: 'string', description: 'Sandbox profile (default: node-pnpm-python)' },
     'coder-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
 
-    const profilesToBuild: StackProfile[] = buildAll
-      ? Object.values(SUPPORTED_STACK_PROFILES)
-      : [args.profile ? resolveStackProfile(args.profile) : DEFAULT_STACK_PROFILE];
+    const profilesToBuild: SandboxProfile[] = buildAll
+      ? Object.values(SUPPORTED_SANDBOX_PROFILES)
+      : [args.profile ? resolveSandboxProfile(args.profile) : DEFAULT_SANDBOX_PROFILE];
 
     console.log(
       buildAll
@@ -200,7 +201,7 @@ const coderBuildCommand = defineCommand({
         : args['coder-image']?.trim() || profile.coderImageTag;
       if (!buildAll && args['coder-image']) validateImageTag(tag, '--coder-image');
 
-      const dockerfilePath = resolveStackCoderDockerfilePath(profile.id);
+      const dockerfilePath = resolveSandboxCoderDockerfilePath(profile.id);
       if (!existsSync(dockerfilePath)) {
         console.error(`${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
@@ -237,20 +238,21 @@ const coderBuildCommand = defineCommand({
 const stageBuildCommand = defineCommand({
   meta: {
     name: 'stage',
-    description: 'Build stage image. Default: node-pnpm-python. Use --all for all stack profiles.',
+    description:
+      'Build stage image. Default: node-pnpm-python. Use --all for all sandbox profiles.',
   },
   args: {
-    all: { type: 'boolean', description: 'Build all stack profiles' },
-    profile: { type: 'string', description: 'Stack profile (default: node-pnpm-python)' },
+    all: { type: 'boolean', description: 'Build all sandbox profiles' },
+    profile: { type: 'string', description: 'Sandbox profile (default: node-pnpm-python)' },
     'stage-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
 
-    const profilesToBuild: StackProfile[] = buildAll
-      ? Object.values(SUPPORTED_STACK_PROFILES)
-      : [args.profile ? resolveStackProfile(args.profile) : DEFAULT_STACK_PROFILE];
+    const profilesToBuild: SandboxProfile[] = buildAll
+      ? Object.values(SUPPORTED_SANDBOX_PROFILES)
+      : [args.profile ? resolveSandboxProfile(args.profile) : DEFAULT_SANDBOX_PROFILE];
 
     console.log(
       buildAll
@@ -265,7 +267,7 @@ const stageBuildCommand = defineCommand({
         : args['stage-image']?.trim() || profile.stageImageTag;
       if (!buildAll && args['stage-image']) validateImageTag(tag, '--stage-image');
 
-      const dockerfilePath = resolveStackStageDockerfilePath(profile.id);
+      const dockerfilePath = resolveSandboxStageDockerfilePath(profile.id);
       if (!existsSync(dockerfilePath)) {
         console.error(`${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);

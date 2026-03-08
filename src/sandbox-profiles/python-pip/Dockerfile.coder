@@ -1,0 +1,31 @@
+# Coder image — python-pip sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Python 3, pip, and uv.
+# No Node.js — use python-pip-node if you need Node-based coder agents
+# (claude-code, codex, etc.).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/python-pip/Dockerfile.coder \
+#                -t factory-coder-python-pip:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile python-pip
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python toolchain and git (required by most coder agents).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    python3 \
+    python3-venv \
+    python3-pip \
+    pipx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv — the primary Python package manager for this profile.
+RUN pipx install uv --python python3
+
+# Ensure pipx-managed binaries are on PATH.
+ENV PATH="/root/.local/bin:$PATH"

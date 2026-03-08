@@ -16,9 +16,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { TestCatalog } from '../../design-tests/schema.js';
 import {
-  resolveStackStageDockerfilePath,
-  type SupportedStackProfileId,
-} from '../../stack-profiles/index.js';
+  resolveSandboxStageDockerfilePath,
+  type SupportedSandboxProfileId,
+} from '../../sandbox-profiles/index.js';
 import { createTarArchive } from '../../utils/archive.js';
 import {
   type ContainerHandle,
@@ -39,8 +39,8 @@ const STAGING_START_SCRIPT = readFileSync(
 const SIDECAR_BINARY = loadSidecarBinary();
 
 export interface StartStagingContainerOpts {
-  /** Stack profile id — used to resolve the default Dockerfile.stage when build.dockerfile is not set. */
-  stackProfileId: SupportedStackProfileId;
+  /** Sandbox profile id — used to resolve the default Dockerfile.stage when build.dockerfile is not set. */
+  sandboxProfileId: SupportedSandboxProfileId;
   /** Absolute path to the code directory inside the sandbox */
   codePath: string;
   /** Absolute path to the project directory (used to resolve build.dockerfile) */
@@ -79,8 +79,8 @@ export interface StartStagingContainerOpts {
 }
 
 interface BuildStagingImageOpts {
-  /** Stack profile id — used to resolve the default Dockerfile.stage when dockerfile is not set. */
-  stackProfileId: SupportedStackProfileId;
+  /** Sandbox profile id — used to resolve the default Dockerfile.stage when dockerfile is not set. */
+  sandboxProfileId: SupportedSandboxProfileId;
   /** Absolute path to the sandbox code directory (build context). */
   codePath: string;
   /** Absolute path to the project directory (used to resolve custom Dockerfiles). */
@@ -93,14 +93,14 @@ interface BuildStagingImageOpts {
 
 /**
  * Builds an ephemeral Docker image that provides the runtime (e.g. node, pnpm) only.
- * Uses the stack profile's Dockerfile.stage (or a custom build.dockerfile). The build context
+ * Uses the sandbox profile's Dockerfile.stage (or a custom build.dockerfile). The build context
  * is the sandbox's code directory, but the default Dockerfile.stage does not COPY code
  * — dependencies are installed at container start via startup.sh.
  *
  * The image is tagged `factory-stage-img-{runId}` and cleaned up after each run.
  */
 async function buildStagingImage(opts: BuildStagingImageOpts): Promise<void> {
-  const { stackProfileId, codePath, projectDir, dockerfile, imageTag } = opts;
+  const { sandboxProfileId, codePath, projectDir, dockerfile, imageTag } = opts;
   let dockerfilePath: string;
 
   if (dockerfile) {
@@ -113,15 +113,15 @@ async function buildStagingImage(opts: BuildStagingImageOpts): Promise<void> {
     }
     console.log(`[docker] Using custom Dockerfile: ${dockerfilePath}`);
   } else {
-    // Use the stack profile's Dockerfile.stage
-    dockerfilePath = resolveStackStageDockerfilePath(stackProfileId);
+    // Use the sandbox profile's Dockerfile.stage
+    dockerfilePath = resolveSandboxStageDockerfilePath(sandboxProfileId);
     if (!existsSync(dockerfilePath)) {
       throw new Error(
-        `[docker] Profile "${stackProfileId}" requires Dockerfile.stage at ${dockerfilePath} but it is missing. ` +
-          `Each stack profile must provide both Dockerfile.coder and Dockerfile.stage.`,
+        `[docker] Profile "${sandboxProfileId}" requires Dockerfile.stage at ${dockerfilePath} but it is missing. ` +
+          `Each sandbox profile must provide both Dockerfile.coder and Dockerfile.stage.`,
       );
     }
-    console.log(`[docker] Using profile ${stackProfileId} Dockerfile.stage`);
+    console.log(`[docker] Using profile ${sandboxProfileId} Dockerfile.stage`);
   }
 
   // Exclude node_modules and other artifacts from the build context.
@@ -150,8 +150,8 @@ async function buildStagingImage(opts: BuildStagingImageOpts): Promise<void> {
  * 3. stage.sh (profile's stage script) starts the app (e.g. pnpm run start) or keeps the container alive (wait).
  *
  * Uses `docker build` to create a runtime-only image (node, pnpm, etc.); code is
- * mounted at start, not baked in. Uses the stack profile's Dockerfile.stage; override
- * via `containers.staging.build.dockerfile` in tests.json for other stacks.
+ * mounted at start, not baked in. Uses the sandbox profile's Dockerfile.stage; override
+ * via `containers.staging.build.dockerfile` in tests.json for other sandboxes.
  */
 export async function startStagingContainer(
   opts: StartStagingContainerOpts,
@@ -172,11 +172,11 @@ export async function startStagingContainer(
   const containerName = `factory-stage-${projectName}-${changeName}-${runId}`;
 
   // ── Build the ephemeral staging image ────────────────────────────────────
-  // No `build` key or no `dockerfile`: use the stack profile's Dockerfile.stage.
-  // `build.dockerfile: "path"`: use a custom Dockerfile for non-Node stacks.
+  // No `build` key or no `dockerfile`: use the sandbox profile's Dockerfile.stage.
+  // `build.dockerfile: "path"`: use a custom Dockerfile for non-Node sandboxes.
   const imageTag = `factory-stage-${projectName}-${changeName}-img-${runId}`;
   await buildStagingImage({
-    stackProfileId: opts.stackProfileId,
+    sandboxProfileId: opts.sandboxProfileId,
     codePath,
     projectDir,
     dockerfile: containerConfig.build?.dockerfile,

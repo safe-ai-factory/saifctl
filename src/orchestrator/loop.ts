@@ -42,7 +42,7 @@ export async function runIterativeLoop(
   opts: OrchestratorOpts & { openspecDir: string; registry: CleanupRegistry },
 ): Promise<OrchestratorResult> {
   const {
-    stackProfileId,
+    sandboxProfileId,
     changeName,
     projectDir,
     maxAttempts = 10,
@@ -147,7 +147,7 @@ export async function runIterativeLoop(
       const runId = `${extractRunId(sandbox.sandboxBasePath)}-r${attempts}`;
 
       const result = await runAssessmentWithContainers({
-        stackProfileId,
+        sandboxProfileId,
         codePath: sandbox.codePath,
         projectDir,
         changeName,

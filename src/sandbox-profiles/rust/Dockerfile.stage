@@ -1,0 +1,26 @@
+# Staging image — rust sandbox profile.
+#
+# Provides the Rust toolchain for building and running the app at runtime.
+# Project dependencies are NOT installed here; startup.sh runs inside the
+# container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/rust/Dockerfile.stage \
+#                -t factory-stage-rust:latest .
+#
+# Or via CLI:
+#   pnpm docker build stage --profile rust
+FROM rust:1.85-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /workspace
+
+# Install build dependencies needed by many Rust crates.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure cargo binaries are on PATH.
+ENV PATH="/usr/local/cargo/bin:$PATH"

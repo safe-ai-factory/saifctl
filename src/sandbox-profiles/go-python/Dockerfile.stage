@@ -1,0 +1,31 @@
+# Staging image — go-python sandbox profile.
+#
+# Provides the Go toolchain and Python 3. Go is the primary runtime; Python is
+# available on the side. Project dependencies are NOT installed here; startup.sh
+# runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/go-python/Dockerfile.stage \
+#                -t factory-stage-go-python:latest .
+#
+# Or via CLI:
+#   pnpm docker build stage --profile go-python
+FROM golang:1.23-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /workspace
+
+# Install Python toolchain to match Dockerfile.coder.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    python3-pip \
+    pipx \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pipx install uv --python python3
+
+# Ensure Go and pipx-managed binaries are on PATH.
+ENV GOPATH="/root/go"
+ENV PATH="$GOPATH/bin:/root/.local/bin:$PATH"

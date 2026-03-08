@@ -1,0 +1,32 @@
+# Coder image — python-conda sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with Miniconda (conda + Python).
+# Ideal for data science / ML projects that depend on non-pip packages (e.g. GDAL,
+# PyTorch with CUDA, etc.). No Node.js — use python-pip-node if you also need
+# Node-based coder agents (claude-code, codex, etc.).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/python-conda/Dockerfile.coder \
+#                -t factory-coder-python-conda:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile python-conda
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/opt/conda/bin:$PATH"
+
+# Install git (required by most coder agents) and Miniconda.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    wget \
+    && wget -qO /tmp/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && bash /tmp/miniconda.sh -b -p /opt/conda \
+    && rm /tmp/miniconda.sh \
+    && conda update -n base -c defaults conda --yes \
+    && conda clean -afy \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure conda for non-interactive shell use.
+RUN conda init bash

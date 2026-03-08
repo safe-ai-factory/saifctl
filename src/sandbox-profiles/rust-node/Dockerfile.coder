@@ -1,0 +1,32 @@
+# Coder image — rust-node sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with the Rust toolchain and
+# Node.js 22 LTS. Rust is the primary runtime; Node.js is included on the side so
+# Node-based coder agents (claude-code, codex, etc.) can be bootstrapped by
+# agent-start.sh.
+#
+# Build:
+#   docker build -f src/sandbox-profiles/rust-node/Dockerfile.coder \
+#                -t factory-coder-rust-node:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile rust-node
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies, git, and Node.js 22 LTS.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    pkg-config \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup (stable channel + clippy + rustfmt).
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+
+# Ensure cargo and rustup binaries are on PATH.
+ENV PATH="/root/.cargo/bin:$PATH"

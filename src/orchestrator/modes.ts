@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import type { GitProvider } from '../git/types.js';
 import { type ModelOverrides } from '../llm-config.js';
-import type { SupportedStackProfileId } from '../stack-profiles/index.js';
+import type { SupportedSandboxProfileId } from '../sandbox-profiles/index.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import { CleanupRegistry, removeImageByTag, removeNetwork } from '../utils/docker.js';
 import { createSandboxNetwork } from './docker/network.js';
@@ -129,13 +129,13 @@ export interface OrchestratorOpts {
    */
   cedarPolicyPath: string;
   /**
-   * Stack profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.stage for the
+   * Sandbox profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.stage for the
    * staging container when tests.json does not specify build.dockerfile.
    */
-  stackProfileId: SupportedStackProfileId;
+  sandboxProfileId: SupportedSandboxProfileId;
   /**
    * Docker image for the coder container.
-   * Resolved from the stack profile (default: node-pnpm-python). Override via --coder-image.
+   * Resolved from the sandbox profile (default: node-pnpm-python). Override via --coder-image.
    * Ignored when dangerousDebug=true.
    */
   coderImage: string;
@@ -165,7 +165,7 @@ export interface OrchestratorOpts {
    *
    * It must exit 0 to pass; non-zero causes the inner loop to retry with the output as feedback.
    *
-   * Resolved by the CLI: defaults to the gate.sh from the resolved stack profile when --gate-script is not set.
+   * Resolved by the CLI: defaults to the gate.sh from the resolved sandbox profile when --gate-script is not set.
    */
   gateScript: string;
   /**
@@ -332,7 +332,7 @@ export const runAssess = withCleanupRegistry(runAssessCore);
  */
 type Fail2PassOpts = Pick<
   OrchestratorOpts,
-  | 'stackProfileId'
+  | 'sandboxProfileId'
   | 'changeName'
   | 'projectDir'
   | 'openspecDir'
@@ -352,7 +352,7 @@ async function runFail2PassCore(
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
   const {
-    stackProfileId,
+    sandboxProfileId,
     changeName,
     projectDir,
     openspecDir,
@@ -393,7 +393,7 @@ async function runFail2PassCore(
   try {
     const runId = extractRunId(sandbox.sandboxBasePath);
     const result = await runAssessmentWithContainers({
-      stackProfileId,
+      sandboxProfileId,
       codePath: sandbox.codePath,
       projectDir,
       changeName,
@@ -573,7 +573,7 @@ async function runContinueCore(
 
 type AssessOpts = Pick<
   OrchestratorOpts,
-  | 'stackProfileId'
+  | 'sandboxProfileId'
   | 'changeName'
   | 'projectDir'
   | 'patchPath'
@@ -606,7 +606,7 @@ async function runAssessCore(
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
   const {
-    stackProfileId,
+    sandboxProfileId,
     changeName,
     projectDir,
     patchPath,
@@ -674,7 +674,7 @@ async function runAssessCore(
       const runId = `${extractRunId(sandbox.sandboxBasePath)}-a${attempts}`;
 
       const result = await runAssessmentWithContainers({
-        stackProfileId,
+        sandboxProfileId,
         codePath: sandbox.codePath,
         projectDir,
         changeName,
@@ -770,7 +770,7 @@ async function runAssessCore(
 export async function runDebug(
   opts: Pick<
     OrchestratorOpts,
-    | 'stackProfileId'
+    | 'sandboxProfileId'
     | 'changeName'
     | 'projectDir'
     | 'openspecDir'
@@ -784,7 +784,7 @@ export async function runDebug(
   >,
 ): Promise<void> {
   const {
-    stackProfileId,
+    sandboxProfileId,
     changeName,
     projectDir,
     openspecDir,
@@ -824,7 +824,7 @@ export async function runDebug(
 
   try {
     await debugStagingContainer({
-      stackProfileId,
+      sandboxProfileId,
       codePath: sandbox.codePath,
       projectDir,
       changeName,

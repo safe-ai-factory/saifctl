@@ -1,0 +1,27 @@
+# Coder image — go sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with the Go toolchain.
+# No Python or Node.js — use a combined profile if you need coder agents that
+# require Python (OpenHands, Aider) or Node.js (claude-code, codex).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/go/Dockerfile.coder \
+#                -t factory-coder-go:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile go
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Go 1.23 and git (required by most coder agents).
+# go get / go mod download need git for VCS-based dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    golang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure Go binaries installed via `go install` are on PATH.
+ENV GOPATH="/root/go"
+ENV PATH="$GOPATH/bin:$PATH"

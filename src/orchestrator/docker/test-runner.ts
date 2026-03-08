@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
 
 import type { TestCatalog } from '../../design-tests/schema.js';
-import type { SupportedStackProfileId } from '../../stack-profiles/index.js';
+import type { SupportedSandboxProfileId } from '../../sandbox-profiles/index.js';
 import {
   assertSafeImageTag,
   type CleanupRegistry,
@@ -279,7 +279,7 @@ async function startContainers({
 }
 
 export interface RunAssessmentWithContainersOpts {
-  stackProfileId: SupportedStackProfileId;
+  sandboxProfileId: SupportedSandboxProfileId;
   codePath: string;
   projectDir: string;
   changeName: string;
@@ -303,7 +303,7 @@ export interface RunAssessmentWithContainersOpts {
  * fail2pass, assess (per-retry), and the iterative loop.
  */
 export async function runAssessmentWithContainers({
-  stackProfileId,
+  sandboxProfileId,
   codePath,
   projectDir,
   changeName,
@@ -331,7 +331,7 @@ export async function runAssessmentWithContainers({
 
     const { testRunnerHandle, all } = await startContainers({
       stagingContainer: {
-        stackProfileId,
+        sandboxProfileId,
         codePath,
         projectDir,
         changeName,

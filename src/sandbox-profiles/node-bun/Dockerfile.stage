@@ -1,0 +1,15 @@
+# Staging image — node-bun sandbox profile.
+#
+# Provides Bun. No Python toolchain — use node-pnpm-python if you need Python in
+# the staging environment. Project dependencies are NOT installed here;
+# startup.sh runs inside the container at runtime (after the workspace is mounted).
+#
+# Build:
+#   docker build -f src/sandbox-profiles/node-bun/Dockerfile.stage \
+#                -t factory-stage-node-bun:latest .
+#
+# Or via CLI:
+#   pnpm docker build stage --profile node-bun
+FROM oven/bun:1
+
+WORKDIR /workspace

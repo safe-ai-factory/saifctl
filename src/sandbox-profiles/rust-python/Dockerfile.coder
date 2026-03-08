@@ -1,0 +1,37 @@
+# Coder image — rust-python sandbox profile.
+#
+# Extends coder-base (which provides coder-start.sh) with the Rust toolchain and
+# Python 3 + pip + uv. Rust is the primary runtime; Python is included on the side
+# so Python-based coder agents (OpenHands, Aider, etc.) can be bootstrapped by
+# agent-start.sh.
+#
+# Build:
+#   docker build -f src/sandbox-profiles/rust-python/Dockerfile.coder \
+#                -t factory-coder-rust-python:latest .
+#
+# Or via CLI:
+#   pnpm docker build coder --profile rust-python
+FROM factory-coder-base:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies, Python toolchain, and git (required by most coder agents).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    pkg-config \
+    python3 \
+    python3-venv \
+    python3-pip \
+    pipx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup (stable channel + clippy + rustfmt).
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+
+# Install uv so Python-based agent-start scripts can use it.
+RUN pipx install uv --python python3
+
+# Ensure cargo and pipx-managed binaries are on PATH.
+ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
