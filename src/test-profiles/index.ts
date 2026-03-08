@@ -1,7 +1,7 @@
 /**
  * TestProfile — describes the test language and framework used by the Test Runner container.
  *
- * Supported profiles: ts-vitest | ts-playwright | py-pytest | py-playwright | go-gotest | go-playwright | rs-rusttest | rs-playwright
+ * Supported profiles: node-vitest | node-playwright | python-pytest | python-playwright | go-gotest | go-playwright | rust-rusttest | rust-playwright
  *
  * The profile is used by:
  *   - tests-catalog agent   → generates entrypoint paths with correct extension + naming
@@ -15,29 +15,29 @@ import { fileURLToPath } from 'node:url';
 
 import { gotestProfile } from './go-gotest/profile.js';
 import { goPlaywrightProfile } from './go-playwright/profile.js';
-import { pyPlaywrightProfile } from './py-playwright/profile.js';
-import { pytestProfile } from './py-pytest/profile.js';
-import { rsPlaywrightProfile } from './rs-playwright/profile.js';
-import { rusttestProfile } from './rs-rusttest/profile.js';
-import { tsPlaywrightProfile } from './ts-playwright/profile.js';
-import { vitestProfile } from './ts-vitest/profile.js';
+import { nodePlaywrightProfile } from './node-playwright/profile.js';
+import { nodeVitestProfile } from './node-vitest/profile.js';
+import { pythonPlaywrightProfile } from './python-playwright/profile.js';
+import { pytestProfile } from './python-pytest/profile.js';
+import { rustPlaywrightProfile } from './rust-playwright/profile.js';
+import { rusttestProfile } from './rust-rusttest/profile.js';
 import { SUPPORTED_PROFILE_IDS, type SupportedProfileId, type TestProfile } from './types.js';
 
 export { type SupportedProfileId, type TestProfile } from './types.js';
 
 export const SUPPORTED_PROFILES = {
-  'ts-vitest': vitestProfile,
-  'ts-playwright': tsPlaywrightProfile,
-  'py-pytest': pytestProfile,
-  'py-playwright': pyPlaywrightProfile,
+  'node-vitest': nodeVitestProfile,
+  'node-playwright': nodePlaywrightProfile,
+  'python-pytest': pytestProfile,
+  'python-playwright': pythonPlaywrightProfile,
   'go-gotest': gotestProfile,
   'go-playwright': goPlaywrightProfile,
-  'rs-rusttest': rusttestProfile,
-  'rs-playwright': rsPlaywrightProfile,
+  'rust-rusttest': rusttestProfile,
+  'rust-playwright': rustPlaywrightProfile,
 } satisfies Record<SupportedProfileId, TestProfile>;
 
-/** Returns the default profile (ts-vitest). */
-export const DEFAULT_PROFILE: TestProfile = SUPPORTED_PROFILES['ts-vitest'];
+/** Returns the default profile (node-vitest). */
+export const DEFAULT_PROFILE: TestProfile = SUPPORTED_PROFILES['node-vitest'];
 
 const _profilesDir = join(fileURLToPath(import.meta.url), '..');
 

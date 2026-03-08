@@ -20,7 +20,7 @@ test-output = "immediate-final"
 `;
   mkdirSync(configDir, { recursive: true });
   writeFileSync(configPath, content, 'utf8');
-  console.log(`[design-tests:rs-rusttest] Written ${configPath}`);
+  console.log(`[design-tests:rust-rusttest] Written ${configPath}`);
 }
 
 /**
@@ -78,7 +78,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 `;
   writeFileSync(cargoTomlPath, content, 'utf8');
-  console.log(`[design-tests:rs-rusttest] Written ${cargoTomlPath}`);
+  console.log(`[design-tests:rust-rusttest] Written ${cargoTomlPath}`);
 }
 
 /**
@@ -110,14 +110,14 @@ function rusttestOnDone(opts: OnDoneOpts): void {
 
     if (!existsSync(modRsPath) || force) {
       writeFileSync(modRsPath, modRsContent, 'utf8');
-      console.log(`[design-tests:rs-rusttest] Written ${modRsPath}`);
+      console.log(`[design-tests:rust-rusttest] Written ${modRsPath}`);
       generatedFiles.push(`${subdir}/mod.rs`);
     }
   }
 }
 
 export const rusttestProfile: TestProfile = {
-  id: 'rs-rusttest',
+  id: 'rust-rusttest',
   language: 'Rust',
   framework: 'cargo test',
   specExtension: '.rs',

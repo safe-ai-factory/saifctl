@@ -73,13 +73,13 @@ export interface ValidateFilesOpts {
 }
 
 export const SUPPORTED_PROFILE_IDS = [
-  'ts-vitest',
-  'ts-playwright',
-  'py-pytest',
-  'py-playwright',
+  'node-vitest',
+  'node-playwright',
+  'python-pytest',
+  'python-playwright',
   'go-gotest',
   'go-playwright',
-  'rs-rusttest',
-  'rs-playwright',
+  'rust-rusttest',
+  'rust-playwright',
 ] as const;
 export type SupportedProfileId = (typeof SUPPORTED_PROFILE_IDS)[number];

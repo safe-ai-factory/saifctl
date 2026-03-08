@@ -20,15 +20,15 @@ test-output = "immediate-final"
 `;
   mkdirSync(configDir, { recursive: true });
   writeFileSync(configPath, content, 'utf8');
-  console.log(`[design-tests:rs-playwright] Written ${configPath}`);
+  console.log(`[design-tests:rust-playwright] Written ${configPath}`);
 }
 
 /**
  * Best-effort compile check for generated Rust/Playwright test files using `cargo check --tests`.
- * Identical to the rs-rusttest hook — cargo check works on any Rust crate regardless of
+ * Identical to the rust-rusttest hook — cargo check works on any Rust crate regardless of
  * whether it imports the playwright crate. Skips silently if `cargo` is not on PATH.
  */
-function rsPlaywrightValidateFiles(opts: ValidateFilesOpts): void {
+function rustPlaywrightValidateFiles(opts: ValidateFilesOpts): void {
   const { testsDir, generatedFiles } = opts;
   if (generatedFiles.length === 0) return;
   if (!generatedFiles.some((f) => f.endsWith('.rs'))) return;
@@ -79,14 +79,14 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 `;
   writeFileSync(cargoTomlPath, content, 'utf8');
-  console.log(`[design-tests:rs-playwright] Written ${cargoTomlPath}`);
+  console.log(`[design-tests:rust-playwright] Written ${cargoTomlPath}`);
 }
 
 /**
  * Emits mod.rs in public/ and hidden/ and writes .config/nextest.toml
  * defining the [profile.ci] section required by test.sh.
  */
-function rsPlaywrightOnDone(opts: OnDoneOpts): void {
+function rustPlaywrightOnDone(opts: OnDoneOpts): void {
   const { testsDir, generatedFiles, force } = opts;
 
   writeNextestConfig(testsDir, force);
@@ -110,14 +110,14 @@ function rsPlaywrightOnDone(opts: OnDoneOpts): void {
 
     if (!existsSync(modRsPath) || force) {
       writeFileSync(modRsPath, modRsContent, 'utf8');
-      console.log(`[design-tests:rs-playwright] Written ${modRsPath}`);
+      console.log(`[design-tests:rust-playwright] Written ${modRsPath}`);
       generatedFiles.push(`${subdir}/mod.rs`);
     }
   }
 }
 
-export const rsPlaywrightProfile: TestProfile = {
-  id: 'rs-playwright',
+export const rustPlaywrightProfile: TestProfile = {
+  id: 'rust-playwright',
   language: 'Rust',
   framework: 'cargo test with playwright',
   specExtension: '.rs',
@@ -129,6 +129,6 @@ export const rsPlaywrightProfile: TestProfile = {
     'Include `use crate::helpers::{exec_sidecar, base_url, http_request};` at the top of each spec file. Use `#[cfg(test)]` + `mod tests { ... }` or top-level `#[test]` functions.',
   assertionRules:
     'Use `assert_eq!`, `assert!`. For async tests, annotate with `#[tokio::test]`. Return `Result<(), Box<dyn std::error::Error>>` for fallible tests.',
-  onDone: rsPlaywrightOnDone,
-  validateFiles: rsPlaywrightValidateFiles,
+  onDone: rustPlaywrightOnDone,
+  validateFiles: rustPlaywrightValidateFiles,
 };

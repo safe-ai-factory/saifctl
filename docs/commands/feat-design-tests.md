@@ -26,7 +26,7 @@ saif feature design-tests [options]
 | `--agent-base-url` | —     | string  | Per-agent base URL override. Format: `<agent>=<url>`. Can be repeated.                                                                      |
 | `--openspec-dir`   | —     | string  | Path to openspec directory (default: `openspec`)                                                                                            |
 | `--project-dir`    | —     | string  | Project directory (default: current working directory)                                                                                      |
-| `--test-profile`   | —     | string  | Test profile id (default: ts-vitest)                                                                                                        |
+| `--test-profile`   | —     | string  | Test profile id (default: node-vitest)                                                                                                        |
 | `--indexer`        | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                             |
 | `--project`        | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                        |
 

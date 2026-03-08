@@ -12,15 +12,15 @@ A **test profile** is a language and framework combination (e.g. TypeScript + Vi
 
 1. **Test generation** — When the factory generates tests for your feature (`feat:design`), the profile determines in what language the code gets generated.
 
-   For example, `ts-vitest` produces `*.spec.ts` files with Vitest; `py-pytest` produces `test_*.py` files with pytest.
+   For example, `node-vitest` produces `*.spec.ts` files with Vitest; `python-pytest` produces `test_*.py` files with pytest.
 
 2. **Test execution** — When you run the coding agent (`feat:run`), the profile selects the Docker image that runs your tests.
 
    Each profile has its own pre-built image with the right runtime and tooling.
 
-Use `--test-profile` to pick a profile. The default is `ts-vitest`.
+Use `--test-profile` to pick a profile. The default is `node-vitest`.
 
-The profile must match on both generation and execution. If you ran `feat:design` with `py-pytest`, use the same profile for `feat:run` too.
+The profile must match on both generation and execution. If you ran `feat:design` with `python-pytest`, use the same profile for `feat:run` too.
 
 ---
 
@@ -29,14 +29,14 @@ The profile must match on both generation and execution. If you ran `feat:design
 Run `feat:design` to let AI agent write tests for your feature:
 
 ```bash
-pnpm agents feat:design --test-profile py-pytest
+pnpm agents feat:design --test-profile python-pytest
 ```
 
 Docker pulls the test runner image from GHCR. Nothing to configure. No `docker build` needed for default images.
 
 ### Example: Python/pytest
 
-With `--test-profile py-pytest`, you get the following layout:
+With `--test-profile python-pytest`, you get the following layout:
 
 ```
 openspec/changes/my-feature/
@@ -125,41 +125,41 @@ To make it easier, each language language (Node, Python, Go, Rust) offers both P
 
 ```bash
 # TypeScript + Vitest
-pnpm agents feat:run --test-profile ts-vitest
+pnpm agents feat:run --test-profile node-vitest
 
 # TypeScript + Playwright
-pnpm agents feat:run --test-profile ts-playwright
+pnpm agents feat:run --test-profile node-playwright
 
 # Python + Pytest
-pnpm agents feat:run --test-profile py-pytest
+pnpm agents feat:run --test-profile python-pytest
 
 # Python + Playwright
-pnpm agents feat:run --test-profile py-playwright
+pnpm agents feat:run --test-profile python-playwright
 
 ...
 ```
 
 Each profile has its own image. They're all pre-built and pulled automatically.
 
-| Profile         | Language + framework          | URL                                                           |
-| --------------- | ----------------------------- | ------------------------------------------------------------- |
-| `ts-vitest`     | TypeScript + Vitest (default) | ghcr.io/JuroOravec/safe-ai-factory/factory-test-ts-vitest     |
-| `ts-playwright` | TypeScript + Playwright       | ghcr.io/JuroOravec/safe-ai-factory/factory-test-ts-playwright |
-| `py-pytest`     | Python + pytest               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-py-pytest     |
-| `py-playwright` | Python + Playwright           | ghcr.io/JuroOravec/safe-ai-factory/factory-test-py-playwright |
-| `go-gotest`     | Go + gotest                   | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-gotest     |
-| `go-playwright` | Go + Playwright               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-playwright |
-| `rs-rusttest`   | Rust + cargo test             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rs-rusttest   |
-| `rs-playwright` | Rust + Playwright             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rs-playwright |
+| Profile             | Language + framework          | URL                                                               |
+| ------------------- | ----------------------------- | ----------------------------------------------------------------- |
+| `node-vitest`       | TypeScript + Vitest (default) | ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest       |
+| `node-playwright`   | TypeScript + Playwright       | ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-playwright   |
+| `python-pytest`     | Python + pytest               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest     |
+| `python-playwright` | Python + Playwright           | ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-playwright |
+| `go-gotest`         | Go + gotest                   | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-gotest         |
+| `go-playwright`     | Go + Playwright               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-playwright     |
+| `rust-rusttest`     | Rust + cargo test             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-rusttest     |
+| `rust-playwright`   | Rust + Playwright             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-playwright   |
 
-Use `--test-profile py-pytest` or `--test-image <url>` to switch.
+Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 
 ## Pin to a release (optional)
 
 To lock to a specific version instead of `latest`:
 
 ```bash
-pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-ts-vitest:v1.0.0
+pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:v1.0.0
 ```
 
 Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleeding edge.
@@ -168,10 +168,10 @@ Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleed
 
 ## Changing profiles
 
-If you already ran `feat:design` with one profile (e.g. `ts-vitest`) and then switch to another (e.g. `py-pytest`), you must re-run `feat:design` with `--force` flag to regenerate the test scaffold.
+If you already ran `feat:design` with one profile (e.g. `node-vitest`) and then switch to another (e.g. `python-pytest`), you must re-run `feat:design` with `--force` flag to regenerate the test scaffold.
 
 That will overwrite existing test files, so back up any custom edits first.
 
 ```sh
-pnpm agents feat:design --test-profile py-pytest --force
+pnpm agents feat:design --test-profile python-pytest --force
 ```

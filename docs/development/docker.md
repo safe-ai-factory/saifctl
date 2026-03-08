@@ -4,28 +4,28 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 
 ## Images
 
-| Image                | Default tag                     | Purpose                                                    |
-| -------------------- | ------------------------------- | ---------------------------------------------------------- |
-| `factory-test-*`     | `factory-test-<profile>:latest` | Test runner containers; one per language/framework profile |
-| `factory-coder-base` | `factory-coder-base:latest`     | Base for coder images; contains coder-start.sh only       |
-| `factory-coder`      | `factory-coder-node-pnpm-python:latest`| Extends coder-base; adds OpenHands (default coder agent)   |
-| `factory-stage`      | `factory-stage:latest`          | Stage/staging container image                              |
+| Image                | Default tag                             | Purpose                                                    |
+| -------------------- | --------------------------------------- | ---------------------------------------------------------- |
+| `factory-test-*`     | `factory-test-<profile>:latest`         | Test runner containers; one per language/framework profile |
+| `factory-coder-base` | `factory-coder-base:latest`             | Base for coder images; contains coder-start.sh only        |
+| `factory-coder`      | `factory-coder-node-pnpm-python:latest` | Extends coder-base; adds OpenHands (default coder agent)   |
+| `factory-stage`      | `factory-stage:latest`                  | Stage/staging container image                              |
 
 ### Test runner profiles
 
-- `ts-vitest`, `ts-playwright`
-- `py-pytest`, `py-playwright`
+- `node-vitest`, `node-playwright`
+- `python-pytest`, `python-playwright`
 - `go-gotest`, `go-playwright`
-- `rs-rusttest`, `rs-playwright`
+- `rust-rusttest`, `rust-playwright`
 
 ## Local build
 
 ```bash
-# Build default test runner only (ts-vitest)
+# Build default test runner only (node-vitest)
 pnpm docker build test
 
 # Build one profile
-pnpm docker build test --test-profile py-pytest
+pnpm docker build test --test-profile python-pytest
 
 # Build all test runner images
 pnpm docker build test --all
@@ -74,8 +74,8 @@ When `--test-image` or `--coder-image` is omitted, Docker pulls the default imag
 
 ```bash
 # Test runners (use :latest or :v1.0.0 to pin a release)
-pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-ts-vitest:latest
-pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-py-pytest:v1.0.0
+pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:latest
+pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest:v1.0.0
 
 # Coder image
 pnpm agents feat:run --coder-image ghcr.io/JuroOravec/safe-ai-factory/factory-coder:latest

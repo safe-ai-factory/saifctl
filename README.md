@@ -270,19 +270,19 @@ You can easily configure in which language + framework to run your tests in with
 Use `--test-profile` CLI option:
 
 ```bash
-pnpm agents feat:assess --test-profile py-playwright
+pnpm agents feat:assess --test-profile python-playwright
 ```
 
-| Profile         | Language + framework          |
-| --------------- | ----------------------------- |
-| `ts-vitest`     | TypeScript + Vitest (default) |
-| `ts-playwright` | TypeScript + Playwright       |
-| `py-pytest`     | Python + pytest               |
-| `py-playwright` | Python + Playwright           |
-| `go-gotest`     | Go + gotest                   |
-| `go-playwright` | Go + Playwright               |
-| `rs-rusttest`   | Rust + cargo test             |
-| `rs-playwright` | Rust + Playwright             |
+| Profile           | Language + framework          |
+| ----------------- | ----------------------------- |
+| `node-vitest`     | TypeScript + Vitest (default) |
+| `node-playwright` | TypeScript + Playwright       |
+| `python-pytest`   | Python + pytest               |
+| `python-playwright` | Python + Playwright        |
+| `go-gotest`       | Go + gotest                   |
+| `go-playwright`   | Go + Playwright               |
+| `rust-rusttest`   | Rust + cargo test             |
+| `rust-playwright` | Rust + Playwright             |
 
 See [docs/test-profiles.md](docs/test-profiles.md) for step-by-step usage.
 

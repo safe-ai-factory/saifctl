@@ -3,7 +3,7 @@
  * Docker CLI — build and clear factory container images.
  *
  * Usage: pnpm docker <action> [image] [options]
- *   build test       Build test runner image(s) (default: ts-vitest, --all: all profiles)
+ *   build test       Build test runner image(s) (default: node-vitest, --all: all profiles)
  *   build coder-base Build coder base image (factory-coder-base:latest)
  *   build coder      Build coder image (default: node-pnpm-python, --all: all profiles)
  *   build stage      Build stage image (default: node-pnpm-python, --all: all profiles)
@@ -67,11 +67,11 @@ function validateImageTag(tag: string, flagName: string): void {
 const testBuildCommand = defineCommand({
   meta: {
     name: 'test',
-    description: 'Build test runner image(s). Default: ts-vitest. Use --all for all profiles.',
+    description: 'Build test runner image(s). Default: node-vitest. Use --all for all profiles.',
   },
   args: {
     all: { type: 'boolean', description: 'Build all test profiles' },
-    'test-profile': { type: 'string', description: 'Test profile (default: ts-vitest)' },
+    'test-profile': { type: 'string', description: 'Test profile (default: node-vitest)' },
     'test-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {

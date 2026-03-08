@@ -61,7 +61,7 @@ const featProjectDirArg = {
 };
 const featTestProfileArg = {
   type: 'string' as const,
-  description: 'Test profile id (default: ts-vitest).',
+  description: 'Test profile id (default: node-vitest).',
 };
 const featDesignerArg = {
   type: 'string' as const,

@@ -28,11 +28,11 @@ export default defineConfig({
 });
 `;
   writeFileSync(configPath, configContent, 'utf8');
-  console.log(`[design-tests:ts-playwright] Written \${configPath}`);
+  console.log(`[design-tests:node-playwright] Written ${configPath}`);
 }
 
-export const tsPlaywrightProfile: TestProfile = {
-  id: 'ts-playwright',
+export const nodePlaywrightProfile: TestProfile = {
+  id: 'node-playwright',
   language: 'TypeScript',
   framework: 'Playwright',
   specExtension: '.spec.ts',

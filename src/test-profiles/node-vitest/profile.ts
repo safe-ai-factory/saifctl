@@ -19,8 +19,8 @@ async function vitestValidateFiles(opts: {
   });
 }
 
-export const vitestProfile: TestProfile = {
-  id: 'ts-vitest',
+export const nodeVitestProfile: TestProfile = {
+  id: 'node-vitest',
   language: 'TypeScript',
   framework: 'Vitest',
   specExtension: '.spec.ts',
