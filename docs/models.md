@@ -187,7 +187,7 @@ Keys are checked in the order listed above; the first match wins.
 | Coding agent<br/>(e.g. OpenHands) | `coder`         | `feat run`<br/>`feat continue`                   |
 | Tests planner                     | `tests-planner` | `feat design-tests`<br/>`feat design`            |
 | Tests cataloger                   | `tests-catalog` | `feat design-tests`<br/>`feat design`            |
-| Tests writer                       | `tests-writer`  | `feat design-tests`<br/>`feat design`            |
+| Tests writer                      | `tests-writer`  | `feat design-tests`<br/>`feat design`            |
 | Results judge                     | `results-judge` | `feat run`<br/>`feat continue`<br/>`feat assess` |
 | PR summarizer                     | `pr-summarizer` | `feat run`<br/>`feat continue`<br/>`feat assess` |
 

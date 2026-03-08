@@ -8,24 +8,31 @@
  *   design-tests      Generate tests from existing specs only (second step of design).
  *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
  *   design            Generate specs, tests, and validate the tests (full design workflow)
+ *   debug             Spin up staging container only, stream logs (Ctrl+C to stop)
  *   Alias: saif feature
  */
 
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
 import { defineCommand, runMain } from 'citty';
 
+import {
+  DEFAULT_AGENT_PROFILE,
+  resolveAgentScriptPath,
+  resolveAgentStartScriptPath,
+} from '../../agent-profiles/index.js';
 import { getChangeDirAbsolute, getChangeDirRelative } from '../../constants.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import { DEFAULT_INDEXER_PROFILE } from '../../indexer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
-import { runFail2Pass } from '../../orchestrator/modes.js';
+import { runDebug, runFail2Pass } from '../../orchestrator/modes.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
+import { readSandboxGateScript } from '../../sandbox-profiles/index.js';
 import {
   getFeatNameFromArgs,
   getFeatNameOrPrompt,
@@ -52,38 +59,34 @@ import {
 /////////////////////////////////////////////
 
 // Shared feat args — spread into subcommands, override individual attrs as needed
-const featNameArg = {
+const nameArg = {
   type: 'string' as const,
   alias: 'n' as const,
   description: 'Feature name (kebab-case). Prompts with a list if omitted.',
 };
-const featYesArg = {
+const yesArg = {
   type: 'boolean' as const,
   alias: 'y' as const,
   description:
     'Non-interactive mode. Requires --name/-n. Omits description prompt (defaults to empty).',
 };
-const featOpenspecDirArg = {
+const openspecDirArg = {
   type: 'string' as const,
   description: 'Path to openspec directory (default: openspec)',
 };
-const featProjectDirArg = {
+const projectDirArg = {
   type: 'string' as const,
   description: 'Project directory (default: process.cwd())',
 };
-const featTestProfileArg = {
-  type: 'string' as const,
-  description: 'Test profile id (default: node-vitest).',
-};
-const featDesignerArg = {
+const designerArg = {
   type: 'string' as const,
   description: `Designer profile for spec generation (default: ${DEFAULT_DESIGNER_PROFILE.id}).`,
 };
-const featIndexerArg = {
+const indexerArg = {
   type: 'string' as const,
   description: `Indexer profile for codebase search (default: ${DEFAULT_INDEXER_PROFILE.id}). Pass 'none' to disable.`,
 };
-const featProjectArg = {
+const projectArg = {
   type: 'string' as const,
   alias: 'p',
   description: 'Project name override for the indexer (default: package.json "name")',
@@ -93,36 +96,46 @@ const forceArg = {
   alias: 'f' as const,
   description: null,
 };
+const sandboxBaseDirArg = {
+  type: 'string' as const,
+  description: `Base directory for sandbox entries (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
+};
+const profileArg = {
+  type: 'string' as const,
+  description:
+    'Sandbox profile for the project. Sets defaults for startup-script and stage-script.',
+};
+const startupScriptArg = {
+  type: 'string' as const,
+  description:
+    'Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.).',
+};
+const stageScriptArg = {
+  type: 'string' as const,
+  description:
+    'Path to a shell script mounted into the staging container. Must handle app startup.',
+};
+const testProfileArg = {
+  type: 'string' as const,
+  description: 'Test profile id (default: node-vitest).',
+};
+const testScriptArg = {
+  type: 'string' as const,
+  description: 'Path to a shell script that overrides test.sh inside the Test Runner container.',
+};
+const testImageArg = {
+  type: 'string' as const,
+  description: 'Test runner Docker image tag (default: factory-test-<profile>:latest).',
+};
 
 // Assessment-only args — used by design-fail2pass, assess (staging + test runner, no coder agent)
 const featAssessmentArgs = {
-  'sandbox-base-dir': {
-    type: 'string' as const,
-    description: `Base directory for sandbox entries (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
-  },
-  profile: {
-    type: 'string' as const,
-    description:
-      'Sandbox profile for the project. Sets defaults for startup-script and stage-script.',
-  },
-  'test-script': {
-    type: 'string' as const,
-    description: 'Path to a shell script that overrides test.sh inside the Test Runner container.',
-  },
-  'test-image': {
-    type: 'string' as const,
-    description: 'Test runner Docker image tag (default: factory-test-<profile>:latest).',
-  },
-  'startup-script': {
-    type: 'string' as const,
-    description:
-      'Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.).',
-  },
-  'stage-script': {
-    type: 'string' as const,
-    description:
-      'Path to a shell script mounted into the staging container. Must handle app startup.',
-  },
+  'sandbox-base-dir': sandboxBaseDirArg,
+  profile: profileArg,
+  'test-script': testScriptArg,
+  'test-image': testImageArg,
+  'startup-script': startupScriptArg,
+  'stage-script': stageScriptArg,
 };
 
 // Agent args — used by run, continue (coder container). NOT used by design-fail2pass.
@@ -186,12 +199,12 @@ const newCommand = defineCommand({
   },
   args: {
     name: {
-      ...featNameArg,
+      ...nameArg,
       description: 'Feature name (kebab-case, e.g. add-greeting-cmd)',
     },
-    yes: featYesArg,
-    'openspec-dir': featOpenspecDirArg,
-    'project-dir': featProjectDirArg,
+    yes: yesArg,
+    'openspec-dir': openspecDirArg,
+    'project-dir': projectDirArg,
     desc: {
       type: 'string',
       alias: 'd',
@@ -265,9 +278,9 @@ const newCommand = defineCommand({
 });
 
 const designSpecsArgs = {
-  name: featNameArg,
+  name: nameArg,
   yes: {
-    ...featYesArg,
+    ...yesArg,
     description:
       'Non-interactive mode. Requires --name/-n. Skips confirm when designer output exists; assumes redo.',
   },
@@ -276,9 +289,9 @@ const designSpecsArgs = {
     description: 'Always re-run the designer, overwriting existing spec files without prompting.',
   },
   ...modelOverrideArgs,
-  designer: featDesignerArg,
-  'openspec-dir': featOpenspecDirArg,
-  'project-dir': featProjectDirArg,
+  designer: designerArg,
+  'openspec-dir': openspecDirArg,
+  'project-dir': projectDirArg,
 };
 
 async function _runDesignSpecs(args: {
@@ -357,12 +370,12 @@ const designSpecsCommand = defineCommand({
 });
 
 const designTestsArgs = {
-  name: featNameArg,
-  'openspec-dir': featOpenspecDirArg,
-  'project-dir': featProjectDirArg,
-  'test-profile': featTestProfileArg,
-  indexer: featIndexerArg,
-  project: featProjectArg,
+  name: nameArg,
+  'openspec-dir': openspecDirArg,
+  'project-dir': projectDirArg,
+  'test-profile': testProfileArg,
+  indexer: indexerArg,
+  project: projectArg,
   'skip-catalog': {
     type: 'boolean' as const,
     description:
@@ -488,11 +501,11 @@ const designTestsCommand = defineCommand({
 // ---------------------------------------------------------------------------
 
 const designFail2passArgs = {
-  name: featNameArg,
-  'openspec-dir': featOpenspecDirArg,
-  'project-dir': featProjectDirArg,
-  project: featProjectArg,
-  'test-profile': featTestProfileArg,
+  name: nameArg,
+  'openspec-dir': openspecDirArg,
+  'project-dir': projectDirArg,
+  project: projectArg,
+  'test-profile': testProfileArg,
   ...featAssessmentArgs,
 };
 
@@ -604,6 +617,67 @@ const designCommand = defineCommand({
   },
 });
 
+// ---------------------------------------------------------------------------
+// debug: Spin up staging container, stream logs
+// ---------------------------------------------------------------------------
+
+const featDebugArgs = {
+  name: nameArg,
+  'openspec-dir': openspecDirArg,
+  'project-dir': projectDirArg,
+  project: projectArg,
+  'sandbox-base-dir': sandboxBaseDirArg,
+  profile: profileArg,
+  'startup-script': startupScriptArg,
+  'stage-script': stageScriptArg,
+};
+
+const debugCommand = defineCommand({
+  meta: {
+    name: 'debug',
+    description:
+      'Spin up the staging container and stream its logs (Ctrl+C to stop). Useful for diagnosing startup failures.',
+  },
+  args: featDebugArgs,
+  async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const openspecDir = parseOpenspecDir(args);
+    const sandboxBaseDir = parseSandboxBaseDir(args);
+    const projectName = resolveProjectName(args, projectDir);
+    const sandboxProfile = parseSandboxProfile(args);
+
+    const [startupScript, stageScript] = await Promise.all([
+      parseStartupScript({ args, projectDir }),
+      parseStageScript({ args, projectDir }),
+    ]);
+
+    const gateScript = readSandboxGateScript(sandboxProfile.id);
+    const agentStartScript = readFileSync(
+      resolveAgentStartScriptPath(DEFAULT_AGENT_PROFILE.id),
+      'utf8',
+    );
+    const agentScript = readFileSync(resolveAgentScriptPath(DEFAULT_AGENT_PROFILE.id), 'utf8');
+
+    console.log(`\nDebug staging container: ${featName}`);
+    console.log('  Ctrl+C to stop and clean up.\n');
+
+    await runDebug({
+      sandboxProfileId: sandboxProfile.id,
+      changeName: featName,
+      projectDir,
+      openspecDir,
+      sandboxBaseDir,
+      projectName,
+      startupScript,
+      gateScript,
+      agentStartScript,
+      agentScript,
+      stageScript,
+    });
+  },
+});
+
 const featCommand = defineCommand({
   meta: {
     name: 'feat',
@@ -615,6 +689,7 @@ const featCommand = defineCommand({
     'design-tests': designTestsCommand,
     'design-fail2pass': designFail2passCommand,
     design: designCommand,
+    debug: debugCommand,
   },
 });
 

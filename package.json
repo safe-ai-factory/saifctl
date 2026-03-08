@@ -45,7 +45,7 @@
     "agents:feat:continue": "pnpm agents feat:continue --model openrouter/anthropic/claude-sonnet-4.6",
     "agents:feat:assess": "pnpm agents feat:assess",
     "agents:feat:finish": "pnpm agents feat:finish",
-    "agents:feat:debug": "pnpm agents feat:debug",
+    "saif:feat:debug": "tsx src/cli/commands/feat.ts debug",
     "docker": "tsx scripts/docker.ts",
     "docker:build:test": "pnpm docker build test",
     "docker:build:coder": "pnpm docker build coder",

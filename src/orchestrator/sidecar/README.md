@@ -13,11 +13,11 @@ The factory runs two containers side-by-side for every agent iteration:
 - **Container A (staging)** — the application under test. Runs the code the AI agent just wrote: a Node.js server, a Python CLI, a Rust binary, whatever the project is.
 - **Container B (test runner)** — a separate, sandboxed container that executes the black-box tests against Container A.
 
-Container B needs to be able to run arbitrary shell commands *inside* Container A — things like `python cli.py --input foo`, `cargo run -- solve`, or `node dist/index.js`. This is how CLI-style tests work: they invoke the program and assert on stdout, exit code, and side effects.
+Container B needs to be able to run arbitrary shell commands _inside_ Container A — things like `python cli.py --input foo`, `cargo run -- solve`, or `node dist/index.js`. This is how CLI-style tests work: they invoke the program and assert on stdout, exit code, and side effects.
 
 The naive solution is `docker exec`. But `docker exec` requires access to the Docker socket (`/var/run/docker.sock`), which means Container B would have root-equivalent access to the entire host. That is a no-go for a sandboxed AI coding agent.
 
-The sidecar solves this with a simple inversion: instead of the test runner reaching *out* to Docker, it reaches *in* to an HTTP server that is already running inside Container A. Container B sends a POST request with a command to run; the sidecar executes it and sends back the result. No Docker socket. No privileged access. Just HTTP over an isolated Docker bridge network.
+The sidecar solves this with a simple inversion: instead of the test runner reaching _out_ to Docker, it reaches _in_ to an HTTP server that is already running inside Container A. Container B sends a POST request with a command to run; the sidecar executes it and sends back the result. No Docker socket. No privileged access. Just HTTP over an isolated Docker bridge network.
 
 ```
 Container B (test runner)
@@ -57,12 +57,12 @@ Executes a command inside the container and returns the result.
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `cmd` | string | yes | The executable to run |
-| `args` | string[] | no | Arguments (default: `[]`) |
-| `env` | object | no | Environment variable overrides (layered on top of the container's existing env) |
-| `timeout` | number | no | Timeout in milliseconds. Default: 60000. Clamped to 1000–600000. |
+| Field     | Type     | Required | Description                                                                     |
+| --------- | -------- | -------- | ------------------------------------------------------------------------------- |
+| `cmd`     | string   | yes      | The executable to run                                                           |
+| `args`    | string[] | no       | Arguments (default: `[]`)                                                       |
+| `env`     | object   | no       | Environment variable overrides (layered on top of the container's existing env) |
+| `timeout` | number   | no       | Timeout in milliseconds. Default: 60000. Clamped to 1000–600000.                |
 
 **Response body:**
 
@@ -86,15 +86,15 @@ Go solves this at the root. With `CGO_ENABLED=0`, Go compiles to a **statically-
 
 The comparison is stark:
 
-| | Node.js CJS bundle | Go static binary |
-|---|---|---|
-| Requires Node.js in container | yes | no |
-| Works in Python containers | no | yes |
-| Works in Rust containers | no | yes |
-| Works in Go containers | no | yes |
-| Dependencies | Node.js runtime | none |
-| Binary size | ~0 KB (but needs 50+ MB runtime) | ~5 MB |
-| Cross-compilation | complex | trivial |
+|                               | Node.js CJS bundle               | Go static binary |
+| ----------------------------- | -------------------------------- | ---------------- |
+| Requires Node.js in container | yes                              | no               |
+| Works in Python containers    | no                               | yes              |
+| Works in Rust containers      | no                               | yes              |
+| Works in Go containers        | no                               | yes              |
+| Dependencies                  | Node.js runtime                  | none             |
+| Binary size                   | ~0 KB (but needs 50+ MB runtime) | ~5 MB            |
+| Cross-compilation             | complex                          | trivial          |
 
 The sidecar uses only Go's standard library: `net/http`, `os/exec`, `encoding/json`, `context`. There are no third-party dependencies and no `go.sum` entries.
 
@@ -210,11 +210,11 @@ Commit both binaries after rebuilding. The repository intentionally tracks compi
 
 The sidecar is configured entirely through environment variables, set by `staging-start.sh` before the process starts:
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `8080` | TCP port to listen on |
-| `SIDECAR_PATH` | `/exec` | HTTP path for the exec endpoint |
-| `WORKSPACE` | `/workspace` | Working directory for all spawned commands |
+| Variable       | Default      | Description                                |
+| -------------- | ------------ | ------------------------------------------ |
+| `PORT`         | `8080`       | TCP port to listen on                      |
+| `SIDECAR_PATH` | `/exec`      | HTTP path for the exec endpoint            |
+| `WORKSPACE`    | `/workspace` | Working directory for all spawned commands |
 
 These values come from the test catalog (`tests.json`) and are injected by the orchestrator as container environment variables (`FACTORY_SIDECAR_PORT`, `FACTORY_SIDECAR_PATH`).
 

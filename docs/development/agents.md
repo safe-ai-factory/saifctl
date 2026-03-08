@@ -28,7 +28,7 @@ You choose which integration to use via `--agent <id>` or `--agent-script <path/
 | Requirement                | Description                                                                                                |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Read task from file        | Task is written to `$FACTORY_TASK_PATH` before each invocation. Use that path, not CLI args.               |
-| Work in the workspace      | In Leash mode: `/workspace`. In `--dangerous-debug`: current directory (sandbox `code/`).                   |
+| Work in the workspace      | In Leash mode: `/workspace`. In `--dangerous-debug`: current directory (sandbox `code/`).                  |
 | Exit on completion         | Exit 0 when done, non-zero on failure. The gate runs after the agent exits.                                |
 | Headless / non-interactive | Agent must run without prompts (e.g. `--yes`, `--headless`, `--always-approve`).                           |
 | No auto-commits            | Agent must not commit; the factory extracts the diff via `git diff`. Some agents need `--no-auto-commits`. |
