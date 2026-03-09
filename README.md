@@ -58,9 +58,9 @@ saif feat new
 saif feat design
 
 # 3. Run coding agent in sandbox until tests pass
-pnpm agents feat:run
+saif feat run
 # Prefer Aider?
-# pnpm agents feat:run --agent aider
+# saif feat run --agent aider
 
 # 5. Mark this change as done and create a PR
 pnpm agents feat:finish --push origin --pr
@@ -253,7 +253,7 @@ You don't need to build anything. The factory ships pre-built coder and stage im
 Use `--profile` CLI option:
 
 ```bash
-pnpm agents feat:run --profile python-uv
+saif feat run --profile python-uv
 ```
 
 [See all available profiles and step-by-step usage here](./docs/sandbox-profiles.md).
@@ -267,7 +267,7 @@ You can easily configure in which language + framework to run your tests in with
 Use `--test-profile` CLI option:
 
 ```bash
-pnpm agents feat:assess --test-profile python-playwright
+pnpm agents feat:test --test-profile python-playwright
 ```
 
 | Profile             | Language + framework          |
@@ -337,7 +337,7 @@ By default the factory restricts the agent's filesystem access using a [Cedar](h
 Override with `--cedar` to supply your own policy:
 
 ```bash
-pnpm agents feat:run --cedar ./my-policy.cedar
+saif feat run --cedar ./my-policy.cedar
 ```
 
 [See the full default policy and customization guide here](./docs/cedar-access-control.md).

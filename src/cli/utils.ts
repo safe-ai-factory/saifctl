@@ -4,21 +4,24 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
 
 import {
+  type AgentProfile,
   DEFAULT_AGENT_PROFILE,
   resolveAgentProfile,
   resolveAgentScriptPath,
   resolveAgentStartScriptPath,
 } from '../agent-profiles/index.js';
+import { getSaifRoot } from '../constants.js';
 import {
   DEFAULT_DESIGNER_PROFILE,
   type DesignerProfile,
   resolveDesignerProfile,
 } from '../designer-profiles/index.js';
+import { getGitProvider, type GitProvider } from '../git/index.js';
 import {
   DEFAULT_INDEXER_PROFILE,
   type IndexerProfile,
@@ -51,7 +54,7 @@ export function parseSandboxBaseDir(args: { 'sandbox-base-dir'?: string }): stri
   return typeof raw === 'string' && raw.trim() ? raw.trim() : DEFAULT_SANDBOX_BASE_DIR;
 }
 
-/** Args shape for orchestrator commands (design-fail2pass, run, continue, assess, etc.) */
+/** Args shape for orchestrator commands (design-fail2pass, run, continue, test, etc.) */
 export interface OrchestratorArgs {
   profile?: string;
   'test-script'?: string;
@@ -450,4 +453,185 @@ export function parseModelOverrides(args: {
   }
 
   return overrides;
+}
+
+// ── Feat run/continue parsers (used by saif feat run) ────────────────────────
+
+/** Args shape for feat run. Extends OrchestratorArgs with run-specific flags. */
+export interface FeatRunArgs extends OrchestratorArgs {
+  'max-runs'?: string;
+  'keep-sandbox'?: boolean;
+  'test-retries'?: string;
+  'resolve-ambiguity'?: string;
+  'dangerous-debug'?: boolean;
+  cedar?: string;
+  'coder-image'?: string;
+  'gate-retries'?: string;
+  env?: string | string[];
+  'env-file'?: string;
+  'agent-log-format'?: string;
+  push?: string;
+  pr?: boolean;
+  'git-provider'?: string;
+}
+
+export function parseMaxRuns(args: FeatRunArgs): number {
+  const raw = args['max-runs'];
+  if (typeof raw !== 'string') return 5; // default
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    console.error(`Invalid --max-runs value: ${raw}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
+export function parseTestRetries(args: FeatRunArgs): number {
+  const raw = args['test-retries'];
+  if (typeof raw !== 'string') return 1; // default
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    console.error(`Invalid --test-retries value: ${raw}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
+export function parseResolveAmbiguity(args: FeatRunArgs): 'off' | 'prompt' | 'ai' {
+  const raw = args['resolve-ambiguity'];
+  if (raw === 'prompt' || raw === 'ai' || raw === 'off') return raw;
+  if (raw) {
+    console.warn(`[cli] Unknown --resolve-ambiguity value "${raw}"; using "ai".`);
+  }
+  return 'ai';
+}
+
+export function parseDangerousDebug(args: FeatRunArgs): boolean {
+  return args['dangerous-debug'] === true;
+}
+
+export function parseCedarPolicyPath(args: FeatRunArgs): string {
+  const v = args.cedar;
+  return typeof v === 'string' && v.trim()
+    ? v.trim()
+    : join(getSaifRoot(), 'src', 'orchestrator', 'leash-policy.cedar');
+}
+
+export function parseCoderImage(args: FeatRunArgs): string {
+  const v = args['coder-image'];
+  if (typeof v === 'string' && v.trim()) {
+    validateImageTag(v.trim(), '--coder-image');
+    return v.trim();
+  }
+  const profile = parseSandboxProfile(args);
+  return profile.coderImageTag;
+}
+
+export function parseGateRetries(args: FeatRunArgs): number {
+  const raw = args['gate-retries'];
+  if (typeof raw !== 'string') return 10; // default
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    console.error(`Invalid --gate-retries value: ${raw}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
+/**
+ * Parses --env KEY=VALUE flags and --env-file <path> into a single env map.
+ * --env-file entries are processed first; --env flags override them.
+ */
+export function parseAgentEnv(opts: {
+  args: FeatRunArgs;
+  projectDir: string;
+}): Record<string, string> {
+  const { args, projectDir } = opts;
+  const result: Record<string, string> = {};
+
+  const envFile = args['env-file'];
+  if (typeof envFile === 'string' && envFile.trim()) {
+    const envFilePath = resolve(projectDir, envFile.trim());
+    if (!existsSync(envFilePath)) {
+      console.error(`Error: --env-file not found: ${envFilePath}`);
+      process.exit(1);
+    }
+    const lines = readFileSync(envFilePath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) {
+        console.warn(`[cli] WARNING: skipping malformed env-file line (no '='): ${trimmed}`);
+        continue;
+      }
+      result[trimmed.slice(0, eq).trimEnd()] = trimmed.slice(eq + 1).trimStart();
+    }
+  }
+
+  const envFlags = args.env;
+  const entries = Array.isArray(envFlags) ? envFlags : envFlags ? [envFlags] : [];
+  for (const entry of entries) {
+    if (typeof entry !== 'string') continue;
+    const eq = entry.indexOf('=');
+    if (eq === -1) {
+      console.warn(`[cli] WARNING: skipping malformed --env value (no '='): ${entry}`);
+      continue;
+    }
+    result[entry.slice(0, eq)] = entry.slice(eq + 1);
+  }
+
+  return result;
+}
+
+export function parseAgentLogFormat(
+  args: FeatRunArgs,
+  agentProfile: AgentProfile,
+): 'openhands' | 'raw' {
+  const raw = args['agent-log-format'];
+  if (raw === 'raw') return 'raw';
+  if (raw === 'openhands') return 'openhands';
+  if (raw) {
+    console.warn(
+      `[cli] Unknown --agent-log-format "${raw}"; falling back to profile default (${agentProfile.defaultLogFormat}).`,
+    );
+  }
+  return agentProfile.defaultLogFormat;
+}
+
+export function parsePush(args: FeatRunArgs): string | null {
+  const raw = args.push;
+  return typeof raw === 'string' ? raw.trim() : null;
+}
+
+export function parsePr(args: FeatRunArgs): boolean {
+  const hasPr = args.pr === true;
+  if (hasPr && !parsePush(args)) {
+    console.error('Error: --pr requires --push <target>.');
+    process.exit(1);
+  }
+  return hasPr;
+}
+
+export function parseGitProvider(args: FeatRunArgs): GitProvider {
+  const raw = args['git-provider'];
+  const id = typeof raw === 'string' && raw.trim() ? raw.trim() : 'github';
+  try {
+    return getGitProvider(id);
+  } catch (err) {
+    console.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
+    process.exit(1);
+  }
+}
+
+/** Resolves --agent to AgentProfile. Returns DEFAULT_AGENT_PROFILE when omitted. */
+export function parseAgentProfile(args: OrchestratorArgs): AgentProfile {
+  const raw = typeof args.agent === 'string' ? args.agent.trim() : '';
+  if (!raw) return DEFAULT_AGENT_PROFILE;
+  try {
+    return resolveAgentProfile(raw);
+  } catch (err) {
+    console.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
+    process.exit(1);
+  }
 }

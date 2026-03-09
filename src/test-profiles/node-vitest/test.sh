@@ -3,7 +3,7 @@
 #
 # CONTRACT — this script defines the interface between the Orchestrator and the Test Runner image.
 # It is always bind-mounted into the container at /usr/local/bin/test.sh (read-only).
-# Override by passing --test-script <path> to feat:run / feat:continue / feat:assess / design-fail2pass.
+# Override by passing --test-script <path> to run / feat:continue / feat:test / design-fail2pass.
 #
 # Environment variables provided by the Orchestrator (all required):
 #
@@ -16,7 +16,7 @@
 #                         Always defined — even for web projects — because the sidecar runs
 #                         in every staging container.
 #
-#   FACTORY_CHANGE_NAME   Name of the OpenSpec change being assessed (e.g. "greet-cmd").
+#   FACTORY_CHANGE_NAME   Name of the OpenSpec change being tested (e.g. "greet-cmd").
 #
 #   FACTORY_TESTS_DIR     Absolute path inside the container where test files are mounted.
 #                         Default: /tests
@@ -41,7 +41,7 @@
 #   the file may be absent; the Orchestrator handles this gracefully.
 #
 # To use a custom test script:
-#   Pass --test-script <path> to feat:run / feat:continue / feat:assess / design-fail2pass.
+#   Pass --test-script <path> to run / feat:continue / feat:test / design-fail2pass.
 #   Your script must read the env vars above, write JUnit XML to FACTORY_OUTPUT_FILE,
 #   and exit 0 on pass / non-zero on failure.
 #

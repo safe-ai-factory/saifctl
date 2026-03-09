@@ -14,13 +14,13 @@ A **test profile** is a language and framework combination (e.g. TypeScript + Vi
 
    For example, `node-vitest` produces `*.spec.ts` files with Vitest; `python-pytest` produces `test_*.py` files with pytest.
 
-2. **Test execution** — When you run the coding agent (`feat:run`), the profile selects the Docker image that runs your tests.
+2. **Test execution** — When you run the coding agent (`saif feat run`), the profile selects the Docker image that runs your tests.
 
    Each profile has its own pre-built image with the right runtime and tooling.
 
 Use `--test-profile` to pick a profile. The default is `node-vitest`.
 
-The profile must match on both generation and execution. If you ran `saif feat design` with `python-pytest`, use the same profile for `feat:run` too.
+The profile must match on both generation and execution. If you ran `saif feat design` with `python-pytest`, use the same profile for `saif feat run` too.
 
 ---
 
@@ -125,16 +125,16 @@ To make it easier, each language language (Node, Python, Go, Rust) offers both P
 
 ```bash
 # TypeScript + Vitest
-pnpm agents feat:run --test-profile node-vitest
+saif feat run --test-profile node-vitest
 
 # TypeScript + Playwright
-pnpm agents feat:run --test-profile node-playwright
+saif feat run --test-profile node-playwright
 
 # Python + Pytest
-pnpm agents feat:run --test-profile python-pytest
+saif feat run --test-profile python-pytest
 
 # Python + Playwright
-pnpm agents feat:run --test-profile python-playwright
+saif feat run --test-profile python-playwright
 
 ...
 ```
@@ -159,7 +159,7 @@ Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 To lock to a specific version instead of `latest`:
 
 ```bash
-pnpm agents feat:run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:v1.0.0
+saif feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:v1.0.0
 ```
 
 Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleeding edge.

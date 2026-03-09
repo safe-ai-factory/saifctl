@@ -4,35 +4,27 @@
  *  1. fail2pass  — Verify at least one feature test fails on current codebase (sanity check; partial overlap OK)
  *  2. start      — Create a fresh sandbox and run the iterative agent loop
  *  3. continue   — Resume an existing sandbox (skip rsync) and continue the loop
- *  4. assess     — Apply a candidate patch to a fresh sandbox and run mutual verification
+ *  4. test       — Apply a candidate patch to a fresh sandbox and run mutual verification
  */
 
 import { chmodSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { GitProvider } from '../git/types.js';
-import { type ModelOverrides } from '../llm-config.js';
-import type { SupportedSandboxProfileId } from '../sandbox-profiles/index.js';
-import type { TestProfile } from '../test-profiles/types.js';
 import { CleanupRegistry, removeImageByTag, removeNetwork } from '../utils/docker.js';
 import { createSandboxNetwork } from './docker/network.js';
 import { debugStagingContainer, getStagingImageTag } from './docker/staging.js';
-import { hasFeatureTestFailures, runAssessmentWithContainers } from './docker/test-runner.js';
+import { hasFeatureTestFailures, runTeststWithContainers } from './docker/test-runner.js';
 import {
   applyPatchToHost,
   extractRunId,
   getTestRunnerOpts,
+  type IterativeLoopOpts,
   loadCatalog,
+  type OrchestratorResult,
   runIterativeLoop,
   runResultsJudgeForFailure,
 } from './loop.js';
-import {
-  applyPatch,
-  createSandbox,
-  destroySandbox,
-  type PatchExcludeRule,
-  type SandboxPaths,
-} from './sandbox.js';
+import { applyPatch, createSandbox, destroySandbox, type SandboxPaths } from './sandbox.js';
 
 /** Writes (or overwrites) gate.sh at the given path with the provided content. */
 function writeGateScript(gatePath: string, gateScript: string): void {
@@ -40,124 +32,21 @@ function writeGateScript(gatePath: string, gateScript: string): void {
   chmodSync(gatePath, 0o755);
 }
 
-export interface OrchestratorOpts {
-  changeName: string;
-  /** Absolute path to the project directory */
-  projectDir: string;
-  /**
-   * How many times to re-run the full test suite on a single assessment before
-   * declaring it failed. Useful for flaky test environments.
-   * Applies to modes 'fail2pass', 'start', 'continue', and 'assess'.
-   * Default: 1 (run once; no retry).
-   */
-  assessRetries: number;
-  /**
-   * When true, the sandbox directory is preserved after a max-attempt failure
-   * so the user can resume with mode='continue'.
-   */
-  keepSandbox: boolean;
+export interface OrchestratorOpts extends IterativeLoopOpts {
   /**
    * Required for mode='continue': path to an existing sandbox created by a
    * previous 'start' run (e.g. /tmp/factory-sandbox/my-feat-abc1234).
    */
   sandboxPath: string | null;
   /**
-   * Required for mode='assess': path to a patch file to apply before assessment.
+   * Required for mode='test': path to a patch file to apply before tests.
    * (e.g. /path/to/patch.diff)
    */
   patchPath: string | null;
   /**
-   * Additional file sections to strip from the extracted patch before it is
-   * applied to the host repo. The openspecDir/ glob is always prepended
-   * automatically — passing rules here adds to that, not replaces it.
-   */
-  patchExclude?: PatchExcludeRule[];
-  /**
-   * CLI-level LLM overrides (--model, --agent-model, --base-url, --agent-base-url).
-   *
-   * The orchestrator uses this to resolve the coder agent's model config via
-   * `resolveAgentLlmConfig('coder', 'coder', overrides)` and to pass overrides
-   * through to Mastra agents (results-judge, pr-summarizer, tests pipeline).
-   *
-   * When omitted, all agents fall back to env-var tier overrides then auto-discovery.
-   */
-  overrides: ModelOverrides;
-  /**
-   * Test Docker image tag (default: 'factory-test-<profileId>:latest').
-   *
-   * Override via --test-image CLI flag.
-   */
-  testImage: string;
-  /**
-   * Controls how the Results Judge handles assessment failures.
-   *
-   * - `'off'`    — Results Judge is disabled; the loop uses the generic feedback message (default).
-   * - `'prompt'` — On ambiguous spec detection, pause and ask the human to confirm/edit the
-   *               clarification before regenerating tests and continuing.
-   * - `'auto'`   — Fully autonomous: automatically append the Results Judge's proposed clarification
-   *               to specification.md and regenerate runner.spec.ts without human input.
-   *
-   * In both `'prompt'` and `'auto'` modes the Results Judge also produces a sanitized behavioral
-   * hint for genuine failures, giving the agent better feedback without leaking holdout tests.
-   */
-  resolveAmbiguity: 'off' | 'prompt' | 'auto';
-  /**
-   * Openspec directory name relative to repo root (e.g. 'openspec').
-   * Resolved by caller (e.g. agents CLI parseOpenspecDir).
-   */
-  openspecDir: string;
-  /**
-   * Project name prefix for sandbox directory names (e.g. 'crawlee-one').
-   * Resolved by caller (e.g. agents CLI parseProjectName from -p/--project or package.json).
-   */
-  projectName: string;
-  /**
    * Base directory where sandbox entries are created.
    */
   sandboxBaseDir: string;
-  /**
-   * When true, skip Leash and run OpenHands directly on the host.
-   * Isolation is filesystem-only (rsync sandbox). No Cedar enforcement.
-   * Default: false (Leash is enabled by default).
-   */
-  dangerousDebug: boolean;
-  /**
-   * Absolute path to a Cedar policy file for Leash.
-   *
-   * Defaults to leash-policy.cedar in src/orchestrator/.
-   * Ignored when dangerousDebug=true.
-   */
-  cedarPolicyPath: string;
-  /**
-   * Sandbox profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.stage for the
-   * staging container when tests.json does not specify build.dockerfile.
-   */
-  sandboxProfileId: SupportedSandboxProfileId;
-  /**
-   * Docker image for the coder container.
-   * Resolved from the sandbox profile (default: node-pnpm-python). Override via --coder-image.
-   * Ignored when dangerousDebug=true.
-   */
-  coderImage: string;
-  /**
-   * Remote target to push the feature branch to after a successful assessment.
-   * Accepts a Git URL (https://github.com/owner/repo.git), a GitHub slug (owner/repo),
-   * or a configured remote name (e.g. 'origin').
-   * When omitted, the branch is created locally but not pushed.
-   * A GITHUB_TOKEN env var is required when pushing via HTTPS to github.com.
-   */
-  push: string | null;
-  /**
-   * When true, open a Pull Request after pushing the feature branch.
-   * Requires `push` to be set and the appropriate provider token env var.
-   */
-  pr: boolean;
-  /**
-   * Git hosting provider to use for push URL resolution and PR creation.
-   *
-   * The required auth token is read from the corresponding env var (e.g. GITHUB_TOKEN).
-   */
-  gitProvider: GitProvider;
   /**
    * Content of the gate script to run after each OpenHands round. In leash mode the script is
    * written to sandboxBasePath/gate.sh and mounted read-only at /factory/gate.sh inside the
@@ -168,20 +57,6 @@ export interface OrchestratorOpts {
    * Resolved by the CLI: defaults to the gate.sh from the resolved sandbox profile when --gate-script is not set.
    */
   gateScript: string;
-  /**
-   * Test profile to use for the test runner.
-   *
-   * Resolved by the CLI: defaults to DEFAULT_TEST_PROFILE (vitest) when --test-profile is not set.
-   */
-  testProfile: TestProfile;
-  /**
-   * Content of the test script to write into the sandbox and bind-mount at
-   * /usr/local/bin/test.sh inside the Test Runner container (read-only).
-   *
-   * Always set — defaults to DEFAULT_TEST_SCRIPT (test-default.sh) when --test-script is not
-   * provided. Override via --test-script CLI flag (accepts a file path; content is read by CLI).
-   */
-  testScript: string;
   /**
    * Content of the startup script to run once before the agent loop begins.
    * Written to sandboxBasePath/startup.sh and mounted read-only at /factory/startup.sh
@@ -194,15 +69,6 @@ export interface OrchestratorOpts {
    * provided, the profile's installation script is used.
    */
   startupScript: string;
-  /** Max OpenHands iterations before giving up. Default: 10 */
-  maxAttempts: number;
-  /**
-   * Maximum number of inner loop rounds (agent → gate → feedback) per single outer attempt.
-   * Forwarded as FACTORY_INNER_ROUNDS to coder-start.sh.
-   *
-   * Resolved by the CLI: defaults to 5 when --inner-rounds is not set.
-   */
-  innerRounds: number;
   /**
    * Content of the agent setup script to write into the sandbox as `agent-start.sh`.
    * Mounted read-only at `/factory/agent-start.sh` inside the coder container and executed
@@ -231,35 +97,6 @@ export interface OrchestratorOpts {
    * the profile's stage script is used.
    */
   stageScript: string;
-  /**
-   * Extra environment variables to forward into the agent container (Leash mode)
-   * or inject into the host process env (--dangerous-debug mode).
-   *
-   * Parsed from --env KEY=VALUE flags and --env-file <path> by the CLI.
-   * Reserved factory variables (FACTORY_*, WORKSPACE_BASE, LLM_API_KEY, LLM_MODEL,
-   * LLM_PROVIDER, LLM_BASE_URL) are silently filtered out by the runner to prevent
-   * accidental override.
-   */
-  agentEnv: Record<string, string>;
-  /**
-   * Controls how agent stdout is parsed and displayed.
-   *
-   * - `'openhands'` (default) — parse OpenHands --json event stream; pretty-print
-   *   action events, thought blocks, and errors.
-   * - `'raw'` — stream lines as-is with an `[agent]` prefix; suitable for any
-   *   agent CLI that does not emit OpenHands-style JSON events.
-   */
-  agentLogFormat: 'openhands' | 'raw';
-}
-
-export interface OrchestratorResult {
-  success: boolean;
-  attempts: number;
-  /** Path to the sandbox (preserved when keepSandbox=true and !success) */
-  sandboxPath?: string;
-  /** Path to the winning patch.diff if success=true */
-  patchPath?: string;
-  message: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +154,7 @@ function withCleanupRegistry<T, R>(
 export const runFail2Pass = withCleanupRegistry(runFail2PassCore);
 export const runStart = withCleanupRegistry(runStartCore);
 export const runContinue = withCleanupRegistry(runContinueCore);
-export const runAssess = withCleanupRegistry(runAssessCore);
+export const runTests = withCleanupRegistry(runTestsCore);
 
 // ---------------------------------------------------------------------------
 // Mode 1: fail2pass
@@ -392,7 +229,7 @@ async function runFail2PassCore(
 
   try {
     const runId = extractRunId(sandbox.sandboxBasePath);
-    const result = await runAssessmentWithContainers({
+    const result = await runTeststWithContainers({
       sandboxProfileId,
       codePath: sandbox.codePath,
       projectDir,
@@ -493,7 +330,7 @@ async function runStartCore(
 // ---------------------------------------------------------------------------
 
 /**
- * Resumes an existing sandbox (created by a previous 'start' run that hit maxAttempts).
+ * Resumes an existing sandbox (created by a previous 'start' run that hit maxRuns).
  * Skips rsync and git init — uses the preserved sandbox as-is.
  */
 async function runContinueCore(
@@ -568,16 +405,16 @@ async function runContinueCore(
 }
 
 // ---------------------------------------------------------------------------
-// Mode 4: assess
+// Mode 4: test
 // ---------------------------------------------------------------------------
 
-type AssessOpts = Pick<
+type TestOpts = Pick<
   OrchestratorOpts,
   | 'sandboxProfileId'
   | 'changeName'
   | 'projectDir'
   | 'patchPath'
-  | 'assessRetries'
+  | 'testRetries'
   | 'openspecDir'
   | 'projectName'
   | 'sandboxBaseDir'
@@ -598,11 +435,11 @@ type AssessOpts = Pick<
 
 /**
  * Applies a candidate patch to a fresh sandbox and runs Mutual Verification.
- * If tests fail, retries up to assessRetries (useful for flaky environments).
+ * If tests fail, retries up to testRetries (useful for flaky environments).
  * If tests pass, applies the patch to the host repo and opens a PR.
  */
-async function runAssessCore(
-  opts: AssessOpts,
+async function runTestsCore(
+  opts: TestOpts,
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
   const {
@@ -610,7 +447,7 @@ async function runAssessCore(
     changeName,
     projectDir,
     patchPath,
-    assessRetries,
+    testRetries,
     openspecDir,
     projectName,
     sandboxBaseDir,
@@ -630,13 +467,13 @@ async function runAssessCore(
   } = opts;
 
   if (!patchPath) {
-    throw new Error("mode='assess' requires --patch pointing to a patch file.");
+    throw new Error("mode='test' requires --patch pointing to a patch file.");
   }
   if (!existsSync(patchPath)) {
     throw new Error(`Patch file not found: ${patchPath}`);
   }
 
-  console.log(`\n[orchestrator] MODE: assess — ${changeName}`);
+  console.log(`\n[orchestrator] MODE: test — ${changeName}`);
   console.log(`[orchestrator] Patch: ${patchPath}`);
 
   const sandbox = createSandbox({
@@ -667,13 +504,13 @@ async function runAssessCore(
   let attempts = 0;
 
   try {
-    while (attempts < assessRetries) {
+    while (attempts < testRetries) {
       attempts++;
-      console.log(`\n[orchestrator] Assessment attempt ${attempts}/${assessRetries}`);
+      console.log(`\n[orchestrator] Test attempt ${attempts}/${testRetries}`);
 
       const runId = `${extractRunId(sandbox.sandboxBasePath)}-a${attempts}`;
 
-      const result = await runAssessmentWithContainers({
+      const result = await runTeststWithContainers({
         sandboxProfileId,
         codePath: sandbox.codePath,
         projectDir,
@@ -699,7 +536,7 @@ async function runAssessCore(
       }
 
       if (result.passed) {
-        console.log('\n[orchestrator] ✓ ASSESSMENT PASSED');
+        console.log('\n[orchestrator] ✓ ALL TESTS PASSED');
         await applyPatchToHost({
           codePath: sandbox.codePath,
           projectDir,
@@ -719,7 +556,7 @@ async function runAssessCore(
         };
       }
 
-      console.log(`\n[orchestrator] Assessment attempt ${attempts} FAILED`);
+      console.log(`\n[orchestrator] Test attempt ${attempts} FAILED`);
 
       if (resolveAmbiguity !== 'off' && result.testSuites) {
         const resultsJudgeResult = await runResultsJudgeForFailure({
@@ -736,9 +573,9 @@ async function runAssessCore(
 
         if (resultsJudgeResult.ambiguityResolved) {
           // Spec updated and tests regenerated — retry the same patch against the new tests.
-          // Don't count this attempt against assessRetries since the spec was at fault.
+          // Don't count this attempt against testRetries since the spec was at fault.
           console.log(
-            '[orchestrator] Spec ambiguity resolved — retrying assessment with updated tests.',
+            '[orchestrator] Spec ambiguity resolved — retrying tests with updated tests.',
           );
           attempts--;
         }
@@ -749,7 +586,7 @@ async function runAssessCore(
       success: false,
       attempts,
       sandboxPath: sandbox.sandboxBasePath,
-      message: `Assessment failed after ${assessRetries} attempt(s). Last stderr:\n${lastStderr}`,
+      message: `Tests failed after ${testRetries} attempt(s). Last stderr:\n${lastStderr}`,
     };
   } finally {
     destroySandbox(sandbox.sandboxBasePath);

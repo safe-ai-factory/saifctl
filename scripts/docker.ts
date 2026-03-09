@@ -119,7 +119,7 @@ const testBuildCommand = defineCommand({
     console.log('Test image(s) built successfully.');
     if (!buildAll) {
       const tag = args['test-image']?.trim() || `factory-test-${profilesToBuild[0]!.id}:latest`;
-      console.log(`Use it with: pnpm agents feat:run --test-image ${tag}`);
+      console.log(`Use it with: npx saif feat run --test-image ${tag}`);
     }
   },
 });
@@ -163,7 +163,7 @@ const coderBaseBuildCommand = defineCommand({
     console.log('Extend it in your own Dockerfile:');
     console.log(`  FROM ${tag}`);
     console.log('  RUN <install your coder agent here>');
-    console.log(`Use it with: pnpm agents feat:run --coder-image <your-image>`);
+    console.log(`Use it with: npx saif feat run --coder-image <your-image>`);
   },
 });
 
@@ -227,8 +227,8 @@ const coderBuildCommand = defineCommand({
     if (!buildAll) {
       const profile = profilesToBuild[0]!;
       const tag = args['coder-image']?.trim() || profile.coderImageTag;
-      console.log(`Use it with: pnpm agents feat:run --profile ${profile.id}`);
-      console.log(`Override: pnpm agents feat:run --coder-image ${tag}`);
+      console.log(`Use it with: saif feat run --profile ${profile.id}`);
+      console.log(`Override: saif feat run --coder-image ${tag}`);
     }
   },
 });

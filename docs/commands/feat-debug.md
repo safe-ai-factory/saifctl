@@ -67,5 +67,6 @@ saif feat debug -n add-login --startup-script ./scripts/factory-startup.sh
 ## See also
 
 - [feat design](feat-design.md) — Generate specs and tests (run first)
+- [feat run](feat-run.md) — Implement specs with the agent loop
 - [feat design-fail2pass](feat-design-fail2pass.md) — Validate tests against main
 - [Commands](README.md) — Full workflow

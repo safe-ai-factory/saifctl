@@ -14,10 +14,10 @@ export interface CreateNetworkOpts {
  *
  * How runId is built:
  * - runId = {sandboxSuffix}-r{attempts} (iterative loop: feat:start, feat:continue)
- *   or {sandboxSuffix}-a{attempts} (assess mode)
+ *   or {sandboxSuffix}-a{attempts} (test mode)
  * - sandboxSuffix comes from the last segment of the sandbox path, e.g. xcc87d8
  *   from /tmp/factory-sandbox/agents-greet-cmd-xcc87d8
- * - attempts is the loop counter (1..maxAttempts) within a single process
+ * - attempts is the run counter (1..maxRuns) within a single process
  *
  * On network name conflict, we delete old network and create new one because:
  * - feat:continue starts a fresh process; the first iteration uses attempts=1,

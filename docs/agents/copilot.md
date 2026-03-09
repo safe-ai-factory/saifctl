@@ -2,7 +2,7 @@
 
 [GitHub Copilot CLI](https://github.com/github/copilot-cli) routes AI requests through GitHub's API. Requires an active Copilot subscription.
 
-**Usage:** `pnpm agents feat:run --agent copilot`
+**Usage:** `saif feat run --agent copilot`
 
 ## How we call it
 

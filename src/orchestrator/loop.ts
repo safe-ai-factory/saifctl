@@ -17,15 +17,15 @@ import { generatePRSummary } from '../git/agents/pr-summarizer.js';
 import type { GitProvider } from '../git/types.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { runResultsJudge } from '../mastra/agents/results-judge.js';
+import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/docker.js';
 import { runAgent } from './agent-runner.js';
 import {
-  runAssessmentWithContainers,
+  runTeststWithContainers,
   type StartTestRunnerContainerOpts,
   type VitestSuiteResult,
 } from './docker/test-runner.js';
-import type { OrchestratorOpts, OrchestratorResult } from './modes.js';
 import {
   destroySandbox,
   extractPatch,
@@ -37,16 +37,167 @@ import {
 // Shared: Iterative Loop (used by 'start' and 'continue')
 // ---------------------------------------------------------------------------
 
+/**
+ * Options used by runIterativeLoop (modes 'start' and 'continue').
+ */
+export interface IterativeLoopOpts {
+  /** Sandbox profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.stage for the staging container when tests.json does not specify build.dockerfile. */
+  sandboxProfileId: SupportedSandboxProfileId;
+  changeName: string;
+  /** Absolute path to the project directory */
+  projectDir: string;
+  /** Max full pipeline runs before giving up. Default: 5 */
+  maxRuns: number;
+  /**
+   * When true, the sandbox directory is preserved after a max-attempt failure
+   * so the user can resume with mode='continue'.
+   */
+  keepSandbox: boolean;
+  /**
+   * CLI-level LLM overrides (--model, --agent-model, --base-url, --agent-base-url).
+   *
+   * The orchestrator uses this to resolve the coder agent's model config via
+   * `resolveAgentLlmConfig('coder', 'coder', overrides)` and to pass overrides
+   * through to Mastra agents (results-judge, pr-summarizer, tests pipeline).
+   *
+   * When omitted, all agents fall back to env-var tier overrides then auto-discovery.
+   */
+  overrides: ModelOverrides;
+  /**
+   * Openspec directory name relative to repo root (e.g. 'openspec').
+   * Resolved by caller (e.g. agents CLI parseOpenspecDir).
+   */
+  openspecDir: string;
+  /**
+   * Project name prefix for sandbox directory names (e.g. 'crawlee-one').
+   * Resolved by caller (e.g. agents CLI parseProjectName from -p/--project or package.json).
+   */
+  projectName: string;
+  /**
+   * Test Docker image tag (default: 'factory-test-<profileId>:latest').
+   *
+   * Override via --test-image CLI flag.
+   */
+  testImage: string;
+  /**
+   * Decides action when tests fail due to ambiguous specs:
+   * - `'off'`    — No action, failing tests are NOT analysed for ambiguity.
+   * - `'prompt'` — Runs ambiguity analysis. If ambiguous, pause and ask the human to confirm/edit the clarification before regenerating tests and continuing.
+   * - `'ai'`     — Runs ambiguity analysis. If ambiguous, automatically append AI agent's proposed clarification to specification.md and regenerate runner.spec.ts without human input.
+   */
+  resolveAmbiguity: 'off' | 'prompt' | 'ai';
+  /**
+   * When true, skip Leash and run OpenHands directly on the host.
+   * Isolation is filesystem-only (rsync sandbox). No Cedar enforcement.
+   * Default: false (Leash is enabled by default).
+   */
+  dangerousDebug: boolean;
+  /**
+   * Absolute path to a Cedar policy file for Leash.
+   *
+   * Defaults to leash-policy.cedar in src/orchestrator/.
+   * Ignored when dangerousDebug=true.
+   */
+  cedarPolicyPath: string;
+  /**
+   * Docker image for the coder container.
+   * Resolved from the sandbox profile (default: node-pnpm-python). Override via --coder-image.
+   * Ignored when dangerousDebug=true.
+   */
+  coderImage: string;
+  /**
+   * Remote target to push the feature branch to after all tests pass.
+   * Accepts a Git URL (https://github.com/owner/repo.git), a GitHub slug (owner/repo),
+   * or a configured remote name (e.g. 'origin').
+   * When omitted, the branch is created locally but not pushed.
+   * A GITHUB_TOKEN env var is required when pushing via HTTPS to github.com.
+   */
+  push: string | null;
+  /**
+   * When true, open a Pull Request after pushing the feature branch.
+   * Requires `push` to be set and the appropriate provider token env var.
+   */
+  pr: boolean;
+  /**
+   * Git hosting provider to use for push URL resolution and PR creation.
+   *
+   * The required auth token is read from the corresponding env var (e.g. GITHUB_TOKEN).
+   */
+  gitProvider: GitProvider;
+  /**
+   * Maximum number of gate retries (agent → gate → feedback) per run.
+   * Forwarded as FACTORY_GATE_RETRIES to coder-start.sh.
+   *
+   * Resolved by the CLI: defaults to 10 when --gate-retries is not set.
+   */
+  gateRetries: number;
+  /**
+   * Extra environment variables to forward into the agent container (Leash mode)
+   * or inject into the host process env (--dangerous-debug mode).
+   *
+   * Parsed from --env KEY=VALUE flags and --env-file <path> by the CLI.
+   * Reserved factory variables (FACTORY_*, WORKSPACE_BASE, LLM_API_KEY, LLM_MODEL,
+   * LLM_PROVIDER, LLM_BASE_URL) are silently filtered out by the runner to prevent
+   * accidental override.
+   */
+  agentEnv: Record<string, string>;
+  /**
+   * Controls how agent stdout is parsed and displayed.
+   *
+   * - `'openhands'` (default) — parse OpenHands --json event stream; pretty-print
+   *   action events, thought blocks, and errors.
+   * - `'raw'` — stream lines as-is with an `[agent]` prefix; suitable for any
+   *   agent CLI that does not emit OpenHands-style JSON events.
+   */
+  agentLogFormat: 'openhands' | 'raw';
+  /**
+   * Content of the test script to write into the sandbox and bind-mount at
+   * /usr/local/bin/test.sh inside the Test Runner container (read-only).
+   *
+   * Always set — defaults to DEFAULT_TEST_SCRIPT (test-default.sh) when --test-script is not
+   * provided. Override via --test-script CLI flag (accepts a file path; content is read by CLI).
+   */
+  testScript: string;
+  /**
+   * Test profile to use for the test runner.
+   *
+   * Resolved by the CLI: defaults to DEFAULT_TEST_PROFILE (vitest) when --test-profile is not set.
+   */
+  testProfile: TestProfile;
+  /**
+   * How many times to re-run the full test suite on failed tests. Useful for flaky test environments.
+   * Applies to modes 'fail2pass', 'start', 'continue', and 'test'.
+   * Default: 1 (run once; no retries).
+   */
+  testRetries: number;
+  /**
+   * Additional file sections to strip from the extracted patch before it is
+   * applied to the host repo. The openspecDir/ glob is always prepended
+   * automatically — passing rules here adds to that, not replaces it.
+   */
+  patchExclude?: PatchExcludeRule[];
+}
+
+export interface OrchestratorResult {
+  success: boolean;
+  attempts: number;
+  /** Path to the sandbox (preserved when keepSandbox=true and !success) */
+  sandboxPath?: string;
+  /** Path to the winning patch.diff if success=true */
+  patchPath?: string;
+  message: string;
+}
+
 export async function runIterativeLoop(
   sandbox: SandboxPaths,
-  opts: OrchestratorOpts & { openspecDir: string; registry: CleanupRegistry },
+  opts: IterativeLoopOpts & { registry: CleanupRegistry },
 ): Promise<OrchestratorResult> {
   const {
     sandboxProfileId,
     changeName,
     projectDir,
-    maxAttempts = 10,
-    keepSandbox = false,
+    maxRuns,
+    keepSandbox,
     overrides,
     openspecDir,
     projectName,
@@ -59,11 +210,12 @@ export async function runIterativeLoop(
     push,
     pr,
     gitProvider,
-    innerRounds,
+    gateRetries,
     agentEnv,
     agentLogFormat,
     testScript,
     testProfile,
+    testRetries,
   } = opts;
 
   // Resolve the coder agent's LLM config once per loop.
@@ -98,9 +250,9 @@ export async function runIterativeLoop(
   let sandboxDestroyed = false;
 
   try {
-    while (attempts < maxAttempts) {
+    while (attempts < maxRuns) {
       attempts++;
-      console.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxAttempts} =====`);
+      console.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} =====`);
 
       // 1. Run agent (fresh context every iteration — Ralph Wiggum)
       await runAgent({
@@ -114,7 +266,7 @@ export async function runIterativeLoop(
         dangerousDebug,
         cedarPolicyPath,
         coderImage,
-        innerRounds,
+        gateRetries,
         startupPath: sandbox.startupPath,
         agentStartPath: sandbox.agentStartPath,
         agentPath: sandbox.agentPath,
@@ -129,9 +281,7 @@ export async function runIterativeLoop(
       );
 
       if (!patchContent.trim()) {
-        console.warn(
-          '[orchestrator] OpenHands produced no changes (empty patch). Skipping assessment.',
-        );
+        console.warn('[orchestrator] OpenHands produced no changes (empty patch). Skipping tests.');
         errorFeedback =
           'No changes were made. Please implement the feature as described in the plan.';
         continue;
@@ -139,124 +289,130 @@ export async function runIterativeLoop(
 
       console.log(`[orchestrator] Extracted patch (${patchContent.length} bytes)`);
 
-      // Re-apply the patch for assessment (extractPatch resets to base state).
+      // Re-apply the patch for tests (extractPatch resets to base state).
       // patchPath is outside codePath so git clean cannot have deleted it.
       execSync(`git apply "${patchPath}"`, { cwd: sandbox.codePath });
 
-      // 3. Mutual Verification
-      const runId = `${extractRunId(sandbox.sandboxBasePath)}-r${attempts}`;
+      // 3. Mutual Verification (with test retries for flaky environments)
+      let testAttempts = 0;
+      let lastRunId = '';
+      let lastJudgeResult: Awaited<ReturnType<typeof runResultsJudgeForFailure>> | undefined;
 
-      const result = await runAssessmentWithContainers({
-        sandboxProfileId,
-        codePath: sandbox.codePath,
-        projectDir,
-        changeName,
-        projectName,
-        catalog,
-        testRunnerOpts,
-        registry,
-        testImage,
-        runId,
-        startupPath: sandbox.startupPath,
-        stagePath: sandbox.stagePath,
-        reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
-      });
-
-      if (result.runnerError) {
-        throw new Error(
-          `Test runner error on attempt ${attempts}: ${result.runnerError}\n` +
-            `Check that runner.spec.ts and tests.json are present and valid.\n` +
-            `Stderr:\n${result.stderr}`,
+      while (testAttempts < testRetries) {
+        testAttempts++;
+        lastRunId = `${extractRunId(sandbox.sandboxBasePath)}-r${attempts}-t${testAttempts}`;
+        console.log(
+          `\n[orchestrator] Test attempt ${testAttempts}/${testRetries} (outer attempt ${attempts}/${maxRuns})`,
         );
-      }
 
-      if (result.passed) {
-        // 4. Success path
-        console.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
-        await applyPatchToHost({
+        const result = await runTeststWithContainers({
+          sandboxProfileId,
           codePath: sandbox.codePath,
           projectDir,
           changeName,
-          runId,
-          push,
-          pr,
-          gitProvider,
-          openspecDir,
-          overrides,
-        });
-        destroySandbox(sandbox.sandboxBasePath);
-        sandboxDestroyed = true;
-
-        return {
-          success: true,
-          attempts,
-          message: `Feature implemented successfully in ${attempts} attempt(s).`,
-        };
-      }
-
-      // 5. Failure path - Check for spec ambiguity.
-      //    If spec is ambiguous, the agent CANNOT faithfully completed the task,
-      //    to match the hidden tests. So we either:
-      //    - Ask the human to confirm the clarification.
-      //    - Ask smart AI to automatically assess.
-      //    In both cases, we update the spec and regenerate tests.
-      console.log(`\n[orchestrator] Attempt ${attempts} FAILED.`);
-
-      // Run the Results Judge when enabled (prompt or auto mode).
-      // We intentionally do NOT feed raw test runner output back to the agent:
-      // the test runner runs the full suite (including hidden tests), so leaking
-      // its stdout would reveal holdout details and let the agent fake the impl.
-      // The Results Judge sanitizes the failure reason before it reaches OpenHands.
-      if (resolveAmbiguity !== 'off' && result.testSuites) {
-        const resultsJudgeResult = await runResultsJudgeForFailure({
           projectName,
-          projectDir,
-          changeName,
-          openspecDir,
-          patchPath,
-          testSuites: result.testSuites,
-          resolveAmbiguity,
-          testProfile,
-          overrides,
+          catalog,
+          testRunnerOpts,
+          registry,
+          testImage,
+          runId: lastRunId,
+          startupPath: sandbox.startupPath,
+          stagePath: sandbox.stagePath,
+          reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
         });
-
-        if (resultsJudgeResult.ambiguityResolved) {
-          // Spec was updated and tests regenerated — reset attempt counter so
-          // the agent gets a fresh start with the improved spec.
-          console.log(
-            '[orchestrator] Spec ambiguity resolved — resetting attempt counter and continuing.',
+        if (result.runnerError) {
+          throw new Error(
+            `Test runner error on attempt ${attempts}: ${result.runnerError}\n` +
+              `Check that runner.spec.ts and tests.json are present and valid.\n` +
+              `Stderr:\n${result.stderr}`,
           );
-          attempts = 0;
-          errorFeedback = '';
-        } else {
-          // Genuine failure: use the Results Judge's sanitized hint if available,
-          // otherwise fall back to the generic message.
-          // NOTE: Never mention tests - the agent must not think it can fix the failure by changing tests
-          //       that's why the error message is framed as something "external" that's out of reach for the agent.
-          const base = 'An external service attempted to use this project and failed. ';
-          errorFeedback = resultsJudgeResult.sanitizedHint
-            ? base + resultsJudgeResult.sanitizedHint
-            : base + 'Re-read the plan and specification, and fix the implementation.';
         }
-      } else {
-        // Results Judge disabled — use a message that doesn't hint at test internals.
-        errorFeedback =
-          'An external service attempted to use this project and failed. Re-read the plan and specification, and fix the implementation.';
-        console.log('[orchestrator] Feedback withheld (holdout protection).');
+
+        if (result.passed) {
+          // 4. Success path
+          console.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
+          await applyPatchToHost({
+            codePath: sandbox.codePath,
+            projectDir,
+            changeName,
+            runId: lastRunId,
+            push,
+            pr,
+            gitProvider,
+            openspecDir,
+            overrides,
+          });
+          destroySandbox(sandbox.sandboxBasePath);
+          sandboxDestroyed = true;
+
+          return {
+            success: true,
+            attempts,
+            message: `Feature implemented successfully in ${attempts} attempt(s).`,
+          };
+        }
+
+        // 5. Failure path - Check for spec ambiguity.
+        //    If spec is ambiguous, the agent CANNOT faithfully completed the task
+        //    to match the hidden tests.
+        //    We use AI agent to determine if the spec is ambiguous:
+        //    - yes, we ask the human (or AI) for clarification and update specs and tests.
+        //    - no, we treat errors as genuine code errors and continue the loop.
+        if (resolveAmbiguity !== 'off' && result.testSuites) {
+          const resultsJudgeResult = await runResultsJudgeForFailure({
+            projectName,
+            projectDir,
+            changeName,
+            openspecDir,
+            patchPath,
+            testSuites: result.testSuites,
+            resolveAmbiguity,
+            testProfile,
+            overrides,
+          });
+
+          if (resultsJudgeResult.ambiguityResolved) {
+            // Spec was updated and tests regenerated — retry tests with updated suite.
+            // Don't count this attempt against testRetries since the spec was at fault.
+            console.log(
+              '[orchestrator] Spec ambiguity resolved — retrying tests with updated tests.',
+            );
+            testAttempts--;
+          } else {
+            lastJudgeResult = resultsJudgeResult;
+          }
+        }
       }
 
-      // Reset sandbox to base state for next OpenHands run
+      // Exhausted test retries — treat as genunine failure and send feedback to the agent.
+      // NOTE: Never mention tests - That's why we return the "sanitizedHint" - it's
+      //       AI summarisation of the error(s) that avoids talking about the specifics
+      //       of what was assessed.
+      //       The error message is framed as something "external" that's out of reach for the agent
+      //       (e.g. "An external service attempted to use this project and failed"),
+      //       so the agent doesn't think it can fix the failure by changing tests.
+      const base = 'An external service attempted to use this project and failed. ';
+      const hint =
+        lastJudgeResult?.sanitizedHint ??
+        'Re-read the plan and specification, and fix the implementation.';
+      errorFeedback = base + hint;
+
+      console.log(
+        `\n[orchestrator] Attempt ${attempts} FAILED (tests failed after ${testAttempts} run(s)).`,
+      );
+
+      // Reset sandbox to base state for next coder agent run
       execSync('git reset --hard HEAD', { cwd: sandbox.codePath });
       execSync('git clean -fd', { cwd: sandbox.codePath });
     }
 
     // Max attempts reached
-    console.error(`\n[orchestrator] Max attempts (${maxAttempts}) reached without success.`);
+    console.error(`\n[orchestrator] Max runs (${maxRuns}) reached without success.`);
 
     if (keepSandbox) {
       console.log(`[orchestrator] Sandbox preserved at: ${sandbox.sandboxBasePath}`);
       console.log(
-        `[orchestrator] Resume with: pnpm agents feat:continue --sandbox-path ${sandbox.sandboxBasePath}`,
+        `[orchestrator] Resume with: pnpm saif feat continue --sandbox-path ${sandbox.sandboxBasePath}`,
       );
       sandboxDestroyed = true; // Don't destroy in finally
     }
@@ -265,7 +421,7 @@ export async function runIterativeLoop(
       success: false,
       attempts,
       sandboxPath: keepSandbox ? sandbox.sandboxBasePath : undefined,
-      message: `Failed after ${maxAttempts} attempts. Last error:\n${errorFeedback}`,
+      message: `Failed after ${maxRuns} runs. Last error:\n${errorFeedback}`,
     };
   } finally {
     if (!sandboxDestroyed) {
@@ -275,7 +431,7 @@ export async function runIterativeLoop(
 }
 
 // ---------------------------------------------------------------------------
-// Results Judge: judge ambiguity vs genuine failure on assessment failures
+// Results Judge: judge ambiguity vs genuine failure on tests failures
 // ---------------------------------------------------------------------------
 
 interface RunResultsJudgeForFailureOpts {
@@ -288,7 +444,12 @@ interface RunResultsJudgeForFailureOpts {
   /** Content of the extracted patch for this attempt */
   patchPath: string;
   testSuites: VitestSuiteResult[];
-  resolveAmbiguity: 'prompt' | 'auto';
+  /**
+   * Decides action when tests fail due to ambiguous specs:
+   * - `ai`: auto-append clarification to specs, regenerate tests, continue.
+   * - `prompt`: pause and ask human to confirm/edit proposed clarification before updating.
+   */
+  resolveAmbiguity: 'prompt' | 'ai';
   /** CLI-level model overrides — forwarded to results-judge and tests pipeline. */
   overrides: ModelOverrides;
 }
@@ -304,7 +465,7 @@ interface ResultsJudgeForFailureResult {
  * Resolve how to continue after a failing test suite. Test failures may
  * be actually caused by ambiguous specs.
  *
- * In `auto` mode: if the spec is ambiguous, appends the proposed clarification
+ * In `ai` mode: if the spec is ambiguous, appends the proposed clarification
  * to specification.md and regenerates runner.spec.ts without human input.
  *
  * In `prompt` mode: shows the proposed clarification to the human and asks for
@@ -726,7 +887,7 @@ interface GetTestRunnerOptsArgs {
  * Returns test runner container opts for the change.
  *
  * Returns `testsDir` (the tests/ directory for the change), `reportDir` (sandbox root,
- * so that `runAssessment` can find results.xml at `{sandboxRoot}/results.xml`), and
+ * so that `runTests` can find results.xml at `{sandboxRoot}/results.xml`), and
  * `testScriptPath` (always set — written from DEFAULT_TEST_SCRIPT or a custom override).
  *
  * Spec files are expected to already exist — generated by `saif feat design`.

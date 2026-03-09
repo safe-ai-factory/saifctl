@@ -101,6 +101,7 @@ saif feat design-tests \
 - [feat design](feat-design.md) — Full design flow (spec gen + tests design + tests validation)
 - [feat design-specs](feat-design-specs.md) — Spec gen only (first step)
 - [feat design-fail2pass](feat-design-fail2pass.md) — Tests validation only (third step)
+- [feat run](feat-run.md) — Implement specs with the agent loop (run after design)
 - [feat new](feat-new.md) — Create a new change
 - [Test profiles](../test-profiles.md)
 - [Indexer](../indexer/README.md)

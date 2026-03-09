@@ -115,6 +115,7 @@ To run only spec + test generation without Docker, use `feat design-specs` and `
 ## See also
 
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
+- [feat run](feat-run.md) — Implement specs with the agent loop (run after design)
 - [feat design-specs](feat-design-specs.md) — Spec gen only (first step; use when going step by step)
 - [feat design-tests](feat-design-tests.md) — Generate tests from existing specs (second step of design workflow)
 - [feat design-fail2pass](feat-design-fail2pass.md) — Verify tests only (third step)

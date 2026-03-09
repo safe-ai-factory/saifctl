@@ -2,7 +2,7 @@
 
 [Codex](https://github.com/openai/codex) is OpenAI's CLI coding agent. Uses the `exec` subcommand for headless, non-interactive runs.
 
-**Usage:** `pnpm agents feat:run --agent codex`
+**Usage:** `saif feat run --agent codex`
 
 ## How we call it
 

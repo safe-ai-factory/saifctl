@@ -19,7 +19,7 @@ This guide walks you through pushing to a branch, a URL, or your default remote 
 The simplest flow: push to `origin` and open a PR when the agent succeeds.
 
 ```bash
-pnpm agents feat:run --push origin --pr
+saif feat run --push origin --pr
 ```
 
 If you’re using GitHub, set `GITHUB_TOKEN` in your environment. The factory will push the feature branch when tests pass and create the PR automatically.
@@ -41,7 +41,7 @@ If you’re using GitHub, set `GITHUB_TOKEN` in your environment. The factory wi
 If you typically push to `origin`:
 
 ```bash
-pnpm agents feat:run --push origin --pr
+saif feat run --push origin --pr
 ```
 
 The factory resolves `origin` via `git remote get-url origin` and uses that URL.
@@ -52,19 +52,19 @@ Provider-specific slugs are concise and easy to read:
 
 ```bash
 # GitHub
-pnpm agents feat:run --push owner/repo --pr
+saif feat run --push owner/repo --pr
 
 # GitLab (supports nested paths: group/subgroup/repo)
-pnpm agents feat:run --push group/subgroup/repo --pr --git-provider gitlab
+saif feat run --push group/subgroup/repo --pr --git-provider gitlab
 
 # Bitbucket (workspace/repo)
-pnpm agents feat:run --push workspace/repo --pr --git-provider bitbucket
+saif feat run --push workspace/repo --pr --git-provider bitbucket
 
 # Azure Repos (org/project/repo — three parts)
-pnpm agents feat:run --push myorg/myproject/myrepo --pr --git-provider azure
+saif feat run --push myorg/myproject/myrepo --pr --git-provider azure
 
 # Gitea
-pnpm agents feat:run --push owner/repo --pr --git-provider gitea
+saif feat run --push owner/repo --pr --git-provider gitea
 ```
 
 ### Using a Full URL
@@ -72,7 +72,7 @@ pnpm agents feat:run --push owner/repo --pr --git-provider gitea
 For forks, mirrors, or non-default remotes:
 
 ```bash
-pnpm agents feat:run --push https://github.com/your-org/your-repo.git --pr
+saif feat run --push https://github.com/your-org/your-repo.git --pr
 ```
 
 HTTPS URLs work with token-based auth. SSH URLs (`git@github.com:owner/repo.git`) are passed through unchanged — use your SSH key as usual.
@@ -95,7 +95,7 @@ Each provider reads its token from environment variables. Set the one that match
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
-pnpm agents feat:run --push origin --pr
+saif feat run --push origin --pr
 ```
 
 ### Example: GitLab (self-hosted)
@@ -103,7 +103,7 @@ pnpm agents feat:run --push origin --pr
 ```bash
 export GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
 export GITLAB_URL=https://gitlab.mycompany.com
-pnpm agents feat:run --push group/repo --pr --git-provider gitlab
+saif feat run --push group/repo --pr --git-provider gitlab
 ```
 
 ### Example: Bitbucket
@@ -111,14 +111,14 @@ pnpm agents feat:run --push group/repo --pr --git-provider gitlab
 ```bash
 export BITBUCKET_TOKEN=your-token
 export BITBUCKET_USERNAME=your-username
-pnpm agents feat:run --push workspace/repo --pr --git-provider bitbucket
+saif feat run --push workspace/repo --pr --git-provider bitbucket
 ```
 
 ### Example: Azure Repos
 
 ```bash
 export AZURE_DEVOPS_TOKEN=your-pat
-pnpm agents feat:run --push org/project/repo --pr --git-provider azure
+saif feat run --push org/project/repo --pr --git-provider azure
 ```
 
 ### Example: Gitea (self-hosted)
@@ -127,7 +127,7 @@ pnpm agents feat:run --push org/project/repo --pr --git-provider azure
 export GITEA_TOKEN=your-token
 export GITEA_USERNAME=your-username
 export GITEA_URL=https://gitea.mycompany.com
-pnpm agents feat:run --push owner/repo --pr --git-provider gitea
+saif feat run --push owner/repo --pr --git-provider gitea
 ```
 
 ---
@@ -137,7 +137,7 @@ pnpm agents feat:run --push owner/repo --pr --git-provider gitea
 To push the branch only (no PR):
 
 ```bash
-pnpm agents feat:run --push origin
+saif feat run --push origin
 ```
 
 Omit `--pr`. The branch is pushed; you create the PR manually in the UI or with `gh pr create`.
@@ -150,11 +150,11 @@ Omit `--pr`. The branch is pushed; you create the PR manually in the UI or with 
 
 | Command         | When push/PR happens                       |
 | --------------- | ------------------------------------------ |
-| `feat:run`      | After agent succeeds and all tests pass    |
+| `saif feat run` | After agent succeeds and all tests pass    |
 | `feat:continue` | After resume completes successfully        |
-| `feat:assess`   | After the candidate patch passes all tests |
+| `feat:test`     | After the candidate patch passes all tests |
 
-Push and PR happen at the end of a successful run. If the agent hits `--max-attempts` or you interrupt, nothing is pushed.
+Push and PR happen at the end of a successful run. If the agent hits `--max-runs` or you interrupt, nothing is pushed.
 
 ---
 
@@ -172,7 +172,7 @@ Push and PR happen at the end of a successful run. If the agent hits `--max-atte
 You passed `--pr` without `--push`. Always use both:
 
 ```bash
-pnpm agents feat:run --push origin --pr
+saif feat run --push origin --pr
 ```
 
 ### Push fails with 401 or 403
@@ -185,7 +185,7 @@ pnpm agents feat:run --push origin --pr
 The default provider is `github`. For others, set `--git-provider`:
 
 ```bash
-pnpm agents feat:run --push origin --pr --git-provider gitlab
+saif feat run --push origin --pr --git-provider gitlab
 ```
 
 ### Azure slug format
@@ -194,7 +194,7 @@ Azure Repos uses three segments: `org/project/repo`. GitHub-style `owner/repo` w
 
 ```bash
 # Correct for Azure
-pnpm agents feat:run --push myorg/myproject/myrepo --pr --git-provider azure
+saif feat run --push myorg/myproject/myrepo --pr --git-provider azure
 ```
 
 ---

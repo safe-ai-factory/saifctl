@@ -8,6 +8,7 @@
  *   design-tests      Generate tests from existing specs only (second step of design).
  *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
  *   design            Generate specs, tests, and validate the tests (full design workflow)
+ *   run               Start an agent to implement the specs. Runs until it passes your tests.
  *   debug             Spin up staging container only, stream logs (Ctrl+C to stop)
  *   Alias: saif feature
  */
@@ -30,26 +31,40 @@ import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import { DEFAULT_INDEXER_PROFILE } from '../../indexer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
-import { runDebug, runFail2Pass } from '../../orchestrator/modes.js';
+import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
 import { readSandboxGateScript } from '../../sandbox-profiles/index.js';
 import {
+  type FeatRunArgs,
   getFeatNameFromArgs,
   getFeatNameOrPrompt,
   type OrchestratorArgs,
+  parseAgentEnv,
+  parseAgentLogFormat,
+  parseAgentProfile,
   parseAgentScripts,
+  parseCedarPolicyPath,
+  parseCoderImage,
+  parseDangerousDebug,
   parseDesignerProfile,
+  parseGateRetries,
   parseGateScript,
+  parseGitProvider,
   parseIndexerProfile,
+  parseMaxRuns,
   parseModelOverrides,
   parseOpenspecDir,
+  parsePr,
   parseProjectDir,
+  parsePush,
+  parseResolveAmbiguity,
   parseSandboxBaseDir,
   parseSandboxProfile,
   parseStageScript,
   parseStartupScript,
   parseTestImage,
   parseTestProfile,
+  parseTestRetries,
   parseTestScript,
   resolveProjectName,
 } from '../utils.js';
@@ -128,8 +143,8 @@ const testImageArg = {
   description: 'Test runner Docker image tag (default: factory-test-<profile>:latest).',
 };
 
-// Assessment-only args — used by design-fail2pass, assess (staging + test runner, no coder agent)
-const featAssessmentArgs = {
+// Tests-only args — used by design-fail2pass, test (staging + test runner, no coder agent)
+const featTestsArgs = {
   'sandbox-base-dir': sandboxBaseDirArg,
   profile: profileArg,
   'test-script': testScriptArg,
@@ -159,10 +174,74 @@ const featAgentArgs = {
   },
 };
 
-// Full orchestrator args — featAssessmentArgs + featAgentArgs. Used by run, continue when migrated.
+// Full orchestrator args — featTestsArgs + featAgentArgs. Used by run, continue when migrated.
 export const featOrchestratorArgs = {
-  ...featAssessmentArgs,
+  ...featTestsArgs,
   ...featAgentArgs,
+};
+
+// Run-specific args (feat run)
+const featRunExtraArgs = {
+  'max-runs': {
+    type: 'string' as const,
+    description: 'Max full pipeline runs before giving up (default: 5).',
+  },
+  'keep-sandbox': {
+    type: 'boolean' as const,
+    description: 'Preserve sandbox dir on failure for later resume.',
+  },
+  'test-retries': {
+    type: 'string' as const,
+    description: 'How many times to retry when the tests fail (default: 1).',
+  },
+  'resolve-ambiguity': {
+    type: 'string' as const,
+    description:
+      'How to handle test failures caused by ambiguous specs failures. "ai" (use AI for clarification) | "prompt" (ask human for clarification) | "off" (all failures treated as genuine) (default: ai).',
+  },
+  'dangerous-debug': {
+    type: 'boolean' as const,
+    description:
+      'Skip Leash; run OpenHands directly on the host. Use only for development/debugging.',
+  },
+  cedar: {
+    type: 'string' as const,
+    description: 'Absolute path to Cedar policy file for Leash (default: leash-policy.cedar).',
+  },
+  'coder-image': {
+    type: 'string' as const,
+    description: 'Docker image for the coder container (default: from --profile).',
+  },
+  'gate-retries': {
+    type: 'string' as const,
+    description: 'Max gate retries per run (default: 10).',
+  },
+  env: {
+    type: 'string' as const,
+    description: 'Extra env var for the agent container. Format: KEY=VALUE. Repeatable.',
+  },
+  'env-file': {
+    type: 'string' as const,
+    description: 'Path to .env file with extra env vars for the agent container.',
+  },
+  'agent-log-format': {
+    type: 'string' as const,
+    description: 'How to parse agent stdout. openhands | raw (default: from agent profile).',
+  },
+  push: {
+    type: 'string' as const,
+    description:
+      'Push feature branch after success. Accepts Git URL, slug (owner/repo), or remote name.',
+  },
+  pr: {
+    type: 'boolean' as const,
+    description: 'Open a Pull Request after pushing. Requires --push and provider token env var.',
+  },
+  'git-provider': {
+    type: 'string' as const,
+    description:
+      'Git hosting provider for push/PR. github | gitlab | bitbucket | azure | gitea (default: github).',
+  },
 };
 
 // Shared model override args — spread into any subcommand that calls LLMs.
@@ -506,7 +585,7 @@ const designFail2passArgs = {
   'project-dir': projectDirArg,
   project: projectArg,
   'test-profile': testProfileArg,
-  ...featAssessmentArgs,
+  ...featTestsArgs,
 };
 
 type DesignFail2passArgs = OrchestratorArgs & {
@@ -632,6 +711,132 @@ const featDebugArgs = {
   'stage-script': stageScriptArg,
 };
 
+// ---------------------------------------------------------------------------
+// run: Start new iterative OpenHands loop until tests pass
+// ---------------------------------------------------------------------------
+
+const featRunArgs = {
+  name: nameArg,
+  'openspec-dir': openspecDirArg,
+  'project-dir': projectDirArg,
+  project: projectArg,
+  'test-profile': testProfileArg,
+  ...featOrchestratorArgs,
+  ...featRunExtraArgs,
+  ...modelOverrideArgs,
+};
+
+const runCommand = defineCommand({
+  meta: {
+    name: 'run',
+    description: 'Start an agent to implement the specs. Runs until it passes your tests',
+  },
+  args: featRunArgs,
+  async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const runArgs = args as FeatRunArgs;
+
+    const maxRuns = parseMaxRuns(runArgs);
+    const keepSandbox = runArgs['keep-sandbox'] === true;
+    const overrides = parseModelOverrides(args);
+    const openspecDir = parseOpenspecDir(args);
+    const sandboxBaseDir = parseSandboxBaseDir(args);
+    const projectName = resolveProjectName(args, projectDir);
+    const testProfile = parseTestProfile(args);
+    const testImage = parseTestImage(runArgs, testProfile.id);
+    const resolveAmbiguity = parseResolveAmbiguity(runArgs);
+    const testRetries = parseTestRetries(runArgs);
+    const dangerousDebug = parseDangerousDebug(runArgs);
+    const cedarPolicyPath = parseCedarPolicyPath(runArgs);
+    const coderImage = parseCoderImage(runArgs);
+    const sandboxProfile = parseSandboxProfile(runArgs);
+    const agentProfile = parseAgentProfile(runArgs);
+
+    const [startupScript, gateScript, { agentStartScript, agentScript }, stageScript, testScript] =
+      await Promise.all([
+        parseStartupScript({ args: runArgs, projectDir }),
+        parseGateScript({ args: runArgs, projectDir }),
+        parseAgentScripts({ args: runArgs, projectDir }),
+        parseStageScript({ args: runArgs, projectDir }),
+        parseTestScript({ args: runArgs, projectDir, profileId: testProfile.id }),
+      ]);
+
+    const gateRetries = parseGateRetries(runArgs);
+    const agentEnv = parseAgentEnv({ args: runArgs, projectDir });
+    const agentLogFormat = parseAgentLogFormat(runArgs, agentProfile);
+    const push = parsePush(runArgs);
+    const pr = parsePr(runArgs);
+    const gitProvider = parseGitProvider(runArgs);
+
+    console.log(`\nStarting iterative loop: ${featName}`);
+    console.log(`  Max runs: ${maxRuns}`);
+    console.log(`  Test retries: ${testRetries}`);
+    console.log(`  Spec ambiguity resolution: ${resolveAmbiguity}`);
+    console.log(`  Test image: ${testImage}`);
+    if (dangerousDebug) {
+      console.log('  Leash: disabled (host execution)');
+    } else {
+      console.log(`  Leash: enabled (image: ${coderImage})`);
+      console.log(`  Cedar policy: ${cedarPolicyPath}`);
+    }
+    console.log(`  Startup script: ${sandboxProfile.id} profile default`);
+    console.log(`  Gate script: ${sandboxProfile.id} profile default`);
+    console.log(`  Agent: ${agentProfile.displayName} (profile: ${agentProfile.id})`);
+    console.log(`  Stage script: ${sandboxProfile.id} profile default`);
+    console.log('  Test script: built-in (test-default.sh)');
+    console.log(`  Agent log format: ${agentLogFormat}`);
+    console.log(`  Agent env vars: ${Object.keys(agentEnv).join(', ') || 'none'}`);
+    console.log(`  Gate retries: ${gateRetries}`);
+    if (keepSandbox) console.log('  Sandbox will be preserved on failure');
+    if (push) console.log(`  Push: ${push}${pr ? ` (+ PR via ${gitProvider.id})` : ''}`);
+
+    const result = await runStart({
+      sandboxProfileId: sandboxProfile.id,
+      changeName: featName,
+      projectDir,
+      maxRuns,
+      keepSandbox,
+      overrides,
+      openspecDir,
+      sandboxBaseDir,
+      projectName,
+      testImage,
+      resolveAmbiguity,
+      testRetries,
+      dangerousDebug,
+      cedarPolicyPath,
+      coderImage,
+      startupScript,
+      gateScript,
+      agentStartScript,
+      agentScript,
+      stageScript,
+      testScript,
+      testProfile,
+      agentEnv,
+      agentLogFormat,
+      gateRetries,
+      push,
+      pr,
+      gitProvider,
+      patchPath: null,
+      sandboxPath: null,
+    });
+
+    console.log(`\n${result.message}`);
+    if (result.sandboxPath) {
+      console.log(`\nResume with:`);
+      console.log(`  pnpm saif feat continue --sandbox-path ${result.sandboxPath} -n ${featName}`);
+    }
+    if (!result.success) process.exit(1);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// debug: Spin up staging container, stream logs
+// ---------------------------------------------------------------------------
+
 const debugCommand = defineCommand({
   meta: {
     name: 'debug',
@@ -689,6 +894,7 @@ const featCommand = defineCommand({
     'design-tests': designTestsCommand,
     'design-fail2pass': designFail2passCommand,
     design: designCommand,
+    run: runCommand,
     debug: debugCommand,
   },
 });

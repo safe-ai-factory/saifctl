@@ -71,6 +71,7 @@ If all tests pass, the command exits with an error. Either the feature is alread
 ## See also
 
 - [feat design](feat-design.md) — Full design flow (spec gen + tests design + validate tests)
+- [feat run](feat-run.md) — Implement specs with the agent loop (run after design)
 - [feat design-specs](feat-design-specs.md) — Spec gen only (first step)
 - [feat design-tests](feat-design-tests.md) — Generate tests from specs (second step)
 - [feat new](feat-new.md) — Create a new change

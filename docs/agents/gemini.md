@@ -2,7 +2,7 @@
 
 [Gemini CLI](https://github.com/google-gemini/gemini-cli) is Google's terminal agent. Pre-installed in the Leash coder image.
 
-**Usage:** `pnpm agents feat:run --agent gemini`
+**Usage:** `saif feat run --agent gemini`
 
 ## How we call it
 

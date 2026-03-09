@@ -2,7 +2,7 @@
 
 [Claude Code](https://code.claude.com) is Anthropic's CLI for AI-assisted coding. Runs headlessly with `-p` (print mode).
 
-**Usage:** `pnpm agents feat:run --agent claude`
+**Usage:** `saif feat run --agent claude`
 
 ## How we call it
 

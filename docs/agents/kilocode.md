@@ -2,7 +2,7 @@
 
 [Kilo Code](https://github.com/Kilo-Org/kilocode) is an OpenCode fork. Installed via npm — requires Node.js 20.18.1+.
 
-**Usage:** `pnpm agents feat:run --agent kilocode`
+**Usage:** `saif feat run --agent kilocode`
 
 ## How we call it
 

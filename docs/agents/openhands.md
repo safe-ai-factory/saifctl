@@ -2,7 +2,7 @@
 
 [OpenHands](https://github.com/OpenHands/OpenHands) is the default coding agent. Uses the same env var names as the factory — no mapping needed.
 
-**Usage:** `pnpm agents feat:run` (default) or `--agent openhands`
+**Usage:** `saif feat run` (default) or `--agent openhands`
 
 ## How we call it
 

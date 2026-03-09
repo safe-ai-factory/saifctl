@@ -85,10 +85,10 @@ Set the model for **all agents** in the command.
 saif feat design --model anthropic/claude-sonnet-4-6
 
 # Use GPT-4o for the coding agent loop
-pnpm agents feat:run --model openai/gpt-4o
+saif feat run --model openai/gpt-4o
 
 # Use OpenRouter to route to any model
-pnpm agents feat:run --model openrouter/meta-llama/llama-3.1-405b
+saif feat run --model openrouter/meta-llama/llama-3.1-405b
 ```
 
 ### `--base-url <url>`
@@ -182,14 +182,14 @@ Keys are checked in the order listed above; the first match wins.
 
 ## Agent reference
 
-| Agent                             | ID              | Commands                                         |
-| --------------------------------- | --------------- | ------------------------------------------------ |
-| Coding agent<br/>(e.g. OpenHands) | `coder`         | `feat run`<br/>`feat continue`                   |
-| Tests planner                     | `tests-planner` | `feat design-tests`<br/>`feat design`            |
-| Tests cataloger                   | `tests-catalog` | `feat design-tests`<br/>`feat design`            |
-| Tests writer                      | `tests-writer`  | `feat design-tests`<br/>`feat design`            |
-| Results judge                     | `results-judge` | `feat run`<br/>`feat continue`<br/>`feat assess` |
-| PR summarizer                     | `pr-summarizer` | `feat run`<br/>`feat continue`<br/>`feat assess` |
+| Agent                             | ID              | Commands                                       |
+| --------------------------------- | --------------- | ---------------------------------------------- |
+| Coding agent<br/>(e.g. OpenHands) | `coder`         | `feat run`<br/>`feat continue`                 |
+| Tests planner                     | `tests-planner` | `feat design-tests`<br/>`feat design`          |
+| Tests cataloger                   | `tests-catalog` | `feat design-tests`<br/>`feat design`          |
+| Tests writer                      | `tests-writer`  | `feat design-tests`<br/>`feat design`          |
+| Results judge                     | `results-judge` | `feat run`<br/>`feat continue`<br/>`feat test` |
+| PR summarizer                     | `pr-summarizer` | `feat run`<br/>`feat continue`<br/>`feat test` |
 
 **Example — override every agent individually:**
 

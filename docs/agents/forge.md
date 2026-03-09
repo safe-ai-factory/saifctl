@@ -2,7 +2,7 @@
 
 [Forge Code](https://forgecode.dev) is a Rust binary that runs fully headlessly. Installed at runtime via a curl script — no Node or Python required.
 
-**Usage:** `pnpm agents feat:run --agent forge`
+**Usage:** `saif feat run --agent forge`
 
 ## How we call it
 

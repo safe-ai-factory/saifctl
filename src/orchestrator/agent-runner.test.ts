@@ -24,7 +24,7 @@ describe('filterAgentEnv', () => {
   it('strips all reserved FACTORY_* keys', () => {
     const reserved: Record<string, string> = {
       FACTORY_INITIAL_TASK: '1',
-      FACTORY_INNER_ROUNDS: '2',
+      FACTORY_GATE_RETRIES: '2',
       FACTORY_GATE_SCRIPT: '3',
       FACTORY_STARTUP_SCRIPT: '4',
       FACTORY_AGENT_SCRIPT: '5',

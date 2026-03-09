@@ -53,7 +53,7 @@ export interface VitestAssertionResult {
   failureMessages: string[];
 }
 
-export interface AssessmentResult {
+export interface TestsResult {
   passed: boolean;
   stderr: string;
   stdout: string;
@@ -278,7 +278,7 @@ async function startContainers({
   };
 }
 
-export interface RunAssessmentWithContainersOpts {
+export interface RunTeststWithContainersOpts {
   sandboxProfileId: SupportedSandboxProfileId;
   codePath: string;
   projectDir: string;
@@ -300,9 +300,9 @@ export interface RunAssessmentWithContainersOpts {
  * Creates a sandbox network, pre-registers the staging image, starts all
  * containers, runs the test runner, then tears everything down — regardless of
  * outcome. This is the repeated inner try/finally pattern shared by
- * fail2pass, assess (per-retry), and the iterative loop.
+ * fail2pass, test (per-retry), and the iterative loop.
  */
-export async function runAssessmentWithContainers({
+export async function runTeststWithContainers({
   sandboxProfileId,
   codePath,
   projectDir,
@@ -316,7 +316,7 @@ export async function runAssessmentWithContainers({
   startupPath,
   stagePath,
   reportPath,
-}: RunAssessmentWithContainersOpts): Promise<AssessmentResult> {
+}: RunTeststWithContainersOpts): Promise<TestsResult> {
   const containers: ContainerHandle[] = [];
   let networkName = '';
 
@@ -348,7 +348,7 @@ export async function runAssessmentWithContainers({
     });
     containers.push(...all);
 
-    return await runAssessment(testRunnerHandle, { reportPath });
+    return await runTests(testRunnerHandle, { reportPath });
   } finally {
     await teardownContainers(containers);
     registry.deregisterContainers(containers);
@@ -362,7 +362,7 @@ export async function runAssessmentWithContainers({
   }
 }
 
-export interface RunAssessmentOpts {
+export interface RunTestsOpts {
   /**
    * Host path to the test runner's results file (written by the container into /test-runner-output,
    * which is bind-mounted to the sandbox root on the host). When provided we read the report
@@ -372,16 +372,16 @@ export interface RunAssessmentOpts {
 }
 
 /**
- * Waits for the test runner container to finish and returns the assessment result.
+ * Waits for the test runner container to finish and returns the tests result.
  *
  * The test runner's CMD runs the mounted test.sh, which executes the test suite and writes a results file to
  * /test-runner-output (bind-mounted to the sandbox root). We read that file from reportPath
  * to populate testSuites for per-suite analysis (e.g. fail2pass ignoring infra failures).
  */
-export async function runAssessment(
+export async function runTests(
   testRunnerHandle: ContainerHandle,
-  opts: RunAssessmentOpts = {},
-): Promise<AssessmentResult> {
+  opts: RunTestsOpts = {},
+): Promise<TestsResult> {
   const { reportPath } = opts;
 
   console.log(`[docker] Waiting for test runner to complete...`);
@@ -554,12 +554,12 @@ function parseJUnitXmlFromFile(reportPath: string): VitestSuiteResult[] | undefi
 
 /**
  * Checks whether at least one feature test (i.e. not in the 'sidecar:health' suite)
- * failed in the assessment result.
+ * failed in the tests result.
  *
  * Used by fail2pass to confirm the tests actually test something unimplemented,
  * without being confused by infra health-check tests which always pass.
  */
-export function hasFeatureTestFailures(result: AssessmentResult): boolean {
+export function hasFeatureTestFailures(result: TestsResult): boolean {
   if (!result.testSuites) {
     // No structured data — fall back to exit code
     return !result.passed;

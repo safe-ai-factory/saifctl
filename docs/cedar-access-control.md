@@ -88,7 +88,7 @@ See the [Leash Cedar reference](https://github.com/strongdm/leash/blob/main/docs
 
 ## The default policy
 
-The factory ships `src/orchestrator/leash-policy.cedar`. This is the policy applied to every `feat:run` and `feat:continue` unless overridden.
+The factory ships `src/orchestrator/leash-policy.cedar`. This is default policy that applies when you run [`run`](./commands/feat-run.md) or [`continue`](./commands/feat-continue.md) commands.
 
 ```cedar
 // Default Leash Cedar policy for the Software Factory agent sandbox.
@@ -150,7 +150,7 @@ permit (
 Pass `--cedar` to supply your own policy file:
 
 ```bash
-pnpm agents feat:run --cedar ./my-policy.cedar
+saif feat run --cedar ./my-policy.cedar
 pnpm agents feat:continue --cedar ./my-policy.cedar
 ```
 

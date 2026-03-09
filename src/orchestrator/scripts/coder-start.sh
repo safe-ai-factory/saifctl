@@ -4,11 +4,11 @@
 # Runs the agent script, then calls /factory/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
 # If the gate fails, the failure output is appended to the task prompt and
-# the agent is re-invoked, up to FACTORY_INNER_ROUNDS times.
+# the agent is re-invoked, up to FACTORY_GATE_RETRIES times.
 #
 # Environment variables:
 #   FACTORY_INITIAL_TASK        — the full task prompt (required)
-#   FACTORY_INNER_ROUNDS        — max inner rounds before giving up (default: 5)
+#   FACTORY_GATE_RETRIES        — max inner rounds before giving up (default: 5)
 #   FACTORY_GATE_SCRIPT         — path to the gate script (default: /factory/gate.sh)
 #   FACTORY_STARTUP_SCRIPT      — path to the installation script (required); run once before
 #                                 the agent loop. Set via --profile (default: node-pnpm-python) or
@@ -29,8 +29,8 @@ set -euo pipefail
 
 GATE_SCRIPT="${FACTORY_GATE_SCRIPT:-/factory/gate.sh}"
 AGENT_SCRIPT="${FACTORY_AGENT_SCRIPT:-/factory/agent.sh}"
+GATE_RETRIES="${FACTORY_GATE_RETRIES:-5}"
 TASK_PATH="${FACTORY_TASK_PATH:-/workspace/.factory_task.md}"
-MAX_ROUNDS="${FACTORY_INNER_ROUNDS:-5}"
 
 if [ -z "${FACTORY_INITIAL_TASK:-}" ]; then
   echo "[coder-start] ERROR: FACTORY_INITIAL_TASK is not set." >&2
@@ -70,9 +70,9 @@ INITIAL_TASK="$FACTORY_INITIAL_TASK"
 round=0
 current_task="$INITIAL_TASK"
 
-while [ "$round" -lt "$MAX_ROUNDS" ]; do
+while [ "$round" -lt "$GATE_RETRIES" ]; do
   round=$((round + 1))
-  echo "[coder-start] ===== Round $round/$MAX_ROUNDS ====="
+  echo "[coder-start] ===== Round $round/$GATE_RETRIES ====="
 
   # Write the current task to FACTORY_TASK_PATH so the agent script can read it.
   # Agent scripts must consume the task from this file (not from env var or CLI args).
@@ -101,10 +101,10 @@ while [ "$round" -lt "$MAX_ROUNDS" ]; do
     exit 0
   fi
 
-  echo "[coder-start] Gate FAILED (round $round/$MAX_ROUNDS):"
+  echo "[coder-start] Gate FAILED (round $round/$GATE_RETRIES):"
   echo "$gate_output"
 
-  if [ "$round" -ge "$MAX_ROUNDS" ]; then
+  if [ "$round" -ge "$GATE_RETRIES" ]; then
     break
   fi
 
@@ -113,5 +113,5 @@ while [ "$round" -lt "$MAX_ROUNDS" ]; do
     "$INITIAL_TASK" "$gate_output")"
 done
 
-echo "[coder-start] Exhausted $MAX_ROUNDS inner round(s) without gate passing."
+echo "[coder-start] Exhausted $GATE_RETRIES inner round(s) without gate passing."
 exit 1

@@ -2,7 +2,7 @@
 
 ## Overview
 
-When you run `pnpm agents feat:run`, the factory:
+When you run `saif feat run`, the factory:
 
 1. Creates a sandbox (container with a copy of your repo)
 2. Runs a **startup script** once (e.g. `pnpm install`)

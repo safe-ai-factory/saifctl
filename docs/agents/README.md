@@ -13,8 +13,8 @@ The CLI tools receive the task and they edit files in the workspace.
 Use `--agent <id>`:
 
 ```bash
-pnpm agents feat:run --agent aider
-pnpm agents feat:run --agent claude
+saif feat run --agent aider
+saif feat run --agent claude
 ```
 
 | ID                                      | Name                | Project URL                                         |
@@ -40,7 +40,7 @@ pnpm agents feat:run --agent claude
 For any CLI not in the list:
 
 ```bash
-pnpm agents feat:run \
+saif feat run \
   --agent-script ./my-agent-runner.sh \
   --agent-log-format raw
 ```

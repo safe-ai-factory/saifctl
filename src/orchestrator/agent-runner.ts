@@ -86,11 +86,13 @@ export interface RunAgentOpts {
    */
   coderImage: string;
   /**
-   * Maximum number of inner loop rounds (agent → gate → feedback) before giving up.
-   * Forwarded as FACTORY_INNER_ROUNDS to coder-start.sh.
-   * Applies in both leash and dangerous-debug modes. Resolved by caller (default: 5).
+   * Maximum number of agent iterations (agent → gate → feedback) before forcing
+   * to test the solution.
+   *
+   * Forwarded as FACTORY_GATE_RETRIES to coder-start.sh.
+   * Applies in both leash and dangerous-debug modes. Resolved by caller (default: 10).
    */
-  innerRounds: number;
+  gateRetries: number;
   /**
    * Absolute path to the installation script on the host (sandboxBasePath/startup.sh).
    * Set via --profile or --startup-script. Mounted read-only at /factory/startup.sh
@@ -145,7 +147,7 @@ export interface RunAgentResult {
  */
 const RESERVED_ENV_KEYS = new Set([
   'FACTORY_INITIAL_TASK',
-  'FACTORY_INNER_ROUNDS',
+  'FACTORY_GATE_RETRIES',
   'FACTORY_GATE_SCRIPT',
   'FACTORY_STARTUP_SCRIPT',
   'FACTORY_AGENT_START_SCRIPT',
@@ -224,7 +226,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     dangerousDebug,
     cedarPolicyPath,
     coderImage,
-    innerRounds,
+    gateRetries,
     startupPath,
     agentStartPath,
     agentPath,
@@ -267,7 +269,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
       ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
       WORKSPACE_BASE: codePath,
       FACTORY_INITIAL_TASK: taskPrompt,
-      FACTORY_INNER_ROUNDS: String(innerRounds),
+      FACTORY_GATE_RETRIES: String(gateRetries),
       FACTORY_STARTUP_SCRIPT: startupPath,
       FACTORY_AGENT_START_SCRIPT: agentStartPath,
       FACTORY_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
@@ -282,7 +284,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     console.log(`[agent-runner] Agent script: ${agentPath}`);
     console.log(`[agent-runner] Startup script: ${startupPath}`);
     console.log(`[agent-runner] Gate script: ${sandboxBasePath}/gate.sh`);
-    console.log(`[agent-runner] Inner rounds: ${innerRounds}`);
+    console.log(`[agent-runner] Gate retries: ${gateRetries}`);
   } else {
     // ── Leash mode: run the agent inside a monitored container ───────────────
 
@@ -346,7 +348,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
       '--env',
       `FACTORY_INITIAL_TASK=${taskPrompt}`,
       '--env',
-      `FACTORY_INNER_ROUNDS=${innerRounds}`,
+      `FACTORY_GATE_RETRIES=${gateRetries}`,
       '--env',
       `FACTORY_STARTUP_SCRIPT=/factory/startup.sh`,
       '--env',
@@ -382,7 +384,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     console.log(`[agent-runner] Agent script: ${agentPath} → /factory/agent.sh (ro)`);
     console.log(`[agent-runner] Startup script: ${startupPath} → /factory/startup.sh (ro)`);
     console.log(`[agent-runner] Gate script: ${sandboxBasePath}/gate.sh → /factory/gate.sh (ro)`);
-    console.log(`[agent-runner] Inner rounds: ${innerRounds}`);
+    console.log(`[agent-runner] Gate retries: ${gateRetries}`);
   }
 
   console.log(`[agent-runner] Starting agent (model: ${llmModel})`);

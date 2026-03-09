@@ -4,7 +4,7 @@ Create scaffolding for a new feature.
 
 Creates an OpenSpec change directory (e.g. `openspec/changes/add-login/`) and optionally writes a `proposal.md` with your description.
 
-Use this as the first step in the feature workflow before running `saif feat design`, `feat:run`, etc.
+Use this as the first step in the feature workflow before running [feat design](feat-design.md), [feat run](feat-run.md), etc.
 
 When `-n`/`--name` is omitted, prompts interactively for the feature name and a brief description.
 
@@ -71,4 +71,4 @@ saif feat new --project-dir ./packages/my-app
 
 ## Next steps
 
-After creating a change, run `saif feat design` to generate the specs and tests, or see [Commands](README.md) for the full workflow.
+After creating a change, run [feat design](feat-design.md) to generate the specs and tests, then [feat run](feat-run.md) to implement. See [Commands](README.md) for the full workflow.

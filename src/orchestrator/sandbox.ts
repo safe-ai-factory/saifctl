@@ -9,7 +9,7 @@
  *   {sandboxBaseDir}/{proj}-{feat}-{runId}/
  *     gate.sh                ← user-supplied or default gate script; mounted :ro at /factory/gate.sh
  *     code/                  ← rsync copy of repo; workspace for OpenHands; build context/mount
- *                              for staging container (Container A) during assessment
+ *                              for staging container (Container A) during tests
  *       .git/                ← fresh git repo for diffing
  *       openspec/changes/{feat}/tests/
  *         tests.json         ← test catalog (public cases only; hidden/ dir stripped)
@@ -377,7 +377,7 @@ function isExcluded(filePath: string, rules: PatchExcludeRule[]): boolean {
 
 /**
  * Applies a patch file to the code directory.
- * Used by 'assess' mode to inject a candidate implementation.
+ * Used by 'test' mode to inject a candidate implementation.
  */
 export function applyPatch(codePath: string, patchPath: string): void {
   if (!existsSync(patchPath)) {
