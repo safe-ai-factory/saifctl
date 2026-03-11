@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getFeatureDirAbsolute } from '../specs/discover.js';
+import { resolveFeature } from '../specs/discover.js';
 import { DEFAULT_PROFILE } from '../test-profiles/index.js';
 import { generateTests } from './write.js';
 
@@ -76,6 +76,7 @@ function imperativeCatalog(extra: object = {}): string {
 
 describe('generateTests', () => {
   let projectDir: string;
+  let feature: Awaited<ReturnType<typeof resolveFeature>>;
   const saifDir = 'saif';
   const featureName = 'test-feature';
 
@@ -86,13 +87,12 @@ describe('generateTests', () => {
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
     writeFileSync(join(testsDir, 'tests.json'), imperativeCatalog(), 'utf8');
+    feature = resolveFeature({ input: featureName, projectDir, saifDir });
   });
 
   it('writes helpers.ts', async () => {
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
     const helpersPath = join(result.testsDir, 'helpers.ts');
@@ -104,9 +104,7 @@ describe('generateTests', () => {
 
   it('writes infra.spec.ts', async () => {
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
     const infraPath = join(result.testsDir, 'infra.spec.ts');
@@ -117,9 +115,7 @@ describe('generateTests', () => {
 
   it('generates spec files for each unique entrypoint', async () => {
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
 
@@ -132,9 +128,7 @@ describe('generateTests', () => {
 
   it('reports generated and skipped files', async () => {
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
     expect(result.generatedFiles).toContain('public/happy.spec.ts');
@@ -143,18 +137,13 @@ describe('generateTests', () => {
   });
 
   it('does not overwrite an existing spec file', async () => {
-    const testsDir = join(
-      getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-      'tests',
-    );
+    const testsDir = join(feature.absolutePath, 'tests');
     const existingPath = join(testsDir, 'public', 'happy.spec.ts');
     mkdirSync(join(testsDir, 'public'), { recursive: true });
     writeFileSync(existingPath, '// custom content', 'utf8');
 
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
 
@@ -164,17 +153,12 @@ describe('generateTests', () => {
   });
 
   it('does not overwrite helpers.ts when it already exists', async () => {
-    const testsDir = join(
-      getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-      'tests',
-    );
+    const testsDir = join(feature.absolutePath, 'tests');
     const helpersPath = join(testsDir, 'helpers.ts');
     writeFileSync(helpersPath, '// custom helpers', 'utf8');
 
     await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
 
@@ -183,22 +167,17 @@ describe('generateTests', () => {
 
   it('returns correct testCaseCount', async () => {
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
     expect(result.testCaseCount).toBe(2);
   });
 
   it('always writes infra.spec.ts (even for web-only containers)', async () => {
-    const testsDir = join(
-      getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-      'tests',
-    );
+    const testsDir = join(feature.absolutePath, 'tests');
     const webCatalog = JSON.stringify({
       version: '1.0',
-      featureName,
+      featureName: 'test-feature',
       featureDir: 'saif/features/test-feature',
       containers: {
         staging: { baseUrl: 'http://staging:3000' },
@@ -219,9 +198,7 @@ describe('generateTests', () => {
     writeFileSync(join(testsDir, 'tests.json'), webCatalog, 'utf8');
 
     const result = await generateTests({
-      featureName,
-      projectDir,
-      saifDir,
+      feature,
       testProfile: DEFAULT_PROFILE,
     });
     expect(existsSync(join(result.testsDir, 'infra.spec.ts'))).toBe(true);
@@ -237,11 +214,10 @@ describe('generateTests (error cases)', () => {
     const projectDir = makeTempDir();
     const featureDir = join(projectDir, 'saif', 'features', 'missing');
     mkdirSync(featureDir, { recursive: true });
+    const feature = resolveFeature({ input: 'missing', projectDir, saifDir: 'saif' });
     await expect(
       generateTests({
-        featureName: 'missing',
-        projectDir,
-        saifDir: 'saif',
+        feature,
         testProfile: DEFAULT_PROFILE,
       }),
     ).rejects.toThrow(/tests.json not found/);
@@ -254,11 +230,10 @@ describe('generateTests (error cases)', () => {
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
     writeFileSync(join(testsDir, 'tests.json'), '{"invalid": true}', 'utf8');
+    const feature = resolveFeature({ input: 'bad-feature', projectDir, saifDir: 'saif' });
     await expect(
       generateTests({
-        featureName: 'bad-feature',
-        projectDir,
-        saifDir: 'saif',
+        feature,
         testProfile: DEFAULT_PROFILE,
       }),
     ).rejects.toThrow(/schema validation/);

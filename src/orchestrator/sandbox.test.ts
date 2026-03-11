@@ -19,6 +19,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { resolveFeature } from '../specs/discover.js';
 import { createSandbox, destroySandbox, filterPatchHunks, removeAllHiddenDirs } from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
@@ -194,9 +195,13 @@ describe('createSandbox + destroySandbox (integration)', () => {
       mkdirSync(otherFeatureHidden, { recursive: true });
       writeFileSync(join(otherFeatureHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
 
-      // 2. Run createSandbox
+      const feature = resolveFeature({
+        input: 'my-feature',
+        projectDir,
+        saifDir: 'saif',
+      });
       const paths = createSandbox({
-        featureName: 'my-feature',
+        feature,
         projectDir,
         saifDir,
         projectName: 'test-proj',
@@ -283,6 +288,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
  *   image:      factory-stage-{projectName}-{featureName}-img-{runId}
  *   test runner: factory-test-{projectName}-{runId}
  *
+ * featureName is the canonical slug from getFeatNameOrPrompt (safe for filesystem/Docker).
+ *
  * The `docker clear` command:
  *   --all    → matches prefix "factory-stage-" and "factory-test-"
  *   default  → matches prefix "factory-stage-{projectName}-" and "factory-test-{projectName}-"
@@ -312,9 +319,15 @@ describe('container/image naming convention (documentation)', () => {
     expect(tag.startsWith('factory-stage-crawlee-one-')).toBe(true);
   });
 
-  it('container name includes the feature name', () => {
+  it('container name includes the feature name (canonical slug)', () => {
     const name = buildContainerName('my-project', 'greet-cmd', 'abc1234');
     expect(name).toContain('greet-cmd');
+  });
+
+  it('nested features use slug in container names (auth-login from (auth)/login)', () => {
+    const name = buildContainerName('my-project', 'auth-login', 'abc1234');
+    expect(name).not.toMatch(/[()/]/);
+    expect(name).toBe('factory-stage-my-project-auth-login-abc1234');
   });
 
   it('image tag includes -img- segment to distinguish from containers', () => {

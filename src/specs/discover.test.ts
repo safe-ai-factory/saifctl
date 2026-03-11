@@ -4,12 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  discoverCurrentFeatures,
-  discoverFeatures,
-  isGroupDir,
-  resolveFeaturePath,
-} from './discover.js';
+import { discoverFeatures, featureNameToSafeSlug, isGroupDir } from './discover.js';
 
 const TEST_BASE = join(tmpdir(), `discover-features-${Date.now()}`);
 
@@ -26,6 +21,23 @@ describe('discover-features', () => {
     } catch {
       // ignore
     }
+  });
+
+  describe('featureNameToSafeSlug', () => {
+    it('leaves flat feature names unchanged', () => {
+      expect(featureNameToSafeSlug('my-feat')).toBe('my-feat');
+      expect(featureNameToSafeSlug('add-login')).toBe('add-login');
+    });
+    it('replaces / and strips () from nested feature names', () => {
+      expect(featureNameToSafeSlug('(auth)/login')).toBe('auth-login');
+      expect(featureNameToSafeSlug('(auth)/logout')).toBe('auth-logout');
+      expect(featureNameToSafeSlug('(core)/(user)/profile')).toBe('core-user-profile');
+    });
+    it('produces Docker- and filesystem-safe slugs', () => {
+      const slug = featureNameToSafeSlug('(auth)/router');
+      expect(slug).not.toMatch(/[()/]/);
+      expect(slug).toBe('auth-router');
+    });
   });
 
   describe('isGroupDir', () => {
@@ -47,21 +59,23 @@ describe('discover-features', () => {
 
   describe('discoverFeatures', () => {
     it('finds flat features', () => {
-      createDir('features/my-feat');
-      createDir('features/add-login');
+      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
+      createDir('saif/features/my-feat');
+      createDir('saif/features/add-login');
 
-      const map = discoverFeatures(join(TEST_BASE, 'features'));
+      const map = discoverFeatures(TEST_BASE, 'saif');
       expect(map.size).toBe(2);
       expect(map.get('my-feat')).toContain('my-feat');
       expect(map.get('add-login')).toContain('add-login');
     });
 
     it('finds features inside groups with path-based IDs', () => {
-      createDir('features/(auth)/login');
-      createDir('features/(auth)/logout');
-      createDir('features/(core)/profile');
+      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
+      createDir('saif/features/(auth)/login');
+      createDir('saif/features/(auth)/logout');
+      createDir('saif/features/(core)/profile');
 
-      const map = discoverFeatures(join(TEST_BASE, 'features'));
+      const map = discoverFeatures(TEST_BASE, 'saif');
       expect(map.size).toBe(3);
       expect(map.get('(auth)/login')).toContain('login');
       expect(map.get('(auth)/logout')).toContain('logout');
@@ -69,70 +83,34 @@ describe('discover-features', () => {
     });
 
     it('treats same leaf name in different groups as distinct features', () => {
-      createDir('features/(auth)/router');
-      createDir('features/(user)/router');
+      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
+      createDir('saif/features/(auth)/router');
+      createDir('saif/features/(user)/router');
 
-      const map = discoverFeatures(join(TEST_BASE, 'features'));
+      const map = discoverFeatures(TEST_BASE, 'saif');
       expect(map.size).toBe(2);
       expect(map.get('(auth)/router')).toBeDefined();
       expect(map.get('(user)/router')).toBeDefined();
     });
 
     it('includes all non-group dirs (path-based)', () => {
-      createDir('features/valid-feat');
-      mkdirSync(join(TEST_BASE, 'features', 'no-spec'), { recursive: true });
+      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
+      createDir('saif/features/valid-feat');
+      mkdirSync(join(TEST_BASE, 'saif', 'features', 'no-spec'), { recursive: true });
 
-      const map = discoverFeatures(join(TEST_BASE, 'features'));
+      const map = discoverFeatures(TEST_BASE, 'saif');
       expect(map.size).toBe(2);
       expect(map.has('valid-feat')).toBe(true);
       expect(map.has('no-spec')).toBe(true);
     });
-  });
 
-  describe('discoverCurrentFeatures', () => {
     it('scans saif/features', () => {
       mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
       createDir('saif/features/feat-a');
 
-      const map = discoverCurrentFeatures(TEST_BASE, 'saif');
+      const map = discoverFeatures(TEST_BASE, 'saif');
       expect(map.size).toBe(1);
       expect(map.get('feat-a')).toContain('feat-a');
-    });
-  });
-
-  describe('resolveFeaturePath', () => {
-    it('returns path for existing feature', () => {
-      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
-      createDir('saif/features/my-feat');
-
-      const path = resolveFeaturePath({
-        cwd: TEST_BASE,
-        saifDir: 'saif',
-        featureName: 'my-feat',
-      });
-      expect(path).toContain('my-feat');
-      expect(path).toContain('saif');
-    });
-
-    it('resolves path-based feature ID', () => {
-      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
-      createDir('saif/features/(auth)/login');
-
-      const path = resolveFeaturePath({
-        cwd: TEST_BASE,
-        saifDir: 'saif',
-        featureName: '(auth)/login',
-      });
-      expect(path).toContain('login');
-      expect(path).toContain('auth');
-    });
-
-    it('throws for missing feature', () => {
-      mkdirSync(join(TEST_BASE, 'saif'), { recursive: true });
-
-      expect(() =>
-        resolveFeaturePath({ cwd: TEST_BASE, saifDir: 'saif', featureName: 'nonexistent' }),
-      ).toThrow(/Feature "nonexistent" not found/);
     });
   });
 });

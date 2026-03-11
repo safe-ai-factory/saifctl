@@ -14,7 +14,7 @@ import type { Tool } from '@mastra/core/tools';
 
 import type { IndexerProfile } from '../indexer-profiles/index.js';
 import { type ModelOverrides } from '../llm-config.js';
-import { getFeatureDirAbsolute, getFeatureDirRelative } from '../specs/discover.js';
+import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
 import { runCatalogAgent } from './agents/tests-catalog.js';
@@ -22,12 +22,10 @@ import { buildPlannerPrompt, createTestsPlannerAgent } from './agents/tests-plan
 import type { TestCatalog } from './schema.js';
 
 export interface RunTestsDesignOpts {
-  /** Feature name — matches <saifDir>/features/<featureName>/ */
-  featureName: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /** Absolute path to the project directory */
   projectDir: string;
-  /** Saif directory name relative to repo root (e.g. 'saif'). Resolved by caller. */
-  saifDir: string;
   /** Optional extra instruction for refinement (e.g. --prompt "Add holdout tests for DB") */
   extraPrompt?: string;
   /**
@@ -126,9 +124,8 @@ function guardIndexerTool(raw: unknown, indexerProfile: IndexerProfile): asserts
  */
 export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTestsDesignResult> {
   const {
-    featureName,
+    feature,
     projectDir,
-    saifDir,
     extraPrompt,
     indexerProfile,
     projectName,
@@ -149,20 +146,14 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
     indexerTool = undefined;
   }
 
-  const featureDir = getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName });
-  const testsDir = join(featureDir, 'tests');
-  const featureDirRelative = getFeatureDirRelative({
-    cwd: projectDir,
-    saifDir,
-    featureName,
-  });
+  const testsDir = join(feature.absolutePath, 'tests');
 
-  console.log(`[design-tests:plan] Reading spec files from ${featureDir}`);
-  const featureFiles = readFeatureFiles(featureDir);
+  console.log(`[design-tests:plan] Reading spec files from ${feature.absolutePath}`);
+  const featureFiles = readFeatureFiles(feature.absolutePath);
 
   if (Object.keys(featureFiles).length === 0) {
     throw new Error(
-      `No spec files found in ${featureDir}. ` +
+      `No spec files found in ${feature.absolutePath}. ` +
         `Run 'pnpm shotgun' first or ensure the feature directory exists.`,
     );
   }
@@ -217,8 +208,8 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
   try {
     // Step 1b: Catalog agent → structured JSON catalog
     catalog = await runCatalogAgent({
-      featureName,
-      featureDir: featureDirRelative,
+      featureName: feature.name,
+      featureDir: feature.relativePath,
       featureFiles,
       testPlan,
       extraPrompt,

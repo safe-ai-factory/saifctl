@@ -33,7 +33,7 @@ import { join } from 'node:path';
 
 import { getSaifRoot } from '../constants.js';
 import { type LlmConfig } from '../llm-config.js';
-import { getFeatureDirAbsolute } from '../specs/discover.js';
+import type { Feature } from '../specs/discover.js';
 
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
@@ -68,8 +68,8 @@ export interface RunAgentOpts {
    * Used to locate plan.md candidates. Resolved by caller (e.g. parseSaifDir).
    */
   saifDir: string;
-  /** The feature name — used to locate the plan.md for this specific feature. */
-  featureName?: string;
+  /** Resolved feature — used to locate plan.md in the sandbox. */
+  feature?: Feature;
   /**
    * When true, skip Leash and run the agent directly on the host.
    * Isolation is filesystem-only (rsync sandbox). No Cedar enforcement.
@@ -223,7 +223,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     errorFeedback,
     llmConfig,
     saifDir,
-    featureName,
+    feature,
     dangerousDebug,
     cedarPolicyPath,
     coderImage,
@@ -237,7 +237,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   const safeAgentEnv = filterAgentEnv(agentEnv);
 
-  const taskPrompt = buildTaskPrompt({ codePath, task, saifDir, featureName, errorFeedback });
+  const taskPrompt = buildTaskPrompt({ codePath, task, saifDir, feature, errorFeedback });
 
   // Build the generic LLM_* env vars that agent shell scripts expect.
   // These are a private contract between the orchestrator and Leash containers —
@@ -557,19 +557,17 @@ interface BuildTaskPromptOpts {
   codePath: string;
   task: string;
   saifDir: string;
-  featureName: string | undefined;
+  feature?: Feature;
   errorFeedback?: string;
 }
 
 function buildTaskPrompt(opts: BuildTaskPromptOpts): string {
-  const { codePath, task, saifDir, featureName, errorFeedback } = opts;
+  const { codePath, task, saifDir, feature, errorFeedback } = opts;
   let planContent = '';
   const planCandidates: string[] = [];
 
-  if (featureName) {
-    planCandidates.push(
-      join(getFeatureDirAbsolute({ cwd: codePath, saifDir, featureName }), 'plan.md'),
-    );
+  if (feature) {
+    planCandidates.push(join(codePath, feature.relativePath, 'plan.md'));
   }
   planCandidates.push(join(codePath, 'plan.md'));
 

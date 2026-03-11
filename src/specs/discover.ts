@@ -14,6 +14,16 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+/** Canonical feature descriptor. Paths computed once, passed through. */
+export interface Feature {
+  /** Canonical slug (filesystem/Docker-safe). */
+  name: string;
+  /** Absolute path to the feature directory. */
+  absolutePath: string;
+  /** Path relative to project root (e.g. saif/features/(auth)/login). */
+  relativePath: string;
+}
+
 /**
  * True if a directory name is a group (Next.js-style), e.g. "(auth)".
  */
@@ -22,14 +32,29 @@ export function isGroupDir(dirName: string): boolean {
 }
 
 /**
- * Recursively scans a base directory for feature directories.
+ * Produces a filesystem- and Docker-safe slug from a feature name.
+ * Used for sandbox dir names, container names, image tags, and branch names.
+ *
+ * Replaces `/` with `-` and strips parentheses from group names.
+ * Example: (auth)/login → auth-login
+ */
+export function featureNameToSafeSlug(featureName: string): string {
+  return featureName.replace(/[()/]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+/**
+ * Recursively scans `${projectDir}/${saifDir}/features` for feature directories.
  * Feature ID = relative path from baseDir (e.g. "(auth)/login", "my-feat").
  * First non-parenthesised dir nested within base is the feature dir (path-based only).
  *
- * @param baseDir - Absolute path to scan (e.g. projectDir/saif/features)
+ * @param projectDir - Project root
+ * @param saifDir - Path to saif directory (e.g. "saif")
+ *
  * @returns Map<featureId, absolutePath> where featureId is the relative path
  */
-export function discoverFeatures(baseDir: string): Map<string, string> {
+export function discoverFeatures(projectDir: string, saifDir: string): Map<string, string> {
+  const baseDir = join(projectDir, saifDir, 'features');
+
   const features = new Map<string, string>();
 
   function scan(currentPath: string, relativePrefix: string): void {
@@ -55,57 +80,40 @@ export function discoverFeatures(baseDir: string): Map<string, string> {
   return features;
 }
 
-/**
- * Discovers all features under saif/features.
- */
-export function discoverCurrentFeatures(projectDir: string, saifDir: string): Map<string, string> {
-  const baseDir = join(projectDir, saifDir, 'features');
-  return discoverFeatures(baseDir);
+function findPathBySlug(map: Map<string, string>, slug: string): string | undefined {
+  for (const [display, path] of map) {
+    if (featureNameToSafeSlug(display) === slug) return path;
+  }
+  return undefined;
 }
 
 /**
- * Resolves a feature ID to its absolute path.
+ * Resolves user input (display path or slug) to the canonical slug.
  *
  * @throws Error if the feature is not found.
  */
-export function resolveFeaturePath(opts: {
-  cwd: string;
-  saifDir: string;
-  featureName: string;
-}): string {
-  const { cwd, saifDir, featureName } = opts;
-  const map = discoverCurrentFeatures(cwd, saifDir);
-  const path = map.get(featureName);
-  if (!path) {
-    const available = [...map.keys()].sort().join(', ') || '(none)';
-    throw new Error(`Feature "${featureName}" not found. Available: ${available}`);
-  }
-  return path;
+function resolveInputToSlug(input: string, map: Map<string, string>): string {
+  if (map.has(input)) return featureNameToSafeSlug(input);
+  if (findPathBySlug(map, input)) return input;
+  const available = [...map.keys()].sort().join(', ') || '(none)';
+  throw new Error(`Feature "${input}" not found. Available: ${available}`);
 }
 
 /**
- * Relative path to a feature directory (e.g. "saif/features/add-login"
- * or "saif/features/(auth)/login"). Uses discovery so group paths are correct.
- */
-export function getFeatureDirRelative(opts: {
-  cwd: string;
-  saifDir: string;
-  featureName: string;
-}): string {
-  const absolute = getFeatureDirAbsolute(opts);
-  return relative(opts.cwd, absolute);
-}
-
-/**
- * Absolute path to a feature directory.
- * Supports Next.js-style groups: feature ID = full path from features/.
+ * Resolves user input to a Feature object. One discovery, all paths computed.
  *
- * @param opts.cwd - Project root (or base directory)
+ * @throws Error if the feature is not found.
  */
-export function getFeatureDirAbsolute(opts: {
-  cwd: string;
+export function resolveFeature(opts: {
+  input: string;
+  projectDir: string;
   saifDir: string;
-  featureName: string;
-}): string {
-  return resolveFeaturePath(opts);
+}): Feature {
+  const { input, projectDir, saifDir } = opts;
+  const map = discoverFeatures(projectDir, saifDir);
+  const slug = resolveInputToSlug(input, map);
+  const byDisplay = map.get(input);
+  const absolutePath = byDisplay ?? findPathBySlug(map, slug)!;
+  const relativePath = relative(projectDir, absolutePath);
+  return { name: slug, absolutePath, relativePath };
 }

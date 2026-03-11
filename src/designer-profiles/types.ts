@@ -26,11 +26,13 @@
 
 import type { Tool } from '@mastra/core/tools';
 
+import type { Feature } from '../specs/discover.js';
+
 export interface DesignerBaseOpts {
   /** Absolute path to the repo root. */
   cwd: string;
-  /** Feature/change name (kebab-case), e.g. "add-login". */
-  featName: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /** Saif directory name relative to repo root (e.g. "saif"). */
   saifDir: string;
 }

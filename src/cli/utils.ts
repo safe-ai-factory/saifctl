@@ -42,7 +42,7 @@ import {
   resolveSandboxProfile,
   type SandboxProfile,
 } from '../sandbox-profiles/index.js';
-import { discoverCurrentFeatures } from '../specs/discover.js';
+import { discoverFeatures, type Feature, resolveFeature } from '../specs/discover.js';
 import {
   DEFAULT_PROFILE,
   resolveTestProfile,
@@ -236,25 +236,24 @@ export function getFeatNameFromArgs(args: { name?: string }): string | undefined
 }
 
 /**
- * Resolves feature name from args or prompts the user to select from features.
- * Exits if no features exist or user cancels.
- * Uses our own discovery (supports Next.js-style (group) dirs); no dependency on saif list.
+ * Resolves feature from args or prompts the user to select. Returns a Feature
+ * object (name, absolutePath, relativePath).
  */
-export async function getFeatNameOrPrompt(
+export async function getFeatOrPrompt(
   args: { name?: string; 'saif-dir'?: string },
   projectDir: string,
-): Promise<string> {
-  const fromArgs = getFeatNameFromArgs(args);
-  if (fromArgs) return fromArgs;
-
+): Promise<Feature> {
   const saifDir = parseSaifDir(args);
-  const featuresMap = discoverCurrentFeatures(projectDir, saifDir);
+  const featuresMap = discoverFeatures(projectDir, saifDir);
   const features = [...featuresMap.keys()];
 
   if (features.length === 0) {
     console.error('No features found. Run `saif feat new` first.');
     process.exit(1);
   }
+
+  const fromArgs = getFeatNameFromArgs(args);
+  if (fromArgs) return resolveFeature({ input: fromArgs, projectDir, saifDir });
 
   features.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
@@ -268,7 +267,7 @@ export async function getFeatNameOrPrompt(
     cancel('Operation cancelled.');
     process.exit(1);
   }
-  return result as string;
+  return resolveFeature({ input: result as string, projectDir, saifDir });
 }
 
 /**

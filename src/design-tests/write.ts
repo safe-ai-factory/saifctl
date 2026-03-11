@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 
 import { getSaifRoot } from '../constants.js';
 import { type ModelOverrides } from '../llm-config.js';
-import { getFeatureDirAbsolute } from '../specs/discover.js';
+import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import type { DrainableChunk } from '../utils/drain-stream.js';
 import { runTestsWriterAgent } from './agents/tests-writer.js';
@@ -30,12 +30,8 @@ function readTemplate(profileId: string, filename: string): string {
 }
 
 export interface GenerateTestsOpts {
-  /** Feature name — matches <saifDir>/features/<featureName>/ */
-  featureName: string;
-  /** Absolute path to the project directory */
-  projectDir: string;
-  /** Saif directory name relative to project directory (e.g. 'saif'). Resolved by caller. */
-  saifDir: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /**
    * When true, overwrite existing spec files (helpers, infra, and all entrypoint
    * files). Existing files are preserved by default so human edits are not lost.
@@ -78,9 +74,7 @@ export interface GenerateTestsResult {
  */
 export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTestsResult> {
   const {
-    featureName,
-    projectDir,
-    saifDir,
+    feature,
     force = false,
     testProfile,
     overrides = {},
@@ -89,12 +83,12 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
     abortSignal,
   } = opts;
 
-  const testsDir = join(getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }), 'tests');
+  const testsDir = join(feature.absolutePath, 'tests');
   const catalogPath = join(testsDir, 'tests.json');
 
   if (!existsSync(catalogPath)) {
     throw new Error(
-      `tests.json not found at ${catalogPath}. Run 'saif feat design -n ${featureName}' first.`,
+      `tests.json not found at ${catalogPath}. Run 'saif feat design -n ${feature.name}' first.`,
     );
   }
 

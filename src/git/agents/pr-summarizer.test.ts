@@ -29,17 +29,15 @@ const mockFs = vi.hoisted(() => ({
 }));
 vi.mock('node:fs', () => mockFs);
 
-// Mock discover so getFeatureDirAbsolute resolves without requiring real saif/features/ on disk.
-vi.mock('../../specs/discover.js', () => ({
-  getFeatureDirAbsolute: vi.fn(
-    (opts: { cwd: string; saifDir: string; featureName: string }) =>
-      `${opts.cwd}/${opts.saifDir}/features/${opts.featureName}`,
-  ),
-}));
-
 function makeSummary(title: string, body: string): PRSummary {
   return { title, body };
 }
+
+const baseFeature = {
+  name: 'greet-cmd',
+  absolutePath: '/repo/saif/features/greet-cmd',
+  relativePath: 'saif/features/greet-cmd',
+} as const;
 
 describe('generatePRSummary', () => {
   beforeEach(() => {
@@ -52,9 +50,7 @@ describe('generatePRSummary', () => {
   });
 
   const baseOpts = {
-    featureName: 'greet-cmd',
-    saifDir: 'saif',
-    projectDir: '/repo',
+    feature: baseFeature,
     patchFile: '/sandbox/patch.diff',
     overrides: { model: 'openai/gpt-4o' as const },
   };

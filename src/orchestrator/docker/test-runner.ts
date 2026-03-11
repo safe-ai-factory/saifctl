@@ -17,6 +17,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 import type { TestCatalog } from '../../design-tests/schema.js';
 import type { SupportedSandboxProfileId } from '../../sandbox-profiles/index.js';
+import type { Feature } from '../../specs/discover.js';
 import {
   assertSafeImageTag,
   type CleanupRegistry,
@@ -301,7 +302,7 @@ export interface RunTeststWithContainersOpts {
   sandboxProfileId: SupportedSandboxProfileId;
   codePath: string;
   projectDir: string;
-  featureName: string;
+  feature: Feature;
   projectName: string;
   catalog: TestCatalog;
   testRunnerOpts: Pick<StartTestRunnerContainerOpts, 'testsDir' | 'reportDir' | 'testScriptPath'>;
@@ -325,7 +326,7 @@ export async function runTeststWithContainers({
   sandboxProfileId,
   codePath,
   projectDir,
-  featureName,
+  feature,
   projectName,
   catalog,
   testRunnerOpts,
@@ -340,12 +341,16 @@ export async function runTeststWithContainers({
   let networkName = '';
 
   try {
-    const net = await createSandboxNetwork({ projectName, featureName, runId });
+    const net = await createSandboxNetwork({ projectName, featureName: feature.name, runId });
     networkName = net.networkName;
     registry.registerNetwork(networkName);
 
     // Pre-register before the build starts so SIGINT during docker build still cleans up.
-    const stagingImageTag = getStagingImageTag(catalog, { projectName, featureName, runId });
+    const stagingImageTag = getStagingImageTag(catalog, {
+      projectName,
+      featureName: feature.name,
+      runId,
+    });
     if (stagingImageTag) registry.registerImage(stagingImageTag);
 
     const { testRunnerHandle, all } = await startContainers({
@@ -353,7 +358,7 @@ export async function runTeststWithContainers({
         sandboxProfileId,
         codePath,
         projectDir,
-        featureName,
+        feature,
         projectName,
         catalog,
         networkName,
@@ -361,7 +366,14 @@ export async function runTeststWithContainers({
         startupPath,
         stagePath,
       },
-      testRunner: { ...testRunnerOpts, featureName, projectName, catalog, networkName, runId },
+      testRunner: {
+        ...testRunnerOpts,
+        featureName: feature.name,
+        projectName,
+        catalog,
+        networkName,
+        runId,
+      },
       registry,
       testImage,
     });
@@ -373,7 +385,11 @@ export async function runTeststWithContainers({
     registry.deregisterContainers(containers);
     await removeNetwork(networkName);
     registry.deregisterNetwork(networkName);
-    const stagingImageTag = getStagingImageTag(catalog, { projectName, featureName, runId });
+    const stagingImageTag = getStagingImageTag(catalog, {
+      projectName,
+      featureName: feature.name,
+      runId,
+    });
     if (stagingImageTag) {
       await removeImageByTag({ imageTag: stagingImageTag, missingOk: true });
       registry.deregisterImage(stagingImageTag);

@@ -5,7 +5,7 @@ import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 
 import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
-import { getFeatureDirAbsolute } from '../../specs/discover.js';
+import type { Feature } from '../../specs/discover.js';
 
 /** Maximum diff size (bytes) to pass verbatim; larger diffs are summarised to file headers only. */
 const MAX_DIFF_BYTES = 100_000;
@@ -120,15 +120,8 @@ function trimDiff(diff: string): string {
 }
 
 export interface GeneratePRSummaryOpts {
-  /** The feature name, e.g. "greet-cmd". */
-  featureName: string;
-  /**
-   * Absolute path to the saif directory root (e.g. "saif").
-   * The agent reads <saifDir>/features/<featureName>/specification.md etc.
-   */
-  saifDir: string;
-  /** Absolute path to the project directory (used to resolve saifDir when relative). */
-  projectDir: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /** Absolute path to the patch.diff file written by extractPatch. */
   patchFile: string;
   /** CLI-level model overrides (--model / --agent-model). */
@@ -142,14 +135,12 @@ export interface GeneratePRSummaryOpts {
  * if the diff file is missing or the agent fails, the caller should use generic strings.
  */
 export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PRSummary> {
-  const { featureName, saifDir, projectDir, patchFile, overrides = {} } = opts;
+  const { feature, patchFile, overrides = {} } = opts;
   const prSummarizerAgent = createPRSummarizerAgent(overrides);
 
-  const featureDir = getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName });
-
-  const specContent = readFileSafe(join(featureDir, 'specification.md'));
-  const proposalContent = readFileSafe(join(featureDir, 'proposal.md'));
-  const tasksContent = readFileSafe(join(featureDir, 'tasks.md'));
+  const specContent = readFileSafe(join(feature.absolutePath, 'specification.md'));
+  const proposalContent = readFileSafe(join(feature.absolutePath, 'proposal.md'));
+  const tasksContent = readFileSafe(join(feature.absolutePath, 'tasks.md'));
 
   let diffContent = readFileSafe(patchFile);
   if (!diffContent) {
@@ -160,7 +151,7 @@ export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PR
   }
 
   const prompt = buildPRSummaryPrompt({
-    featureName,
+    featureName: feature.name,
     specContent,
     proposalContent,
     tasksContent,

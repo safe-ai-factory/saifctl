@@ -35,7 +35,7 @@ import { join } from 'node:path';
 import { minimatch } from 'minimatch';
 
 import type { TestCatalog } from '../design-tests/schema.js';
-import { getFeatureDirAbsolute } from '../specs/discover.js';
+import type { Feature } from '../specs/discover.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export function removeAllHiddenDirs(baseDir: string): number {
@@ -95,7 +95,8 @@ export interface SandboxPaths {
 export const DEFAULT_SANDBOX_BASE_DIR = '/tmp/factory-sandbox';
 
 export interface CreateSandboxOpts {
-  featureName: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /** Absolute path to the project directory */
   projectDir: string;
   /**
@@ -186,7 +187,7 @@ export interface CreateSandboxOpts {
  */
 export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   const {
-    featureName,
+    feature,
     projectDir,
     saifDir,
     projectName,
@@ -199,7 +200,7 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   } = opts;
   const runId = opts.runId ?? Math.random().toString(36).substring(2, 9);
 
-  const dirName = `${projectName}-${featureName}-${runId}`;
+  const dirName = `${projectName}-${feature.name}-${runId}`;
   const sandboxBasePath = `${sandboxBaseDir}/${dirName}`;
   const codePath = join(sandboxBasePath, 'code');
   const gatePath = join(sandboxBasePath, 'gate.sh');
@@ -217,14 +218,10 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   });
 
   // Read the test catalog to discover which tests are hidden.
-  const testsJsonPath = join(
-    getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-    'tests',
-    'tests.json',
-  );
+  const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
   if (!existsSync(testsJsonPath)) {
     throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saif feat design -n ${featureName}' first.`,
+      `tests.json not found at ${testsJsonPath}. Run 'saif feat design -n ${feature.name}' first.`,
     );
   }
   const catalog = JSON.parse(readFileSync(testsJsonPath, 'utf8')) as TestCatalog;
@@ -240,10 +237,7 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   }
 
   // Overwrite the current feature's tests.json to contain only public tests.
-  const inCodeTestsDir = join(
-    getFeatureDirAbsolute({ cwd: codePath, saifDir, featureName }),
-    'tests',
-  );
+  const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
   const publicCatalog: TestCatalog = {
     ...catalog,
     testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),

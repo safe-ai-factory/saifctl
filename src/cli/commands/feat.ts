@@ -30,7 +30,7 @@ import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import { readSandboxGateScript } from '../../sandbox-profiles/index.js';
-import { getFeatureDirRelative } from '../../specs/discover.js';
+import type { Feature } from '../../specs/discover.js';
 import {
   featRunArgs,
   featTestsArgs,
@@ -50,7 +50,7 @@ import type { ParsedArgsFromCommand } from '../types.js';
 import {
   type FeatRunArgs,
   getFeatNameFromArgs,
-  getFeatNameOrPrompt,
+  getFeatOrPrompt,
   type OrchestratorArgs,
   parseAgentEnv,
   parseAgentLogFormat,
@@ -230,12 +230,11 @@ async function _runDesignSpecs(args: {
     console.error('Error: --name/-n is required when using --yes/-y');
     process.exit(1);
   }
-  const featName = await getFeatNameOrPrompt(args, projectDir);
+  const feature = await getFeatOrPrompt(args, projectDir);
   const saifDir = parseSaifDir(args);
   const designerProfile = parseDesignerProfile(args);
 
-  const featureDir = getFeatureDirRelative({ cwd: projectDir, saifDir, featureName: featName });
-  const designerBaseOpts = { cwd: projectDir, featName, saifDir };
+  const designerBaseOpts = { cwd: projectDir, feature, saifDir };
 
   // 1. Generate full specs and plan from user's proposal.
   // 1a. Check if the designer has already run
@@ -247,7 +246,7 @@ async function _runDesignSpecs(args: {
     } else {
       intro(`${designerProfile.displayName} output present`);
       const redo = await confirm({
-        message: `${featureDir} already has designer output. Redo ${designerProfile.displayName} spec generation?`,
+        message: `${feature.relativePath} already has designer output. Redo ${designerProfile.displayName} spec generation?`,
       });
       outro('');
       if (isCancel(redo)) {
@@ -260,17 +259,17 @@ async function _runDesignSpecs(args: {
 
   // 1b. Run the designer if needed
   if (runDesigner) {
-    console.log(`\n${designerProfile.displayName} (spec generation): ${featName}`);
+    console.log(`\n${designerProfile.displayName} (spec generation): ${feature.name}`);
     await designerProfile.run({
       ...designerBaseOpts,
       model: typeof args.model === 'string' ? args.model.trim() : undefined,
     });
   } else {
-    console.log(`\nSkipping designer (${featureDir} already has required spec files).`);
+    console.log(`\nSkipping designer (${feature.relativePath} already has required spec files).`);
   }
 
   const overrides = parseModelOverrides(args);
-  return { featName, projectDir, saifDir, overrides };
+  return { feature, projectDir, saifDir, overrides };
 }
 
 const designSpecsCommand = defineCommand({
@@ -305,9 +304,8 @@ const designTestsArgs = {
 };
 
 interface DesignTestsOptions {
-  featName: string;
+  feature: Feature;
   projectDir: string;
-  saifDir: string;
   skipCatalog: boolean;
   force: boolean;
   overrides: ModelOverrides;
@@ -320,9 +318,8 @@ interface DesignTestsOptions {
 }
 
 async function _runDesignTests({
-  featName,
+  feature,
   projectDir,
-  saifDir,
   skipCatalog,
   force,
   overrides,
@@ -334,14 +331,13 @@ async function _runDesignTests({
 
   if (!skipCatalog) {
     // 2a. Read specs and generate a plan of what to test as markdown and JSON.
-    console.log(`\nTests Catalog: ${featName} (profile: ${testProfile.id})`);
+    console.log(`\nTests Catalog: ${feature.name} (profile: ${testProfile.id})`);
     if (indexerProfile) {
       console.log(`  Indexer: ${indexerProfile.displayName} (project: ${projectName})`);
     }
     const designResult = await runDesignTests({
-      featureName: featName,
+      feature,
       projectDir,
-      saifDir,
       testProfile,
       indexerProfile,
       projectName,
@@ -356,9 +352,7 @@ async function _runDesignTests({
   // 2b. Write actual tests from the test plan.
   console.log(`\nGenerating spec files from catalog...`);
   const implResult = await generateTests({
-    featureName: featName,
-    projectDir,
-    saifDir,
+    feature,
     force,
     testProfile,
     overrides,
@@ -392,16 +386,14 @@ const designTestsCommand = defineCommand({
   args: designTestsArgs,
   async run({ args }) {
     const projectDir = parseProjectDir(args);
-    const featName = await getFeatNameOrPrompt(args, projectDir);
-    const saifDir = parseSaifDir(args);
+    const feature = await getFeatOrPrompt(args, projectDir);
     const overrides = parseModelOverrides(args);
 
     const skipCatalog = args['skip-catalog'] === true;
     const force = args.force === true;
     await _runDesignTests({
-      featName,
+      feature,
       projectDir,
-      saifDir,
       skipCatalog,
       force,
       overrides,
@@ -432,12 +424,12 @@ type DesignFail2passArgs = OrchestratorArgs & {
 };
 
 async function _runDesignFail2pass(opts: {
-  featName: string;
+  feature: Feature;
   projectDir: string;
   saifDir: string;
   args: DesignFail2passArgs;
 }): Promise<void> {
-  const { featName, projectDir, saifDir, args } = opts;
+  const { feature, projectDir, saifDir, args } = opts;
   const sandboxBaseDir = parseSandboxBaseDir(args);
 
   const projectName = resolveProjectName(args, projectDir);
@@ -454,10 +446,10 @@ async function _runDesignFail2pass(opts: {
       parseTestScript({ args, projectDir, profileId: testProfile.id }),
     ]);
 
-  console.log(`\nFail2Pass verification: ${featName}`);
+  console.log(`\nFail2Pass verification: ${feature.name}`);
   const result = await runFail2Pass({
     sandboxProfileId: sandboxProfile.id,
-    featureName: featName,
+    feature,
     projectDir,
     saifDir,
     sandboxBaseDir,
@@ -484,10 +476,10 @@ const designFail2passCommand = defineCommand({
   args: designFail2passArgs,
   async run({ args }) {
     const projectDir = parseProjectDir(args);
-    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const feature = await getFeatOrPrompt(args, projectDir);
     const saifDir = parseSaifDir(args);
     await _runDesignFail2pass({
-      featName,
+      feature,
       projectDir,
       saifDir,
       args: args as DesignFail2passArgs,
@@ -511,12 +503,11 @@ const designCommand = defineCommand({
   },
   async run({ args }) {
     // 1. Generate specs
-    const { featName, projectDir, saifDir, overrides } = await _runDesignSpecs(args);
+    const { feature, projectDir, saifDir, overrides } = await _runDesignSpecs(args);
     // 2. Generate tests
     await _runDesignTests({
-      featName,
+      feature,
       projectDir,
-      saifDir,
       skipCatalog: false,
       force: !!args.force,
       overrides,
@@ -524,7 +515,7 @@ const designCommand = defineCommand({
     });
     // 3. Verify tests (expect them to fail)
     await _runDesignFail2pass({
-      featName,
+      feature,
       projectDir,
       saifDir,
       args: args as DesignFail2passArgs,
@@ -576,7 +567,7 @@ const runCommand = defineCommand({
 
 export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand>) => {
   const projectDir = parseProjectDir(args);
-  const featName = await getFeatNameOrPrompt(args, projectDir);
+  const feature = await getFeatOrPrompt(args, projectDir);
   const runArgs = args as FeatRunArgs;
 
   const maxRuns = parseMaxRuns(runArgs);
@@ -611,7 +602,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
   const gitProvider = parseGitProvider(runArgs);
   const runStorage = parseRunStorage(runArgs, projectDir);
 
-  console.log(`\nStarting iterative loop: ${featName}`);
+  console.log(`\nStarting iterative loop: ${feature.name}`);
   console.log(`  Max runs: ${maxRuns}`);
   console.log(`  Test retries: ${testRetries}`);
   console.log(`  Spec ambiguity resolution: ${resolveAmbiguity}`);
@@ -634,7 +625,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
 
   return {
     sandboxProfileId: sandboxProfile.id,
-    featureName: featName,
+    feature,
     projectDir,
     maxRuns,
     overrides,
@@ -678,7 +669,7 @@ const debugCommand = defineCommand({
   args: featDebugArgs,
   async run({ args }) {
     const projectDir = parseProjectDir(args);
-    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const feature = await getFeatOrPrompt(args, projectDir);
     const saifDir = parseSaifDir(args);
     const sandboxBaseDir = parseSandboxBaseDir(args);
     const projectName = resolveProjectName(args, projectDir);
@@ -696,12 +687,12 @@ const debugCommand = defineCommand({
     );
     const agentScript = readFileSync(resolveAgentScriptPath(DEFAULT_AGENT_PROFILE.id), 'utf8');
 
-    console.log(`\nDebug staging container: ${featName}`);
+    console.log(`\nDebug staging container: ${feature.name}`);
     console.log('  Ctrl+C to stop and clean up.\n');
 
     await runDebug({
       sandboxProfileId: sandboxProfile.id,
-      featureName: featName,
+      feature,
       projectDir,
       saifDir,
       sandboxBaseDir,

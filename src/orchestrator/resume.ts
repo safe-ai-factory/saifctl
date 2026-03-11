@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { buildRunArtifact } from '../run-storage/build-artifact.js';
 import { deserializeOpts } from '../run-storage/serialize.js';
 import type { RunArtifact, RunStorage } from '../run-storage/types.js';
+import { resolveFeature } from '../specs/discover.js';
 import { type IterativeLoopOpts, type RunStorageContext } from './loop.js';
 import type { OrchestratorOpts } from './modes.js';
 import type { SandboxPaths } from './sandbox.js';
@@ -191,7 +192,6 @@ export interface CreateSaveRunHandlerParams {
  */
 export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promise<void> {
   const { sandbox, runContext, opts, runStorage, saifDir } = params;
-  const featureName = opts.featureName;
 
   const runId = sandbox.runId;
   const patchPath = join(sandbox.sandboxBasePath, 'patch.diff');
@@ -206,7 +206,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
     baseCommitSha: runContext.baseCommitSha,
     basePatchDiff: runContext.basePatchDiff,
     runPatchDiff,
-    specRef: `${saifDir}/features/${featureName}`,
+    specRef: `${saifDir}/features/${opts.feature.name}`,
     lastFeedback: runContext.lastErrorFeedback,
     status: 'failed',
     opts,
@@ -236,10 +236,16 @@ export function mergeResumeOpts(params: MergeResumeOptsParams): OrchestratorOpts
   const { artifact, opts, overrides, worktreePath } = params;
   const { baseCommitSha, basePatchDiff } = artifact;
   const deserialized = deserializeOpts(artifact.config);
+  const feature = resolveFeature({
+    input: deserialized.featureName,
+    projectDir: opts.projectDir,
+    saifDir: deserialized.saifDir,
+  });
 
   return {
     ...deserialized,
     ...opts,
+    feature,
     projectDir: opts.projectDir,
     overrides: { ...deserialized.overrides, ...overrides },
     sandboxProfileId: (deserialized.sandboxProfileId ??

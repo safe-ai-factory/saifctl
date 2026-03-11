@@ -17,14 +17,14 @@ import type { GitProvider } from '../git/types.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { runResultsJudge } from '../mastra/agents/results-judge.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
-import { getFeatureDirAbsolute } from '../specs/discover.js';
+import type { Feature } from '../specs/discover.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/docker.js';
 import { runAgent } from './agent-runner.js';
 import {
+  type AssertionSuiteResult,
   runTeststWithContainers,
   type StartTestRunnerContainerOpts,
-  type VitestSuiteResult,
 } from './docker/test-runner.js';
 import {
   destroySandbox,
@@ -43,7 +43,8 @@ import {
 export interface IterativeLoopOpts {
   /** Sandbox profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.stage for the staging container when tests.json does not specify build.dockerfile. */
   sandboxProfileId: SupportedSandboxProfileId;
-  featureName: string;
+  /** Resolved feature (name, absolutePath, relativePath). */
+  feature: Feature;
   /** Absolute path to the project directory */
   projectDir: string;
   /** Max full pipeline runs before giving up. Default: 5 */
@@ -198,7 +199,7 @@ export async function runIterativeLoop(
 ): Promise<OrchestratorResult> {
   const {
     sandboxProfileId,
-    featureName,
+    feature,
     projectDir,
     maxRuns,
     overrides,
@@ -236,11 +237,9 @@ export async function runIterativeLoop(
     ...(opts.patchExclude ?? []),
   ];
 
-  const catalog = loadCatalog({ projectDir, featureName, saifDir });
+  const catalog = loadCatalog({ feature });
   const testRunnerOpts = getTestRunnerOpts({
-    projectDir,
-    featureName,
-    saifDir,
+    feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
   });
@@ -265,7 +264,7 @@ export async function runIterativeLoop(
         errorFeedback,
         llmConfig: coderLlmConfig,
         saifDir,
-        featureName,
+        feature,
         dangerousDebug,
         cedarPolicyPath,
         coderImage,
@@ -312,7 +311,7 @@ export async function runIterativeLoop(
           sandboxProfileId,
           codePath: sandbox.codePath,
           projectDir,
-          featureName,
+          feature,
           projectName,
           catalog,
           testRunnerOpts,
@@ -337,12 +336,11 @@ export async function runIterativeLoop(
           await applyPatchToHost({
             codePath: sandbox.codePath,
             projectDir,
-            featureName,
+            feature,
             runId: lastRunId,
             push,
             pr,
             gitProvider,
-            saifDir,
             overrides,
           });
           destroySandbox(sandbox.sandboxBasePath);
@@ -365,8 +363,7 @@ export async function runIterativeLoop(
           const resultsJudgeResult = await runResultsJudgeForFailure({
             projectName,
             projectDir,
-            featureName,
-            saifDir,
+            feature,
             patchPath,
             testSuites: result.testSuites,
             resolveAmbiguity,
@@ -429,12 +426,11 @@ interface RunResultsJudgeForFailureOpts {
   projectName: string;
   /** Absolute path to the project directory */
   projectDir: string;
-  featureName: string;
-  saifDir: string;
+  feature: Feature;
   testProfile: TestProfile;
   /** Content of the extracted patch for this attempt */
   patchPath: string;
-  testSuites: VitestSuiteResult[];
+  testSuites: AssertionSuiteResult[];
   /**
    * Decides action when tests fail due to ambiguous specs:
    * - `ai`: auto-append clarification to specs, regenerate tests, continue.
@@ -471,8 +467,7 @@ export async function runResultsJudgeForFailure(
 ): Promise<ResultsJudgeForFailureResult> {
   const {
     projectDir,
-    featureName,
-    saifDir,
+    feature,
     patchPath,
     testSuites,
     resolveAmbiguity,
@@ -481,10 +476,7 @@ export async function runResultsJudgeForFailure(
     overrides,
   } = opts;
 
-  const specPath = join(
-    getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-    'specification.md',
-  );
+  const specPath = join(feature.absolutePath, 'specification.md');
   const specContent = existsSync(specPath)
     ? readFileSync(specPath, 'utf8')
     : '(specification.md not found)';
@@ -579,14 +571,13 @@ export async function runResultsJudgeForFailure(
   console.log('[results-judge] Regenerating tests with updated spec...');
   try {
     await runDesignTests({
-      featureName,
+      feature,
       projectDir,
-      saifDir,
       testProfile,
       projectName,
       overrides,
     });
-    await generateTests({ featureName, projectDir, saifDir, testProfile, overrides });
+    await generateTests({ feature, testProfile, overrides });
     console.log('[results-judge] Tests regenerated successfully.');
   } catch (err) {
     console.warn(`[results-judge] Test regeneration failed (non-fatal): ${String(err)}`);
@@ -608,7 +599,7 @@ interface ApplyPatchOpts {
   codePath: string;
   /** Absolute path to the project directory */
   projectDir: string;
-  featureName: string;
+  feature: Feature;
   /**
    * Unique run id used to construct the branch name (factory/<featureName>-<runId>),
    * ensuring parallel runs for different attempts never collide.
@@ -620,11 +611,6 @@ interface ApplyPatchOpts {
   pr: boolean;
   /** Git hosting provider. Default: GitHubProvider. */
   gitProvider: GitProvider;
-  /**
-   * Path to the saif directory root (e.g. "saif"), relative to project directory.
-   * Used by the PR summarizer agent to read specification and proposal docs.
-   */
-  saifDir: string;
   /** CLI-level model overrides forwarded to the PR summarizer agent. */
   overrides: ModelOverrides;
 }
@@ -645,17 +631,7 @@ interface ApplyPatchOpts {
  * is deleted, otherwise git's internal worktree registry gets stale entries.
  */
 export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
-  const {
-    codePath,
-    projectDir,
-    featureName,
-    runId,
-    push,
-    pr,
-    gitProvider,
-    saifDir,
-    overrides,
-  } = opts;
+  const { codePath, projectDir, feature, runId, push, pr, gitProvider, overrides } = opts;
 
   // patch.diff is written to sandboxBasePath (parent of codePath) by extractPatch,
   // deliberately outside the git working tree so `git clean -fd` cannot delete it.
@@ -677,7 +653,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
     );
   }
 
-  const branchName = `factory/${featureName}-${runId}`;
+  const branchName = `factory/${feature.name}-${runId}`;
   const wtPath = join(sandboxBasePath, 'worktree');
 
   const gitEnv = {
@@ -706,7 +682,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
     // 2. Apply patch inside the worktree
     execSync(`git apply "${patchFile}"`, { cwd: wtPath, env: gitEnv });
     execSync('git add .', { cwd: wtPath, env: gitEnv });
-    execSync(`git commit -m "feat(${featureName}): auto-generated implementation"`, {
+    execSync(`git commit -m "feat(${feature.name}): auto-generated implementation"`, {
       cwd: wtPath,
       env: gitEnv,
     });
@@ -724,14 +700,12 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
         const repoSlug = gitProvider.extractRepoSlug(push, projectDir);
 
         // 5a. Generate AI title + body; fall back to generic strings on any error.
-        let prTitle = `feat(${featureName}): auto-generated implementation`;
-        let prBody = `Automated implementation produced by the Software Factory for feature \`${featureName}\`.\n\nRun ID: \`${runId}\``;
+        let prTitle = `feat(${feature.name}): auto-generated implementation`;
+        let prBody = `Automated implementation produced by the [SAIF](https://github.com/JuroOravec/safe-ai-factory) for feature \`${feature.name}\`.\n\nRun ID: \`${runId}\``;
         try {
-          console.log(`[orchestrator] Generating AI PR summary for ${featureName}...`);
+          console.log(`[orchestrator] Generating AI PR summary for ${feature.name}...`);
           const summary = await generatePRSummary({
-            featureName,
-            saifDir,
-            projectDir,
+            feature,
             patchFile,
             overrides,
           });
@@ -777,19 +751,17 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
 }
 
 interface BuildInitialTaskOpts {
-  projectDir: string;
-  featureName: string;
+  feature: Feature;
   saifDir: string;
 }
 
 function buildInitialTask(opts: BuildInitialTaskOpts): string {
-  const { projectDir, featureName, saifDir } = opts;
-  const featureDir = getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName });
-  const planPath = join(featureDir, 'plan.md');
-  const specPath = join(featureDir, 'specification.md');
+  const { feature, saifDir } = opts;
+  const planPath = join(feature.absolutePath, 'plan.md');
+  const specPath = join(feature.absolutePath, 'specification.md');
 
   const parts = [
-    `Implement the feature '${featureName}' as described in the plan below.`,
+    `Implement the feature '${feature.name}' as described in the plan below.`,
     `Write code in the /workspace directory. Do NOT modify files in the /${saifDir}/ directory.`,
     'When complete, ensure the code compiles and passes linting.',
   ];
@@ -810,21 +782,15 @@ function buildInitialTask(opts: BuildInitialTaskOpts): string {
 // ---------------------------------------------------------------------------
 
 interface LoadCatalogOpts {
-  projectDir: string;
-  featureName: string;
-  saifDir: string;
+  feature: Feature;
 }
 
 export function loadCatalog(opts: LoadCatalogOpts) {
-  const { projectDir, featureName, saifDir } = opts;
-  const testsJsonPath = join(
-    getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }),
-    'tests',
-    'tests.json',
-  );
+  const { feature } = opts;
+  const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
   if (!existsSync(testsJsonPath)) {
     throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saif feat design -n ${featureName}' first.`,
+      `tests.json not found at ${testsJsonPath}. Run 'saif feat design -n ${feature.name}' first.`,
     );
   }
   const raw = JSON.parse(readFileSync(testsJsonPath, 'utf8')) as unknown;
@@ -838,9 +804,7 @@ export function loadCatalog(opts: LoadCatalogOpts) {
 }
 
 interface GetTestRunnerOptsArgs {
-  projectDir: string;
-  featureName: string;
-  saifDir: string;
+  feature: Feature;
   /** Sandbox root — the test runner writes results.xml here (via /test-runner-output bind-mount). */
   sandboxBasePath: string;
   /**
@@ -861,16 +825,14 @@ interface GetTestRunnerOptsArgs {
  * Spec files are expected to already exist — generated by `saif feat design`.
  */
 export function getTestRunnerOpts({
-  projectDir,
-  featureName,
-  saifDir,
+  feature,
   sandboxBasePath,
   testScript,
 }: GetTestRunnerOptsArgs): Pick<
   StartTestRunnerContainerOpts,
   'testsDir' | 'reportDir' | 'testScriptPath'
 > {
-  const testsDir = join(getFeatureDirAbsolute({ cwd: projectDir, saifDir, featureName }), 'tests');
+  const testsDir = join(feature.absolutePath, 'tests');
 
   const testScriptPath = join(sandboxBasePath, 'test.sh');
   writeFileSync(testScriptPath, testScript, { encoding: 'utf8', mode: 0o755 });
