@@ -1,0 +1,288 @@
+{
+  "name": "safe-ai-factory",
+  "displayName": "Safe AI Factory",
+  "description": "Containerized coding agent workflow orchestrator.",
+  "version": "0.0.1",
+  "publisher": "JuroOravec",
+  "license": "MIT",
+  "icon": "resources/saif-icon-green.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JuroOravec/safe-ai-factory.git",
+    "directory": "vscode-ext"
+  },
+  "bugs": {
+    "url": "https://github.com/JuroOravec/safe-ai-factory/issues"
+  },
+  "homepage": "https://github.com/JuroOravec/safe-ai-factory#readme",
+  "keywords": [
+    "ai",
+    "agents",
+    "coding",
+    "containerized",
+    "safe-ai-factory",
+    "spec-driven"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsup",
+    "vscode:prepublish": "pnpm run build",
+    "vsix": "vsce package --allow-package-all-secrets --allow-package-env-file --allow-missing-repository",
+    "compile": "pnpm run check-types && pnpm run lint && tsup",
+    "watch": "npm-run-all -p watch:*",
+    "watch:tsup": "tsup --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && tsup --minify",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run build && pnpm run compile-tests",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip --exclude types",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "glob": "^14",
+    "knip": "^5.85.0",
+    "mocha": "^10",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3",
+    "tsup": "^8",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vitest": "^2",
+    "@vscode/vsce": "^3"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "saif-explorer",
+          "title": "Safe AI Factory",
+          "icon": "resources/saif-icon-mono.svg"
+        }
+      ]
+    },
+    "views": {
+      "saif-explorer": [
+        {
+          "id": "saif-features",
+          "name": "Features"
+        },
+        {
+          "id": "saif-runs",
+          "name": "Runs"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "saif-features",
+        "contents": "The SAIF CLI is not installed or not in your PATH. You need it to run containerized swarms.\n\n[Install SAIF](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saif.recheckInstall)",
+        "when": "!saif.isCliInstalled"
+      },
+      {
+        "view": "saif-runs",
+        "contents": "No CLI detected. Install SAIF to view and manage your agent runs.\n\n[Install SAIF](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saif.recheckInstall)",
+        "when": "!saif.isCliInstalled"
+      },
+      {
+        "view": "saif-runs",
+        "contents": "No runs found.\n\nRight-click a feature in **Features** and select **Run** to start your swarm.",
+        "when": "saif.isCliInstalled"
+      }
+    ],
+    "commands": [
+      {
+        "command": "saif.recheckInstall",
+        "title": "Recheck SAIF Installation"
+      },
+      {
+        "command": "saif.createFeature",
+        "title": "Create Feature",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "saif.createDir",
+        "title": "Create Folder",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "saif.createFile",
+        "title": "Create File",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "saif.refreshFeatures",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "saif.runFeature",
+        "title": "Run",
+        "icon": "$(play)"
+      },
+      {
+        "command": "saif.debugFeature",
+        "title": "Debug",
+        "icon": "$(debug)"
+      },
+      {
+        "command": "saif.designFeature",
+        "title": "Design",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "saif.refreshRuns",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "saif.resumeRun",
+        "title": "Resume",
+        "icon": "$(play)"
+      },
+      {
+        "command": "saif.removeRun",
+        "title": "Remove",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "saif.clearAllRuns",
+        "title": "Clear All",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "saif.revealRunInFinder",
+        "title": "Reveal in Explorer"
+      },
+      {
+        "command": "saif.copyRunId",
+        "title": "Copy Run ID"
+      },
+      {
+        "command": "saif.copyRunName",
+        "title": "Copy Name"
+      },
+      {
+        "command": "saif.showLogs",
+        "title": "Show SAIF Logs",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "saif.createFeature",
+          "when": "view == saif-features",
+          "group": "navigation@1"
+        },
+        {
+          "command": "saif.createDir",
+          "when": "view == saif-features",
+          "group": "navigation@2"
+        },
+        {
+          "command": "saif.createFile",
+          "when": "view == saif-features",
+          "group": "navigation@3"
+        },
+        {
+          "command": "saif.refreshFeatures",
+          "when": "view == saif-features",
+          "group": "navigation@4"
+        },
+        {
+          "command": "saif.showLogs",
+          "when": "view == saif-features",
+          "group": "navigation@5"
+        },
+        {
+          "command": "saif.refreshRuns",
+          "when": "view == saif-runs",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "saif.runFeature",
+          "when": "viewItem == feature",
+          "group": "inline@1"
+        },
+        {
+          "command": "saif.debugFeature",
+          "when": "viewItem == feature",
+          "group": "inline@2"
+        },
+        {
+          "command": "saif.designFeature",
+          "when": "viewItem == feature",
+          "group": "inline@3"
+        },
+        {
+          "command": "saif.resumeRun",
+          "when": "viewItem == run_failed",
+          "group": "inline@1"
+        },
+        {
+          "command": "saif.removeRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "inline@2"
+        },
+        {
+          "command": "saif.clearAllRuns",
+          "when": "viewItem == runProject",
+          "group": "inline"
+        },
+        {
+          "command": "saif.revealRunInFinder",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "saif.copyRunId",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "saif.copyRunName",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "saif.createFile",
+          "when": "view == saif-features && (viewItem == feature || viewItem == dir)",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "saif.createDir",
+          "when": "view == saif-features && (viewItem == feature || viewItem == dir)",
+          "group": "2_workspace@2"
+        }
+      ]
+    }
+  }
+}

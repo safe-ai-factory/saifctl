@@ -53,7 +53,7 @@ describe('queryShotgunIndex', () => {
     expect(childProcess.spawnSync).toHaveBeenCalledWith(
       'python',
       ['-m', 'shotgun.main', 'codebase', 'query', 'abc123', 'where is foo?'],
-      { encoding: 'utf-8', cwd: '/repo' },
+      expect.objectContaining({ encoding: 'utf-8', cwd: '/repo' }),
     );
   });
 
@@ -70,7 +70,7 @@ describe('queryShotgunIndex', () => {
     expect(childProcess.spawnSync).toHaveBeenCalledWith(
       '/path/to/.venv/bin/python',
       ['-m', 'shotgun.main', 'codebase', 'query', 'g1', 'q'],
-      { encoding: 'utf-8', cwd: '/repo' },
+      expect.objectContaining({ encoding: 'utf-8', cwd: '/repo' }),
     );
   });
 

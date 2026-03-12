@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    ".vscode-test.mjs",
+    "src/test/**"
+  ],
+  "ignoreDependencies": [
+    "@types/mocha",
+    "@vscode/test-electron"
+  ]
+}

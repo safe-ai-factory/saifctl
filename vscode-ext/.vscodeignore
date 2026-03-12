@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+out/**
+node_modules/**
+src/**
+.gitignore
+tsup.config.ts
+vsc-extension-quickstart.md
+**/tsconfig*.json
+**/eslint.config.js
+**/*.map
+**/*.ts
+**/.vscode-test.*
+**/vitest.config.ts
+**/knip.json

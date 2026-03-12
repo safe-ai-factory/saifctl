@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
+
 import { defineCommand, runMain } from 'citty';
 
 import cacheCommand from './commands/cache.js';
@@ -24,3 +26,7 @@ const main = defineCommand({
 export const cli = () => {
   void runMain(main);
 };
+
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  cli();
+}
