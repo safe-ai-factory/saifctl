@@ -41,7 +41,7 @@ export interface RunTestsDesignOpts {
   projectName: string;
   /** Test profile determines entrypoint naming rules for catalog generation. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model / --agent-model). */
+  /** CLI-level model overrides (--model). */
   overrides?: ModelOverrides;
   /** Called with each text delta from the LLM (for live display) */
   onThought?: (delta: string) => void;

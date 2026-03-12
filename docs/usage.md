@@ -193,9 +193,7 @@ saif/
 The `tests/` directory contains:
 
 - `public/` - Public tests - Agent can see these. Happy paths, etc..
-- `hidden/` - Hidden tests — Agent never sees these. All `hidden/` dirs under
-  `saif/features/` (across every feature) are stripped from the agent's code copy.
-  Edge cases, failures, etc.
+- `hidden/` - Hidden tests - Agent never see these. Edge cases, failures, etc.
 - `tests.md` - Human-readable summary of generated tests.
 - `tests.json` - Test catalog - metadata of all tests.
 - `helpers.ts` - Helpers to send requests to the test runner container.

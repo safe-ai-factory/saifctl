@@ -50,7 +50,7 @@ export interface IterativeLoopOpts {
   /** Max full pipeline runs before giving up. Default: 5 */
   maxRuns: number;
   /**
-   * CLI-level LLM overrides (--model, --agent-model, --base-url, --agent-base-url).
+   * CLI-level LLM overrides (--model, --base-url).
    *
    * The orchestrator uses this to resolve the coder agent's model config via
    * `resolveAgentLlmConfig('coder', 'coder', overrides)` and to pass overrides
@@ -131,7 +131,7 @@ export interface IterativeLoopOpts {
    * Extra environment variables to forward into the agent container (Leash mode)
    * or inject into the host process env (--dangerous-debug mode).
    *
-   * Parsed from --env KEY=VALUE flags and --env-file <path> by the CLI.
+   * Parsed from --agent-env KEY=VALUE flags and --agent-env-file <path> by the CLI.
    * Reserved factory variables (FACTORY_*, WORKSPACE_BASE, LLM_API_KEY, LLM_MODEL,
    * LLM_PROVIDER, LLM_BASE_URL) are silently filtered out by the runner to prevent
    * accidental override.

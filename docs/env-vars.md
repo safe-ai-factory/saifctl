@@ -53,12 +53,12 @@ The following variables are **generated at runtime by the orchestrator** and
 injected into the Leash coder container. Do not set them in your `.env` — they
 will be overwritten.
 
-| Variable       | Set from                                                             |
-| -------------- | -------------------------------------------------------------------- |
-| `LLM_MODEL`    | Resolved from `--model` / `--agent-model coder=...` / auto-discovery |
-| `LLM_PROVIDER` | Derived from the `provider/model` prefix                             |
-| `LLM_API_KEY`  | Resolved from the provider's standard key env var                    |
-| `LLM_BASE_URL` | Resolved from `--base-url` / `--agent-base-url coder=...`            |
+| Variable       | Set from                                                               |
+| -------------- | ---------------------------------------------------------------------- |
+| `LLM_MODEL`    | Resolved from `--model` (global or agent=model parts) / auto-discovery |
+| `LLM_PROVIDER` | Derived from the `provider/model` prefix                               |
+| `LLM_API_KEY`  | Resolved from the provider's standard key env var                      |
+| `LLM_BASE_URL` | Resolved from `--base-url` (global or agent=url parts)                 |
 
 Agent shell scripts (`agent.sh`, `agent-start.sh`) read these variables to
 configure the coding agent (e.g. `OPENAI_API_KEY` for Codex, `ANTHROPIC_API_KEY`

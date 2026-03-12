@@ -82,20 +82,12 @@ export const modelOverrideArgs = {
   model: {
     type: 'string' as const,
     description:
-      'LLM model for all agents, e.g. anthropic/claude-3-5-sonnet-latest or openai/gpt-4o.',
+      'LLM model. Single global (anthropic/claude-opus-4-5) or comma-separated agent=model (pr-summarizer=openai/gpt-4o-mini). At most one global.',
   },
   'base-url': {
     type: 'string' as const,
-    description: 'Base URL for all agents (only needed for custom/local endpoints).',
-  },
-  'agent-model': {
-    type: 'string' as const,
     description:
-      'Per-agent model override, repeatable. Format: name=provider/model (e.g. tests-planner=openai/gpt-4o).',
-  },
-  'agent-base-url': {
-    type: 'string' as const,
-    description: 'Per-agent base URL override, repeatable. Format: name=url.',
+      'LLM base URL. Single global (https://..) or comma-separated agent=url (pr-summarizer=https://..). At most one global.',
   },
 };
 
@@ -171,13 +163,15 @@ export const featRunArgs = {
     type: 'string' as const,
     description: 'Max gate retries per run (default: 10).',
   },
-  env: {
+  'agent-env': {
     type: 'string' as const,
-    description: 'Extra env var for the agent container. Format: KEY=VALUE. Repeatable.',
+    description:
+      'Extra env var(s). Single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2. Values cannot contain commas; use --agent-env-file or config for that.',
   },
-  'env-file': {
+  'agent-env-file': {
     type: 'string' as const,
-    description: 'Path to .env file with extra env vars for the agent container.',
+    description:
+      'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
   },
   'agent-log-format': {
     type: 'string' as const,

@@ -8,8 +8,8 @@
  * ## Resolution cascade (highest → lowest priority)
  *
  * For each agent, the model string is resolved in this order:
- *   1. `--agent-model <name>=<provider/model>` CLI flag   (most specific)
- *   2. `--model <provider/model>` CLI flag                (global override)
+ *   1. Per-agent from `--model` (agent=model parts)        (most specific)
+ *   2. Global from `--model` CLI flag                      (global override)
  *   3. Auto-discovery from standard API keys              (zero-config default)
  *
  * ## Model string format
@@ -72,22 +72,22 @@ export interface LlmConfig {
  * Examples:
  * ```
  * --model anthropic/claude-3-5-sonnet-latest
+ * --model coder=openai/o3,pr-summarizer=openai/gpt-4o-mini
  * --base-url https://api.anthropic.com/v1
- * --agent-model coder=anthropic/claude-3-5-sonnet-latest
- * --agent-base-url coder=https://api.anthropic.com/v1
+ * --base-url coder=https://api.anthropic.com/v1,pr-summarizer=https://api.openai.com/v1
  * ```
  *
  * Produced by `parseModelOverrides()` in `src/cli/utils.ts` and threaded through
  * from command entry points down to any function that resolves an agent model.
  */
 export interface ModelOverrides {
-  /** Value of `--model` — applies to all agents. */
+  /** Value of `--model` (global part) — applies to all agents. */
   model?: string;
   /** Value of `--base-url` — applies to all agents. */
   baseUrl?: string;
-  /** Per-agent model overrides from `--agent-model name=provider/model`. */
+  /** Per-agent model overrides from `--model` agent=model parts. */
   agentModels?: Record<string, string>;
-  /** Per-agent base URL overrides from `--agent-base-url name=url`. */
+  /** Per-agent base URL overrides from `--base-url` agent=url parts. */
   agentBaseUrls?: Record<string, string>;
 }
 
@@ -320,11 +320,11 @@ function parseModelString(raw: string): { provider: string; modelId: string } {
  * Resolves the full LLM configuration for a named agent.
  *
  * Resolution cascade (highest → lowest priority):
- *   1. `--agent-model <agentName>=<provider/model>` CLI flag
- *   2. `--model <provider/model>` global CLI flag
+ *   1. Per-agent from `--model` (agent=model parts)
+ *   2. Global from `--model` CLI flag
  *   3. Auto-discovery from standard API keys (ANTHROPIC_API_KEY, etc.)
  *
- * @param agentName - Canonical agent name used in `--agent-model` flags (e.g. "coder", "results-judge").
+ * @param agentName - Canonical agent name (e.g. "coder", "results-judge") used in `--model` agent=model parts.
  * @param overrides - Parsed CLI flags (from `parseModelOverrides()`).
  */
 export function resolveAgentLlmConfig(agentName: string, overrides: ModelOverrides): LlmConfig {
@@ -416,7 +416,7 @@ export function createProviderModel(config: LlmConfig): LanguageModelV3 {
  * Resolves config for a named agent and immediately returns the AI SDK model.
  * Convenience wrapper for the common case in Mastra agent factories.
  *
- * @param agentName - Canonical name used in `--agent-model` flags.
+ * @param agentName - Canonical agent name used in `--model` agent=model parts.
  * @param overrides - Parsed CLI flags (from `parseModelOverrides()`).
  */
 export function resolveAgentModel(agentName: string, overrides: ModelOverrides): LanguageModelV3 {

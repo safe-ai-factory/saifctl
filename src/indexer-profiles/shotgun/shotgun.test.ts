@@ -83,7 +83,7 @@ describe('queryShotgunIndex', () => {
     } as ReturnType<typeof childProcess.spawnSync>);
 
     expect(() => queryShotgunIndex({ graphId: 'bad', question: 'q', projectDir: '/repo' })).toThrow(
-      /shotgun-sh codebase query failed/,
+      /shotgun\.main exited with code 1/,
     );
   });
 });

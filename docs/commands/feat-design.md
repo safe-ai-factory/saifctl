@@ -34,10 +34,8 @@ saif feature design [options]
 | `--yes`              | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                           |
 | `--force`            | `-f`  | boolean | Always re-run the designer and overwrite existing test files, without prompting.                                                            |
 | `--designer`         | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                     |
-| `--model`            | —     | string  | LLM model for all agents (`provider/model`, e.g. `anthropic/claude-3-5-sonnet-latest`). Auto-detected from available API keys when omitted. |
-| `--base-url`         | —     | string  | LLM base URL override for all agents (e.g. `http://localhost:11434/v1` for Ollama).                                                         |
-| `--agent-model`      | —     | string  | Per-agent model override. Format: `<agent>=<provider/model>`. Can be repeated. See [models.md](../models.md) for agent names.               |
-| `--agent-base-url`   | —     | string  | Per-agent base URL override. Format: `<agent>=<url>`. Can be repeated.                                                                      |
+| `--model`            | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                |
+| `--base-url`         | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
 | `--saif-dir`         | —     | string  | Path to saif directory (default: `saif`)                                                                                                    |
 | `--project-dir`      | —     | string  | Project directory (default: current working directory)                                                                                      |
 | `--project`          | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                        |
@@ -87,9 +85,7 @@ saif feat design --model anthropic/claude-3-5-sonnet-latest
 Override individual agents (e.g. stronger planner, cheaper test coder):
 
 ```bash
-saif feat design \
-  --agent-model tests-planner=anthropic/claude-opus-4-5 \
-  --agent-model tests-writer=openai/gpt-4o-mini
+saif feat design --model tests-planner=anthropic/claude-opus-4-5,tests-writer=openai/gpt-4o-mini
 ```
 
 Change language or framework for the sandbox container (e.g. your codebse is in Golang):

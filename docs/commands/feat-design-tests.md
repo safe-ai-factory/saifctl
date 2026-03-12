@@ -20,10 +20,8 @@ saif feature design-tests [options]
 | `--name`           | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                  |
 | `--force`          | `-f`  | boolean | Overwrite existing test scaffold files.                                                                                                     |
 | `--skip-catalog`   | —     | boolean | Skip catalog generation and use the existing `tests.json`. Useful when re-generating only the test files.                                   |
-| `--model`          | —     | string  | LLM model for all agents (`provider/model`, e.g. `anthropic/claude-3-5-sonnet-latest`). Auto-detected from available API keys when omitted. |
-| `--base-url`       | —     | string  | LLM base URL override for all agents (e.g. `http://localhost:11434/v1` for Ollama).                                                         |
-| `--agent-model`    | —     | string  | Per-agent model override. Format: `<agent>=<provider/model>`. Can be repeated. See [models.md](../models.md) for agent names.               |
-| `--agent-base-url` | —     | string  | Per-agent base URL override. Format: `<agent>=<url>`. Can be repeated.                                                                      |
+| `--model`          | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                |
+| `--base-url`       | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
 | `--saif-dir`       | —     | string  | Path to saif directory (default: `saif`)                                                                                                    |
 | `--project-dir`    | —     | string  | Project directory (default: current working directory)                                                                                      |
 | `--test-profile`   | —     | string  | Test profile id (default: node-vitest)                                                                                                      |
@@ -83,10 +81,7 @@ saif feat design-tests --model anthropic/claude-3-5-sonnet-latest
 Use per-agent overrides (e.g. stronger planner, cheaper coder):
 
 ```bash
-saif feat design-tests \
-  --agent-model tests-planner=anthropic/claude-opus-4-5 \
-  --agent-model tests-catalog=anthropic/claude-3-5-sonnet-latest \
-  --agent-model tests-writer=openai/gpt-4o-mini
+saif feat design-tests --model tests-planner=anthropic/claude-opus-4-5,tests-catalog=anthropic/claude-3-5-sonnet-latest,tests-writer=openai/gpt-4o-mini
 ```
 
 ## What it does

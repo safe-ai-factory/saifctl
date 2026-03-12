@@ -185,7 +185,7 @@ export function filterAgentEnv(agentEnv: Record<string, string>): Record<string,
   for (const [key, val] of Object.entries(agentEnv)) {
     if (key.startsWith('FACTORY_') || RESERVED_ENV_KEYS.has(key)) {
       console.warn(
-        `[agent-runner] WARNING: --env ${key} is a reserved factory variable and will be ignored.`,
+        `[agent-runner] WARNING: --agent-env ${key} is a reserved factory variable and will be ignored.`,
       );
       continue;
     }

@@ -39,7 +39,7 @@ export interface GenerateTestsOpts {
   force?: boolean;
   /** Test profile determines language, templates, and coder agent instructions. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model / --agent-model). */
+  /** CLI-level model overrides (--model). */
   overrides?: ModelOverrides;
   /** Called with text deltas from LLM generation (for live display) */
   onThought?: (delta: string) => void;

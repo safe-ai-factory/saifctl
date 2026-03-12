@@ -124,7 +124,7 @@ export interface GeneratePRSummaryOpts {
   feature: Feature;
   /** Absolute path to the patch.diff file written by extractPatch. */
   patchFile: string;
-  /** CLI-level model overrides (--model / --agent-model). */
+  /** CLI-level model overrides (--model). */
   overrides?: ModelOverrides;
 }
 

@@ -62,7 +62,7 @@ The factory forwards these into the agent container:
 | `FACTORY_TASK_PATH` | Path to the task markdown file. Agent script must read from here.                                  |
 | `WORKSPACE_BASE`    | Path to the workspace (`/workspace` or host path).                                                 |
 
-Additional vars from `--env` and `--env-file` are forwarded to the container.
+Additional vars from `--agent-env` and `--agent-env-file` are forwarded to the container.
 
 See [Environment variables](../env-vars.md) for details.
 

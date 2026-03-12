@@ -48,7 +48,7 @@ export interface RunTestsWriterAgentOpts {
   helpersContent: string;
   /** Test profile determines language, framework, import rules, assertion style. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model / --agent-model). */
+  /** CLI-level model overrides (--model). */
   overrides?: ModelOverrides;
   /** Called with each text delta from the LLM */
   onThought?: (delta: string) => void;

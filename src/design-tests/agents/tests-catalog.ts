@@ -65,7 +65,7 @@ export interface RunCatalogAgentOpts {
   testProfile: TestProfile;
   /** Optional codebase index tool from an IndexerProfile. When provided, agent can query the codebase. */
   indexerTool?: Tool;
-  /** CLI-level model overrides (--model / --agent-model). */
+  /** CLI-level model overrides (--model). */
   overrides?: ModelOverrides;
   onThought?: (delta: string) => void;
   onEvent?: (chunk: DrainableChunk) => void;

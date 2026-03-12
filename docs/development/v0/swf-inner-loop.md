@@ -137,21 +137,21 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 **Flags for `saif feat run` and `saif run resume`:**
 
-| Flag                 | Description                                                                            | Default              |
-| -------------------- | -------------------------------------------------------------------------------------- | -------------------- |
-| `--gate-script`      | Path to a shell script to use as the gate                                              | Profile's `gate.sh`  |
-| `--gate-retries`     | Max gate retries per run                                                               | 10                    |
-| `--agent-script`     | Path to a bash script that runs the coding agent; reads task from `$FACTORY_TASK_PATH` | Built-in (OpenHands) |
-| `--env KEY=VALUE`    | Extra env var to forward into the agent container (repeatable)                         | —                    |
-| `--env-file <path>`  | Path to a `.env` file with extra env vars to forward                                   | —                    |
-| `--agent-log-format` | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands`          |
+| Flag                      | Description                                                                            | Default              |
+| ------------------------- | -------------------------------------------------------------------------------------- | -------------------- |
+| `--gate-script`           | Path to a shell script to use as the gate                                              | Profile's `gate.sh`  |
+| `--gate-retries`          | Max gate retries per run                                                               | 10                   |
+| `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$FACTORY_TASK_PATH` | Built-in (OpenHands) |
+| `--agent-env KEY=VALUE`   | Extra env var to forward into the agent container (repeatable)                         | —                    |
+| `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
+| `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands`          |
 
 **Parsing:**
 
 - `parseGateScript(ctx, profile)`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)` and `isDefault: true`. Otherwise reads the file and returns its content.
 - `parseGateRetries(ctx)`: If `--gate-retries` is not set, returns 5. Otherwise parses a positive integer.
 - `parseAgentScript(ctx)`: If `--agent-script` is not set, returns `DEFAULT_AGENT_SCRIPT` (OpenHands) and `isDefault: true`. Otherwise reads the file and returns its content.
-- `parseAgentEnv(ctx)`: Merges `--env-file` entries (first) and `--env KEY=VALUE` flags (override). Malformed entries emit a warning and are skipped.
+- `parseAgentEnv(ctx)`: Merges `--agent-env-file` entries (first) and `--agent-env KEY=VALUE` flags (override). Malformed entries emit a warning and are skipped.
 - `parseAgentLogFormat(ctx)`: Returns `'raw'` if `--agent-log-format raw`; defaults to `'openhands'`.
 
 ---
@@ -181,7 +181,7 @@ After sandbox creation:
 - The gate runs inside the container with access to `/workspace` only — no host-side trust surface, no HTTP, no bind-mount race conditions.
 - The **Test Runner** (hidden tests) remains the authoritative enforcement layer. The gate is purely a cheap early-exit that catches deterministic failures before the expensive Docker build and test runner run.
 - The agent **can observe** gate output — it is fed back as task feedback. This is intentional: the feedback comes from the user's own public check, not from hidden tests.
-- **`agentEnv`** reserved-key filtering: factory internal variables (`FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_BASE_URL`) cannot be overridden by user-supplied `--env` flags. The runner emits a warning and ignores them.
+- **`agentEnv`** reserved-key filtering: factory internal variables (`FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_BASE_URL`) cannot be overridden by user-supplied `--agent-env` flags. The runner emits a warning and ignores them.
 
 ---
 
@@ -247,13 +247,13 @@ saif feat run --agent-script ./claude-runner.sh --agent-log-format raw
 
 ```bash
 # Pass individual vars
-saif feat run --env AIDER_MODEL=gpt-4o --env AIDER_YES=1
+saif feat run --agent-env AIDER_MODEL=gpt-4o --agent-env AIDER_YES=1
 
 # Or use an env file
 # agent.env
 # AIDER_MODEL=gpt-4o
 # AIDER_YES=1
-saif feat run --env-file ./agent.env
+saif feat run --agent-env-file ./agent.env
 ```
 
 ### Dangerous-debug mode (host execution)

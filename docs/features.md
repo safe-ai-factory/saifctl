@@ -76,13 +76,11 @@ Target a specific agent while keeping defaults for the rest:
 ```bash
 # Use o3 for the coding agent,
 # keep defaults for other agents
-saif feat run --agent-model coder=openai/o3
+saif feat run --model coder=openai/o3
 
 # Cheap model for PR summaries,
 # strong model for everything else
-saif feat run \
-  --model anthropic/claude-sonnet-4-6 \
-  --agent-model pr-summarizer=openai/gpt-4o-mini
+saif feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
 ```
 
 See [Models](./models.md) for the full reference and available agents.

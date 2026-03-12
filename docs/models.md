@@ -76,63 +76,55 @@ The provider prefix determines which SDK and API key are used:
 
 All LLM-using commands accept these flags.
 
-### `--model <provider/model>`
+### `--model <value>`
 
-Set the model for **all agents** in the command.
+Set the model. Same pattern as `--storage`: single global or comma-separated `agent=model`. At most one global.
 
 ```sh
-# Use Claude for the entire design pipeline
+# Single global — all agents use Claude
 saif feat design --model anthropic/claude-sonnet-4-6
 
 # Use GPT-4o for the coding agent loop
 saif feat run --model openai/gpt-4o
 
-# Use OpenRouter to route to any model
-saif feat run --model openrouter/meta-llama/llama-3.1-405b
+# Agent-specific — override one agent
+saif feat run --model pr-summarizer=openai/gpt-4o-mini
+
+# Multiple agent-specific (comma-separated)
+saif feat run --model coder=openai/o3,results-judge=anthropic/claude-opus-4-5
+
+# Mixed — global default + overrides
+saif feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
 ```
 
 ### `--base-url <url>`
 
-Override the API endpoint for all agents. Use for local models, custom proxies, or self-hosted deployments.
+Override the API endpoint. Same pattern as `--model`: single global, agent-specific, or mixed (comma-separated). Use for local models, custom proxies, or self-hosted deployments.
 
 ```sh
-# Local Ollama
+# Single global — all agents
 saif feat run \
   --model ollama/qwen2.5-coder:32b \
   --base-url http://localhost:11434/v1
 
-# Custom OpenAI-compatible proxy
+# Custom proxy (global)
 saif feat design \
   --model myproxy/claude-3-5-sonnet \
   --base-url https://myproxy.example.com/v1
+
+# Agent-specific
+saif feat run \
+  --model coder=qwen2.5-coder:32b \
+  --base-url coder=http://localhost:11434/v1
+
+# Multiple agent-specific
+saif feat run --base-url coder=http://localhost:11434/v1,results-judge=https://api.openai.com/v1
+
+# Mixed — global + agent override
+saif feat run --base-url https://myproxy.example.com/v1,pr-summarizer=https://api.openai.com/v1
 ```
 
-### `--agent-model <agent>=<provider/model>`
-
-Override the model for a **single named agent**. Can be repeated.
-
-```sh
-# Use a cheaper model for PR summaries,
-# keep the default for the coder
-saif feat run \
-  --model anthropic/claude-3-5-sonnet-latest \
-  --agent-model pr-summarizer=openai/gpt-4o-mini
-
-# Override two agents at once
-saif feat run \
-  --agent-model coder=openai/o3 \
-  --agent-model results-judge=anthropic/claude-opus-4-5
-```
-
-### `--agent-base-url <agent>=<url>`
-
-Override the API endpoint for a single agent.
-
-```sh
-saif feat run \
-  --agent-model coder=qwen2.5-coder:32b \
-  --agent-base-url coder=http://localhost:11434/v1
-```
+At most one global value (e.g. `--base-url https://a,https://b` errors). URLs with query params (`?x=y`) are correctly treated as globals.
 
 ---
 
@@ -140,11 +132,11 @@ saif feat run \
 
 For each agent, the model is resolved in this priority order:
 
-1. `--agent-model <name>=<model>` — per-agent CLI flag (highest priority)
-2. `--model <model>` — global CLI flag
+1. Per-agent value from `--model` (e.g. `--model ...,coder=openai/o3`) — highest priority
+2. Global value from `--model` (e.g. `--model anthropic/claude-sonnet-4-6`)
 3. Auto-discovery from available API keys (lowest priority)
 
-Base URL follows the same cascade using `--agent-base-url` / `--base-url` / provider default.
+Base URL follows the same cascade using per-agent override → global override → provider default.
 
 ---
 
@@ -191,16 +183,10 @@ Keys are checked in the order listed above; the first match wins.
 | Results judge                     | `results-judge` | `feat run`<br/>`feat continue`<br/>`feat test` |
 | PR summarizer                     | `pr-summarizer` | `feat run`<br/>`feat continue`<br/>`feat test` |
 
-**Example — override every agent individually:**
+**Example — override agents individually:**
 
 ```sh
-saif feat run \
-  --agent-model coder=openai/o3 \
-  --agent-model results-judge=anthropic/claude-opus-4-5 \
-  --agent-model pr-summarizer=openai/gpt-4o-mini \
-  --agent-model tests-planner=anthropic/claude-sonnet-4-6 \
-  --agent-model tests-catalog=anthropic/claude-sonnet-4-6 \
-  --agent-model tests-writer=anthropic/claude-sonnet-4-6
+saif feat run --model coder=openai/o3,results-judge=anthropic/claude-opus-4-5
 ```
 
 **Typical pattern — strong model for reasoning, cheaper model for utility tasks:**
@@ -208,9 +194,7 @@ saif feat run \
 ```sh
 # Flagship model for the coder + results judge,
 # mini model for PR summaries
-saif feat run \
-  --model anthropic/claude-sonnet-4-6 \
-  --agent-model pr-summarizer=openai/gpt-4o-mini
+saif feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
 ```
 
 ---

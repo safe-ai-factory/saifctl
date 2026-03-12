@@ -57,7 +57,7 @@ python ./scripts/my-agent.py --task-file "$FACTORY_TASK_PATH"
 | Read task from `$FACTORY_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
 | Work in the workspace               | In Leash mode the workspace is `/workspace`. In `--dangerous-debug` mode it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
 | Exit on completion                  | Exit code 0 when done, non-zero on failure. The factory uses the exit code to decide whether to run the gate.                                                                  |
-| Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--env` or `--env-file`.                                       |
+| Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--agent-env` or `--agent-env-file`.                           |
 
 ---
 
@@ -147,11 +147,11 @@ In **dangerous-debug mode**, the agent inherits the full host environment (inclu
 ```bash
 saif feat run \
   --agent-script ./aider-runner.sh \
-  --env AIDER_MODEL=gpt-4o \
-  --env AIDER_YES=1
+  --agent-env AIDER_MODEL=gpt-4o \
+  --agent-env AIDER_YES=1
 ```
 
-### Env file (recommended for many vars)
+### Agent env file (recommended for many vars)
 
 Create `agent.env`:
 
@@ -168,10 +168,10 @@ Run:
 ```bash
 saif feat run \
   --agent-script ./aider-runner.sh \
-  --env-file ./agent.env
+  --agent-env-file ./agent.env
 ```
 
-**Reserved variables**: The factory filters out `FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, and `LLM_BASE_URL`. If you pass them via `--env`, they are ignored with a warning.
+**Reserved variables**: The factory filters out `FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, and `LLM_BASE_URL`. If you pass them via `--agent-env`, they are ignored with a warning.
 
 ---
 
@@ -200,7 +200,7 @@ Invoke `saif feat run` (or `saif run resume <runId>` for resume) with all flags 
 saif feat run \
   --agent-script ./aider-runner.sh \
   --agent-log-format raw \
-  --env-file ./agent.env \
+  --agent-env-file ./agent.env \
   --startup-script ./startup-with-aider.sh
 ```
 
@@ -270,13 +270,13 @@ In this mode:
 
 ## Troubleshooting
 
-| Issue                        | Cause                                                            | Fix                                                                                                                 |
-| ---------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `agent script not found`     | The path to `--agent-script` is wrong or the file isn't readable | Use an absolute path or a path relative to the repo root; ensure the file exists                                    |
-| Agent receives empty task    | `$FACTORY_TASK_PATH` is unset or wrong                           | Don't override `FACTORY_TASK_PATH` via `--env`; the factory sets it automatically                                   |
-| `--env` var is ignored       | Variable is reserved                                             | Don't pass `FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, or `LLM_BASE_URL` via `--env` |
-| Agent not found in container | Agent isn't installed in the coder image or startup script       | Install in `--startup-script` or build a custom `--coder-image`                                                     |
-| Garbled or missing output    | Using default `openhands` log format with a non-OpenHands agent  | Add `--agent-log-format raw`                                                                                        |
+| Issue                        | Cause                                                            | Fix                                                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `agent script not found`     | The path to `--agent-script` is wrong or the file isn't readable | Use an absolute path or a path relative to the repo root; ensure the file exists                                          |
+| Agent receives empty task    | `$FACTORY_TASK_PATH` is unset or wrong                           | Don't override `FACTORY_TASK_PATH` via `--agent-env`; the factory sets it automatically                                   |
+| `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `FACTORY_*`, `WORKSPACE_BASE`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, or `LLM_BASE_URL` via `--agent-env` |
+| Agent not found in container | Agent isn't installed in the coder image or startup script       | Install in `--startup-script` or build a custom `--coder-image`                                                           |
+| Garbled or missing output    | Using default `openhands` log format with a non-OpenHands agent  | Add `--agent-log-format raw`                                                                                              |
 
 ---
 
