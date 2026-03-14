@@ -102,9 +102,10 @@ saif feat design-fail2pass --test-profile go-gotest
 
 ## What it does
 
-1. Runs `feat design-specs`: Runs Shotgun to enrich the specs in `saif/features/<name>/`.
-2. Runs `feat design-tests`: reads the specs and generates a test plan (`tests.md`) and catalog (`tests.json`), then implements the tests (e.g. `*.spec.ts`).
-3. Runs `feat design-fail2pass`: verifies at least one feature test fails on the current codebase (Docker required).
+1. Optionally runs `feat design-discovery` (When discovery tools / MCPs are configured) to gather context into `discovery.md`.
+2. Runs `feat design-specs`: Runs Shotgun to enrich the specs in `saif/features/<name>/`.
+3. Runs `feat design-tests`: reads the specs and generates a test plan (`tests.md`) and catalog (`tests.json`), then implements the tests (e.g. `*.spec.ts`).
+4. Runs `feat design-fail2pass`: verifies at least one feature test fails on the current codebase (Docker required).
 
 To run only spec + test generation without Docker, use `feat design-specs` and `feat design-tests` individually.
 
@@ -112,6 +113,7 @@ To run only spec + test generation without Docker, use `feat design-specs` and `
 
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
 - [feat run](feat-run.md) — Implement specs with the agent loop (run after design)
+- [feat design-discovery](feat-design-discovery.md) — Gather context with MCP/tools (optional step before design-specs)
 - [feat design-specs](feat-design-specs.md) — Spec gen only (first step; use when going step by step)
 - [feat design-tests](feat-design-tests.md) — Generate tests from existing specs (second step of design workflow)
 - [feat design-fail2pass](feat-design-fail2pass.md) — Verify tests only (third step)

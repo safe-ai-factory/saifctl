@@ -75,6 +75,12 @@ export const saifConfigDefaultsSchema = z.object({
   project: z.string().optional(),
   sandboxBaseDir: z.string().optional(),
 
+  // Discovery (context gathering before design-specs)
+  discoveryMcps: z.record(z.string(), z.string()).optional(),
+  discoveryTools: z.string().optional(),
+  discoveryPrompt: z.string().optional(),
+  discoveryPromptFile: z.string().optional(),
+
   // Script paths (overrides for profile defaults)
   testScript: z.string().optional(),
   testImage: z.string().optional(),

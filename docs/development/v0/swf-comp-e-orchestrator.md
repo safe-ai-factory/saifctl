@@ -44,7 +44,7 @@ This phase runs directly on the developer's machine and is NOT automated. It exi
 1. **Trigger OpenSpec:** The PM/Engineer uses `/opsx:propose` to create `proposal.md` and writes the initial feature requirements.
 2. **Invoke Shotgun:** The developer runs `shotgun specify --input proposal.md` to generate a codebase-aware `plan.md` and `spec.md`.
 3. **Invoke Black Box Testing Agent:** The developer runs the Black Box Testing Mastra Worker, which reads `plan.md` and generates strict TDD constraints.
-   - _Crucial step:_ The black box testing agent saves the **Public Tests** and **Holdout Tests** directly into the project's real `openspec/features/<feature-name>/tests/` folder.
+   - _Crucial step:_ The black box testing agent saves the **Public Tests** and **Holdout Tests** directly into the project's real `saif/features/<feature-name>/tests/` folder.
 4. **Human Review:** The developer reviews `plan.md` and the generated tests. If they correctly reflect the desired feature, the developer commits these constraints and triggers the automated factory execution.
 
 ### Phase 2: The Factory Floor (Automated Execution)
@@ -62,7 +62,7 @@ Once the constraints are approved, the autonomous loop begins. To prevent pollut
    - OpenHands runs autonomously. The Orchestrator waits for the process to exit.
 8. **Extract Artifact:**
    - Once OpenHands completes, the Orchestrator uses `git diff HEAD` inside the sandbox to capture all changes since the base commit.
-   - **Patch filtering (reward-hacking prevention):** Before the diff is written to `patch.diff` or applied to the host, any file sections that touch the `openspec/` directory (or the path configured via `--openspec-dir`) are stripped. The agent cannot cheat by modifying test specs or constraints — those changes are dropped and logged as a warning.
+   - **Patch filtering (reward-hacking prevention):** Before the diff is written to `patch.diff` or applied to the host, any file sections that touch the `saif/` directory (or the path configured via `--saif-dir`) are stripped. The agent cannot cheat by modifying test specs or constraints — those changes are dropped and logged as a warning.
    - The filtered patch is saved as `patch.diff`; the sandbox is then reset to base state for the next attempt.
 
 ### Phase 3: Mutual Verification (The Test Runner & The Air Gap)
@@ -139,8 +139,8 @@ async function generateSpecsAndTests(featureName: string, proposalPath: string) 
   console.log('Generating strict TDD constraints...');
   const tests = await runBlackBoxTestingAgent(plan);
 
-  const publicTestPath = `openspec/features/${featureName}/tests/public.spec.ts`;
-  const holdoutTestPath = `openspec/features/${featureName}/tests/holdout.spec.ts`;
+  const publicTestPath = `saif/features/${featureName}/tests/public.spec.ts`;
+  const holdoutTestPath = `saif/features/${featureName}/tests/holdout.spec.ts`;
 
   fs.writeFileSync(publicTestPath, tests.publicTests);
   fs.writeFileSync(holdoutTestPath, tests.holdoutTests);
@@ -164,7 +164,7 @@ async function runFactoryFloor(featureName: string) {
   // NOTE 1: OpenSpec supports nested paths (e.g. /specs/accounts/feat.md).
   // In a real implementation, this path should be dynamically resolved
   // rather than assuming the test is always at the root of a tests dir
-  const relativeHoldoutPath = `openspec/features/${featureName}/tests/holdout.spec.ts`;
+  const relativeHoldoutPath = `saif/features/${featureName}/tests/holdout.spec.ts`;
   const holdoutTestName = `${featureName}.holdout.spec.ts`;
 
   // NOTE 2: A production script must wrap this entire execution block in a
@@ -257,7 +257,7 @@ async function runFactoryFloor(featureName: string) {
     const testRunnerContainer = await docker.createContainer({
       Image: 'playwright:focal', // Or whichever runner is required (e.g. 'node:20' for Newman/API tests)
       Binds: [
-        `${sandboxBasePath}/${holdoutTestName}:/workspace/openspec/features/${featureName}/tests/holdout.spec.ts:ro`,
+        `${sandboxBasePath}/${holdoutTestName}:/workspace/saif/features/${featureName}/tests/holdout.spec.ts:ro`,
       ],
       HostConfig: { Links: [`app-${runId}:app`] }, // Network link to Staging container
       Env: [
@@ -268,7 +268,7 @@ async function runFactoryFloor(featureName: string) {
         '-c',
         `
         # Execute tests over HTTP, whether testing a Web App or a CLI wrapped in a Sidecar
-        npm run test:e2e -- /workspace/openspec/features/${featureName}/tests/holdout.spec.ts
+        npm run test:e2e -- /workspace/saif/features/${featureName}/tests/holdout.spec.ts
       `,
       ],
     });

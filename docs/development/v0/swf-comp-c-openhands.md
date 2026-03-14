@@ -20,7 +20,7 @@ Its primary agent architecture, **CodeAct**, utilizes a continuous reasoning-act
 In the context of the Software Factory, we use OpenHands as the "execution engine" (the Coder Agent) because of its momentum, proven performance, and strong architectural boundaries:
 
 1. **State-of-the-Art Performance:** CodeAct 2.1 resolves ~53% of SWE-Bench Verified out of the box. Instead of building a coder agent from scratch, we get world-class autonomous problem-solving capabilities for free.
-2. **Clear Architecture Boundaries:** OpenHands strictly separates the Agent Server (the LLM reasoning brain) from the Runtime Workspace (the execution sandbox). This allows us to plug in our own isolated environments — we run OpenHands inside a Leash container with Cedar policies forbidding writes to `openspec/`.
+2. **Clear Architecture Boundaries:** OpenHands strictly separates the Agent Server (the LLM reasoning brain) from the Runtime Workspace (the execution sandbox). This allows us to plug in our own isolated environments — we run OpenHands inside a Leash container with Cedar policies forbidding writes to `saif/`.
 3. **Pluggable & Extensible:** OpenHands provides a robust Python SDK and a CLI. It allows developers to define custom agents by restricting tools, changing system prompts, or creating multi-agent handoffs.
 4. **Stateless by Default:** The architecture utilizes immutable Pydantic models with the conversation state being the only mutable entity. This deterministic execution makes it perfect for our automated, non-interactive convergence loop.
 

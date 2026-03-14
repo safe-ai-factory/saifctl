@@ -90,6 +90,17 @@ Config has a top-level `defaults` object. All fields are optional. CLI flags ove
 | `agentModels`   | object | `{"coder": "..."}`             | `--model` (agent=model parts)  |
 | `agentBaseUrls` | object | `{"coder": "..."}`             | `--base-url` (agent=url parts) |
 
+### Discovery
+
+| Field                 | Type   | Example                                    | CLI equivalent                 |
+| --------------------- | ------ | ------------------------------------------ | ------------------------------ |
+| `discoveryMcps`       | object | `{"schema": "http://internal-mcp/schema"}` | `--discovery-mcp name=url,...` |
+| `discoveryTools`      | string | `"./scripts/discovery-tools.ts"`           | `--discovery-tool path`        |
+| `discoveryPrompt`     | string | `"Always check the Jira ticket..."`        | `--discovery-prompt`           |
+| `discoveryPromptFile` | string | `"./docs/discovery-rules.md"`              | `--discovery-prompt-file`      |
+
+Discovery runs only when `discoveryMcps` or `discoveryTools` is configured. Output: `discovery.md` in the feature directory.
+
 ### Profiles
 
 | Field             | Type   | Example              | CLI equivalent   |

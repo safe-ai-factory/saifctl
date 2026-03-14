@@ -2,6 +2,8 @@
 
 Generate specs from a feature's proposal — the first step of `feat design` only.
 
+When `discovery.md` exists in the feature directory (from a prior `saif feat design-discovery` run), the designer receives both `proposal.md` and `discovery.md`.
+
 Runs the designer (e.g. Shotgun) to produce spec files from `proposal.md`. Use this when you want spec generation only, without proceeding to tests generation. The full `feat design` command runs this step first, then continues automatically.
 
 When `--name`/`-n` is omitted, prompts interactively with a list of existing features.
@@ -15,16 +17,16 @@ saif feature design-specs [options]
 
 ## Arguments
 
-| Argument           | Alias | Type    | Description                                                                                                                                 |
-| ------------------ | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name`           | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                  |
-| `--yes`            | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                           |
-| `--force`          | `-f`  | boolean | Always re-run the designer, overwriting existing spec files without prompting.                                                              |
-| `--designer`       | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                     |
-| `--model`          | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                |
-| `--base-url`       | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
-| `--saif-dir`       | —     | string  | Path to saif directory (default: `saif`)                                                                                                    |
-| `--project-dir`    | —     | string  | Project directory (default: current working directory)                                                                                      |
+| Argument        | Alias | Type    | Description                                                                                                                                                     |
+| --------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`        | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                                      |
+| `--yes`         | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                                               |
+| `--force`       | `-f`  | boolean | Always re-run the designer, overwriting existing spec files without prompting.                                                                                  |
+| `--designer`    | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                                         |
+| `--model`       | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
+| `--base-url`    | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
+| `--saif-dir`    | —     | string  | Path to saif directory (default: `saif`)                                                                                                                        |
+| `--project-dir` | —     | string  | Project directory (default: current working directory)                                                                                                          |
 
 ## Examples
 
@@ -93,6 +95,7 @@ To continue to test planning and scaffolding, run `saif feat design` (which incl
 
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
 - [feat design](feat-design.md) — Full design flow (spec gen + tests planning + Fail2Pass)
+- [feat design-discovery](feat-design-discovery.md) — Gather context using MCP/tools (optional step before design-specs)
 - [feat design-tests](feat-design-tests.md) — tests planning + test generation only (second step)
 - [feat design-fail2pass](feat-design-fail2pass.md) — Test validation only (third step)
 - [feat run](feat-run.md) — Implement specs with the agent loop (run after design)

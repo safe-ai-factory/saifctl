@@ -17,7 +17,7 @@ Leash wraps the AI agent's execution environment. It uses **[Cedar](https://www.
    modifying a file), Leash intercepts the underlying system calls or API requests.
 2. **Evaluation:** Leash instantly evaluates the action against the active Cedar policies.
 3. **Enforcement:** If the action is permitted, it executes normally. If the action is forbidden (e.g.,
-   an agent trying to delete `/openspec/` or curl a crypto-mining IP), Leash instantly blocks the action
+   an agent trying to delete `/saif/` or curl a crypto-mining IP), Leash instantly blocks the action
    and returns an error (like `HTTP 403 Forbidden` or a file permission error) back to the agent.
 4. **Telemetry:** Every action, permitted or denied, is logged, giving developers and security teams
    perfect observability into the "black box" of the agent's thought process.
@@ -90,14 +90,14 @@ Leash's full network enforcement uses a MITM proxy that intercepts all outbound 
 | Layer                 | Mechanism                                                                        | Status |
 | --------------------- | -------------------------------------------------------------------------------- | ------ |
 | Container isolation   | OpenHands runs inside a Docker container; host repo is never touched             | Active |
-| Filesystem monitoring | Leash logs file access; Cedar policy can forbid writes to `/workspace/openspec/` | Active |
+| Filesystem monitoring | Leash logs file access; Cedar policy can forbid writes to `/workspace/saif/` | Active |
 | Control UI            | `http://localhost:18080` — audit trail, telemetry                                | Active |
 
 ### What We Rely On
 
 - **Pure file copy sandbox** — `rsync` copies the repo to `/tmp/factory-sandbox/.../code`; agent only sees that copy.
-- **Cedar policy** — `leash-policy.cedar` permits read/write in `/workspace`, explicitly forbids writes to `/workspace/openspec/`.
-- **Patch filtering** — any `openspec/` changes are dropped before the patch is applied to the host.
+- **Cedar policy** — `leash-policy.cedar` permits read/write in `/workspace`, explicitly forbids writes to `/workspace/saif/`.
+- **Patch filtering** — any `saif/` changes are dropped before the patch is applied to the host.
 
 ---
 
@@ -106,7 +106,7 @@ Leash's full network enforcement uses a MITM proxy that intercepts all outbound 
 We ship `leash-policy.cedar` in `src/orchestrator/`:
 
 - **Read/write** — allowed anywhere in `/workspace`
-- **Forbid** — writes to `/workspace/openspec/`
+- **Forbid** — writes to `/workspace/saif/`
 - **Network** — permit all (network enforcement is skipped; see above)
 
 Override with `--cedar <path>` when running `saif feat run` or `saif run resume`.

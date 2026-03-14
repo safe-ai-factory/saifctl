@@ -870,3 +870,103 @@ export function parseAgentProfile(args: OrchestratorArgs, config?: SaifConfig): 
     process.exit(1);
   }
 }
+
+// ── Discovery (design-discovery step) ─────────────────────────────────────
+
+export interface DiscoveryOptions {
+  /** Named MCP servers: name -> HTTP(S) URL (Streamable HTTP transport) */
+  mcps: Record<string, string>;
+  /** Path to a JS/TS file that exports tools (jiti-loaded) */
+  tool?: string;
+  /** Inline prompt text (mutually exclusive with discoveryPromptFile) */
+  prompt?: string;
+  /** Path to prompt file (mutually exclusive with discoveryPrompt) */
+  promptFile?: string;
+}
+
+/**
+ * Whether discovery should run (has mcps or tools).
+ */
+export function shouldRunDiscovery(opts: DiscoveryOptions): boolean {
+  return Object.keys(opts.mcps).length > 0 || !!opts.tool;
+}
+
+/**
+ * Parses discovery options from CLI and config.
+ * --discovery-mcp: named only (name=url). Multiple or comma-separated.
+ * --discovery-tool: path to a single JS/TS file.
+ * --discovery-prompt and --discovery-prompt-file: mutually exclusive.
+ */
+export function parseDiscoveryOptions(
+  args: {
+    'discovery-mcp'?: string | string[];
+    'discovery-tool'?: string;
+    'discovery-prompt'?: string;
+    'discovery-prompt-file'?: string;
+  },
+  projectDir: string,
+  config?: SaifConfig,
+): DiscoveryOptions {
+  const d = config?.defaults;
+  const mcps: Record<string, string> = { ...(d?.discoveryMcps ?? {}) };
+  let tool: string | undefined = d?.discoveryTools
+    ? resolve(projectDir, d.discoveryTools)
+    : undefined;
+
+  // Parse --discovery-mcp
+  // Format: name=url (named only; bare URLs rejected). Multiple: comma-separated or repeated.
+  // Value: HTTP or HTTPS URL (Streamable HTTP transport), e.g. schema=http://internal-mcp/schema.
+  const mcpRaw = args['discovery-mcp'];
+  const mcpParts = Array.isArray(mcpRaw)
+    ? mcpRaw.flatMap((s) => (typeof s === 'string' ? s.split(',').map((p) => p.trim()) : []))
+    : typeof mcpRaw === 'string'
+      ? mcpRaw.split(',').map((p) => p.trim())
+      : [];
+
+  for (const part of mcpParts) {
+    if (!part) continue;
+    if (!part.includes('=')) {
+      console.error(
+        'Error: --discovery-mcp requires named entries (name=url). Bare URLs are not allowed.',
+      );
+      process.exit(1);
+    }
+    const eqIdx = part.indexOf('=');
+    const key = part.slice(0, eqIdx).trim();
+    const value = part.slice(eqIdx + 1).trim();
+    if (!key || !value) {
+      console.error('Error: --discovery-mcp malformed entry (empty key or value).');
+      process.exit(1);
+    }
+    mcps[key] = value;
+  }
+
+  // Parse --discovery-tool
+  // Format: single path to JS/TS file (default export = object of Mastra tools). Resolved relative to projectDir.
+  const toolRaw = args['discovery-tool'];
+  if (typeof toolRaw === 'string' && toolRaw.trim()) {
+    tool = resolve(projectDir, toolRaw.trim());
+  }
+
+  // Parse --discovery-prompt and --discovery-prompt-file (mutually exclusive)
+  const hasPrompt = typeof args['discovery-prompt'] === 'string' && args['discovery-prompt'].trim();
+  const hasFile =
+    typeof args['discovery-prompt-file'] === 'string' && args['discovery-prompt-file'].trim();
+  if (hasPrompt && hasFile) {
+    console.error('Error: --discovery-prompt and --discovery-prompt-file are mutually exclusive.');
+    process.exit(1);
+  }
+  const prompt = hasPrompt ? args['discovery-prompt']!.trim() : d?.discoveryPrompt?.trim();
+  const promptFile = hasFile
+    ? resolve(projectDir, args['discovery-prompt-file']!.trim())
+    : d?.discoveryPromptFile
+      ? resolve(projectDir, d.discoveryPromptFile)
+      : undefined;
+
+  return {
+    mcps: Object.keys(mcps).length > 0 ? mcps : {},
+    tool,
+    prompt: prompt || undefined,
+    promptFile,
+  };
+}

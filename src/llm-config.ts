@@ -60,6 +60,7 @@ import { createXai } from '@ai-sdk/xai';
  */
 export const SUPPORTED_AGENT_NAMES = [
   'coder',
+  'discovery',
   'reviewer',
   'results-judge',
   'pr-summarizer',

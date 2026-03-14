@@ -4,6 +4,7 @@
  *
  * Usage: saif feat <subcommand> [options]
  *   new               Create scaffolding for a new feature (prompts for name if not given)
+ *   design-discovery  Gather context with MCP/tools, write discovery.md (optional step before design-specs).
  *   design-specs      Generate specs from a feature's proposal only (first step of design).
  *   design-tests      Generate tests from existing specs only (second step of design).
  *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
@@ -13,7 +14,7 @@
  *   Alias: saif feature
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
@@ -26,6 +27,7 @@ import {
 } from '../../agent-profiles/index.js';
 import { loadSaifConfig } from '../../config/load.js';
 import { type SaifConfig } from '../../config/schema.js';
+import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
@@ -62,6 +64,7 @@ import {
   parseCoderImage,
   parseDangerousDebug,
   parseDesignerProfile,
+  parseDiscoveryOptions,
   parseGateRetries,
   parseGateScript,
   parseGitProvider,
@@ -84,6 +87,7 @@ import {
   parseTestRetries,
   parseTestScript,
   resolveProjectName,
+  shouldRunDiscovery,
 } from '../utils.js';
 
 /////////////////////////////////////////////
@@ -219,6 +223,66 @@ const designSpecsArgs = {
   'project-dir': projectDirArg,
 };
 
+const designDiscoveryArgs = {
+  name: nameArg,
+  yes: yesArg,
+  'saif-dir': saifDirArg,
+  'project-dir': projectDirArg,
+  ...modelOverrideArgs,
+  'discovery-mcp': {
+    type: 'string' as const,
+    description:
+      'Named MCP server: name=http(s)://url. Multiple or comma-separated. Required format: name=url.',
+  },
+  'discovery-tool': {
+    type: 'string' as const,
+    description: 'Path to a single JS/TS file exporting Mastra tools.',
+  },
+  'discovery-prompt': {
+    type: 'string' as const,
+    description:
+      'Inline heuristic prompt for the discovery agent. Mutually exclusive with --discovery-prompt-file.',
+  },
+  'discovery-prompt-file': {
+    type: 'string' as const,
+    description: 'Path to heuristic prompt file. Mutually exclusive with --discovery-prompt.',
+  },
+};
+
+async function _runDesignDiscovery(args: {
+  name?: string;
+  'saif-dir'?: string;
+  'project-dir'?: string;
+  model?: string;
+  'base-url'?: string;
+  'discovery-mcp'?: string | string[];
+  'discovery-tool'?: string;
+  'discovery-prompt'?: string;
+  'discovery-prompt-file'?: string;
+  [key: string]: unknown;
+}) {
+  const projectDir = parseProjectDir(args);
+  const saifDir = parseSaifDir(args);
+  const config = loadSaifConfig(saifDir, projectDir);
+  const feature = await getFeatOrPrompt(args, projectDir);
+  const discovery = parseDiscoveryOptions(args, projectDir, config);
+  if (!shouldRunDiscovery(discovery)) {
+    console.error(
+      'Error: design-discovery requires discoveryMcps or discoveryTools (via --discovery-mcp, --discovery-tool, or config).',
+    );
+    process.exit(1);
+  }
+  const overrides = parseModelOverrides(args, config);
+  console.log(`\nDiscovery (context gathering): ${feature.name}`);
+  await runDiscovery({
+    feature,
+    projectDir,
+    discovery,
+    overrides,
+  });
+  return { feature, projectDir, saifDir };
+}
+
 async function _runDesignSpecs(args: {
   name?: string;
   yes?: boolean;
@@ -241,10 +305,11 @@ async function _runDesignSpecs(args: {
   }
   const feature = await getFeatOrPrompt(args, projectDir);
   const designerProfile = parseDesignerProfile(args, config);
+  const overrides = parseModelOverrides(args, config);
 
   const designerBaseOpts = { cwd: projectDir, feature, saifDir };
 
-  // 1. Generate full specs and plan from user's proposal.
+  // 1. Generate full specs and plan from user's proposal (and discovery.md when present).
   // 1a. Check if the designer has already run
   let runDesigner = force || !(await designerProfile.hasRun(designerBaseOpts));
   if (!runDesigner) {
@@ -265,18 +330,32 @@ async function _runDesignSpecs(args: {
     }
   }
 
-  // 1b. Run the designer if needed
+  // 1b. Build designer prompt (proposal + discovery.md when present)
+  const proposalPath = join(feature.absolutePath, 'proposal.md');
+  const discoveryPath = join(feature.absolutePath, 'discovery.md');
+  let designerPrompt: string | undefined;
+  if (existsSync(proposalPath) || existsSync(discoveryPath)) {
+    const proposalContent = existsSync(proposalPath) ? readFileSync(proposalPath, 'utf8') : '';
+    const discoveryContent = existsSync(discoveryPath) ? readFileSync(discoveryPath, 'utf8') : '';
+    designerPrompt =
+      proposalContent +
+      (discoveryContent
+        ? `\n\n---\n\nA Discovery Agent has gathered the following context. You MUST adhere to these constraints and facts when designing the feature:\n\n${discoveryContent}`
+        : '');
+  }
+
+  // 1c. Run the designer if needed
   if (runDesigner) {
     console.log(`\n${designerProfile.displayName} (spec generation): ${feature.name}`);
     await designerProfile.run({
       ...designerBaseOpts,
       model: typeof args.model === 'string' ? args.model.trim() : undefined,
+      prompt: designerPrompt,
     });
   } else {
     console.log(`\nSkipping designer (${feature.relativePath} already has required spec files).`);
   }
 
-  const overrides = parseModelOverrides(args, config);
   return {
     feature,
     projectDir,
@@ -289,11 +368,24 @@ async function _runDesignSpecs(args: {
 const designSpecsCommand = defineCommand({
   meta: {
     name: 'design-specs',
-    description: "Generate specs from features's proposal only (first step of design workflow)",
+    description: "Generate specs from feature's proposal only (first step of design workflow)",
   },
   args: designSpecsArgs,
   async run({ args }) {
     await _runDesignSpecs(args);
+    console.log('\nDone.');
+  },
+});
+
+const designDiscoveryCommand = defineCommand({
+  meta: {
+    name: 'design-discovery',
+    description:
+      'Gather context using MCP/tools, write discovery.md (optional step before design-specs)',
+  },
+  args: designDiscoveryArgs,
+  async run({ args }) {
+    await _runDesignDiscovery(args);
     console.log('\nDone.');
   },
 });
@@ -481,7 +573,6 @@ async function _runDesignFail2pass(opts: {
     stageScript,
     testScript,
     startupScript,
-    reviewerEnabled: false, // fail2pass does not run the agent; gate is never executed
   });
 
   console.log(`\n${result.message}`);
@@ -520,13 +611,25 @@ const designCommand = defineCommand({
     description: 'Generate specs, tests, and validate the tests (full design workflow)',
   },
   args: {
+    ...designDiscoveryArgs,
     ...designSpecsArgs,
     ...designTestsArgsForDesign,
     ...designFail2passArgs,
   },
   async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const saifDir = parseSaifDir(args);
+    const config = loadSaifConfig(saifDir, projectDir);
+    const discovery = parseDiscoveryOptions(args, projectDir, config);
+
+    // 0. Design-discovery (when mcps or tools configured)
+    if (shouldRunDiscovery(discovery)) {
+      await _runDesignDiscovery(args);
+    }
+
     // 1. Generate specs
-    const { feature, projectDir, saifDir, overrides, config } = await _runDesignSpecs(args);
+    const designSpecsResult = await _runDesignSpecs(args);
+    const { feature, overrides } = designSpecsResult;
     // 2. Generate tests
     await _runDesignTests({
       feature,
@@ -737,7 +840,6 @@ const debugCommand = defineCommand({
       agentStartScript,
       agentScript,
       stageScript,
-      reviewerEnabled: false,
     });
   },
 });
@@ -749,6 +851,7 @@ const featCommand = defineCommand({
   },
   subCommands: {
     new: newCommand,
+    'design-discovery': designDiscoveryCommand,
     'design-specs': designSpecsCommand,
     'design-tests': designTestsCommand,
     'design-fail2pass': designFail2passCommand,
