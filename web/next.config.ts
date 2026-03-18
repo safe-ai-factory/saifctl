@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   },
   // Required for GitHub Pages when deployed from a project repo (e.g. owner.github.io/repo-name)
   // Set to '' or remove if using a custom domain or username.github.io repo
-  basePath: process.env.NODE_ENV === 'production' ? '/safe-ai-factory' : '',
+  basePath: process.env.NODE_ENV === 'production' ? '' : '',
   // Pin workspace root to web/ to avoid monorepo lockfile confusion
   outputFileTracingRoot: __dirname,
 };
