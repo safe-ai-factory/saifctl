@@ -78,30 +78,29 @@ const fadeUp = {
 const ProveItCTA = () => {
   return (
     <div className="p-8 mx-auto mt-20 text-left rounded-xl bg-[#0a0f1a] border border-[#00ccff]/20 max-w-2xl">
-      <h3 className="text-white font-bold text-lg mb-2">Don't take our word for it.</h3>
+      <h3 className="text-white font-bold text-lg mb-2">Want to see the Gauntlet in action?</h3>
       <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-        Test SAIFAC against your own codebase. Give it an issue you already know the answer to and
-        see for yourself.
+        We are building a deterministic AI orchestrator. It forces the LLM to pass your linting
+        rules, custom architectural checks, and hidden holdout tests before it ever attempts to open
+        a PR.
       </p>
       <div className="bg-[#0d1117] border border-[#30363d] rounded-md p-4 font-mono text-xs text-[#00FF66] space-y-1 mb-6">
         <div>
-          <span className="text-gray-600">$ </span>npm install -g safe-ai-factory
+          <span className="text-gray-600">{'// '}</span>Dropping in a few weeks.
         </div>
         <div>
-          <span className="text-gray-600">$ </span>cd your-repo
-        </div>
-        <div>
-          <span className="text-gray-600">$ </span>saifac prove --issue 1234
+          <span className="text-gray-600">{'// '}</span>The Docker sandboxes and VSCode extension
+          are baking.
         </div>
       </div>
       <a
-        href={GITHUB_DOCS_PROVE}
+        href={GITHUB_REPO}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm text-[#00ccff] hover:underline"
-        onClick={() => track('outbound_click', { destination: 'prove_docs' })}
+        onClick={() => track('outbound_click', { destination: 'github_repo' })}
       >
-        Read the <code>saifac prove</code> docs →
+        Star the repo to get notified →
       </a>
     </div>
   );
@@ -171,7 +170,7 @@ export default function Home() {
             onClick={() => setWaitlistOpen(true)}
             className="px-4 py-1.5 bg-[#00FF66] hover:bg-[#00e05a] text-black font-medium rounded-md transition-colors font-mono text-sm"
           >
-            Get Early Access
+            Join Waitlist
           </button>
         </div>
       </nav>
@@ -226,22 +225,15 @@ export default function Home() {
                   onClick={() => setWaitlistOpen(true)}
                   className="px-6 py-3 bg-[#00FF66] hover:bg-[#00e05a] text-black font-bold rounded-md transition-colors"
                 >
-                  Get Early Access
+                  Join the Design Partner Waitlist
                 </button>
                 <a
-                  href={GITHUB_REPO_TRY_IT}
-                  className="px-6 py-3 bg-white hover:bg-gray-200 text-black font-medium rounded-md transition-colors flex items-center gap-2"
+                  href={GITHUB_REPO}
+                  className="px-6 py-3 border border-[#333] hover:border-[#00FF66] text-white rounded-md transition-all flex items-center gap-2"
                   target="_blank"
-                  onClick={() => track('outbound_click', { destination: 'install_cli' })}
+                  onClick={() => track('outbound_click', { destination: 'github_repo' })}
                 >
-                  <Terminal className="w-4 h-4" /> Install CLI
-                </a>
-                <a
-                  href={VSCODE_EXTENSION_URL}
-                  className="px-6 py-3 border border-[#333] hover:border-[#00FF66] text-white rounded-md transition-all flex items-center gap-2 font-mono text-sm"
-                  onClick={() => track('outbound_click', { destination: 'vscode_extension' })}
-                >
-                  VSCode Extension
+                  ★ Star on GitHub
                 </a>
               </div>
             </div>
@@ -749,8 +741,9 @@ export default function Home() {
             <a
               href={VSCODE_EXTENSION_URL}
               className="px-5 py-2.5 bg-[#00FF66] hover:bg-[#00e05a] text-black font-medium rounded-md transition-colors text-sm"
+              onClick={() => setWaitlistOpen(true)}
             >
-              Install the VSCode Extension
+              Get Notified When It Ships
             </a>
             <a
               href={VSCODE_EXTENSION_DOCS_URL}
@@ -863,16 +856,8 @@ export default function Home() {
               onClick={() => setWaitlistOpen(true)}
               className="px-8 py-4 bg-[#00FF66] hover:bg-[#00e05a] text-black font-bold rounded-md transition-colors text-lg"
             >
-              Get Early Access
+              Join the Design Partner Waitlist
             </button>
-            <a
-              href={GITHUB_DOCS_USAGE}
-              className="px-8 py-4 bg-white hover:bg-gray-200 text-black font-medium rounded-md transition-colors text-lg flex items-center gap-2"
-              target="_blank"
-              onClick={() => track('outbound_click', { destination: 'install_cli' })}
-            >
-              <Terminal className="w-5 h-5" /> Install the CLI
-            </a>
             <a
               href={GITHUB_REPO}
               target="_blank"
@@ -1360,18 +1345,18 @@ const DEPLOY_TIERS = [
   {
     icon: '💻',
     name: 'Local CLI',
-    subtitle: 'Start on your laptop, today',
+    subtitle: 'Start on your laptop',
     body: 'Open source. Runs on your laptop via Docker Compose. Zero infrastructure overhead. Zero config beyond an API key. Pick a ticket, write a proposal, let it run while you work on something else.',
-    cta: 'View the Docs',
-    href: GITHUB_DOCS_USAGE,
-    openWaitlist: false,
+    cta: 'Get Notified When It Ships',
+    href: GITHUB_REPO,
+    openWaitlist: true,
   },
   {
     icon: '🏢',
     name: 'Self-Hosted VPC',
     subtitle: 'Full control inside your own infrastructure',
     body: 'Deploy the SAIFAC Control Server inside your own infrastructure via Kubernetes (Helm). Your codebase never leaves your network. Full identity-aware cost attribution, RBAC, org-wide budget caps, and a centralized fleet dashboard.',
-    cta: 'Request Early Access',
+    cta: 'Join Design Partner Waitlist',
     href: undefined,
     openWaitlist: true,
   },
@@ -1380,7 +1365,7 @@ const DEPLOY_TIERS = [
     name: 'Managed Cloud',
     subtitle: 'Zero infrastructure overhead',
     body: 'We host the orchestration. You bring your own API keys. Get the full enterprise control plane - fleet observability, budget caps, team management - without standing up a Kubernetes cluster.',
-    cta: 'Request Early Access',
+    cta: 'Join Design Partner Waitlist',
     href: undefined,
     openWaitlist: true,
   },

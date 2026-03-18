@@ -62,32 +62,9 @@ SAIFAC runs as a CLI that spins up coding agents in ephemeral Docker containers 
 
 ## Try it out now
 
-```bash
-pnpm install -g safe-ai-factory
-```
+**SAIFAC is currently in active development. The Docker isolation environment and VSCode extension are dropping in a few weeks.**
 
-Usage:
-
-```bash
-# 0. Set an API key
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# 1. One-time setup
-saifac init
-
-# 2. Scaffold proposal.md and edit it
-saifac feat new -n add-login
-
-# 3. Generate specs and tests
-saifac feat design -n add-login
-
-# 4. Run coding agent in sandbox
-#    until tests pass
-saifac feat run -n add-login
-
-# Use different agent and create a PR when done.
-saifac feat run -n add-login --agent aider --push origin --pr
-```
+Star the repository to get notified of the Alpha drop, or [Join the Design Partner Waitlist](https://safeaifactory.com) to get early access.
 
 ### Step-by-step guide
 

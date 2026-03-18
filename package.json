@@ -1,6 +1,6 @@
 {
   "name": "safe-ai-factory",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Safety harness for autonomous AI agents: Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.",
   "private": false,
   "type": "module",
