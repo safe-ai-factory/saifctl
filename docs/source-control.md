@@ -156,7 +156,7 @@ Omit `--pr`. The branch is pushed; you create the PR manually in the UI or with 
 | Command             | When push/PR happens                       |
 | ------------------- | ------------------------------------------ |
 | `saifac feat run`   | After agent succeeds and all tests pass    |
-| `saifac feat test`  | After the candidate patch passes all tests |
+| `saifac run test`   | After the candidate patch passes all tests |
 | `saifac run resume` | After resume completes successfully        |
 
 Push and PR happen at the end of a successful run. If the agent hits `--max-runs` or you interrupt, nothing is pushed.

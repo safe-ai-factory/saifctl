@@ -161,7 +161,7 @@ saifac feat run --startup-script ./scripts/my-startup.sh
 For a resume (continue):
 
 ```bash
-pnpm agents saifac run resume --sandbox-path /tmp/saifac/... --startup-script ./scripts/my-startup.sh
+saifac run resume <runId> --startup-script ./scripts/my-startup.sh
 ```
 
 ---

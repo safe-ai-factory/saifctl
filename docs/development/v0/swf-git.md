@@ -156,7 +156,7 @@ git clean -fd
 
 **Location:** `sandbox.ts` → `applyPatch()`, `modes.ts` → test mode
 
-In **feat:test** mode, the user supplies a patch file (e.g. from a previous run or a manual edit). Before running the staging containers, we inject that patch into the sandbox:
+In **saifac run test** mode, the user supplies a patch file (e.g. from a previous run or a manual edit). Before running the staging containers, we inject that patch into the sandbox:
 
 ```bash
 git apply "${patchPath}"

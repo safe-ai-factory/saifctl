@@ -204,7 +204,7 @@ You can bring your own Test Runner image (e.g. with Playwright, a different lang
 - **Override per-run:** Pass `--test-script <path>` to use your own script content; it replaces the default for that run.
 - **Ignore the mount:** Set a different `CMD` to run your own logic. You must still write JUnit XML to `$SAIFAC_OUTPUT_FILE` and obey the exit code contract; otherwise the Orchestrator will not parse results correctly.
 
-Pass `--test-image <your-image>` to `saifac feat run` / `feat:test` / `saifac feat design-fail2pass`.
+Pass `--test-image <your-image>` to `saifac feat run` / `saifac run test` / `saifac feat design-fail2pass`.
 
 ### Startup Flow (Pre-Built)
 
@@ -276,7 +276,7 @@ export default {
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `saifac feat run`                           | Uses GHCR images for test runner and coder; pulls if not present locally                                |
 | `saifac feat design-fail2pass`              | Same behaviour                                                                                          |
-| `pnpm agents feat:test --patch ./x.diff`    | Same behaviour                                                                                          |
+| `saifac run test <runId>`                 | Re-test a stored run’s patch (staging + test runner); no coding agent                                  |
 | `pnpm docker build test [--all]`            | Build test runner image(s) locally (for development or offline use)                                     |
 | `pnpm docker build coder`                   | Build (or rebuild) the coder image from the sandbox profile's `Dockerfile.coder`                        |
 | `pnpm docker build stage`                   | Build the sandbox profile's `Dockerfile.stage` (optional; staging image built per-iteration by default) |

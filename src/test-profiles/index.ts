@@ -7,7 +7,7 @@
  *   - tests-catalog agent   → generates entrypoint paths with correct extension + naming
  *   - tests-coder agent     → generates test code in the correct language/framework
  *   - generateTests → copies the correct helpers/infra template files
- *   - parseTestScript (agents.ts) → loads the profile's test.sh as the default test script
+ *   - parseTestScript (src/cli/utils.ts) → loads the profile's test.sh as the default test script
  */
 
 import { join } from 'node:path';
@@ -43,7 +43,7 @@ const _profilesDir = join(getSaifRoot(), 'src', 'test-profiles');
 
 /**
  * Returns the absolute path to the test.sh script for the given profile id.
- * Used by agents.ts as the default --test-script when no override is provided.
+ * Used by the saifac CLI (`parseTestScript`) as the default `--test-script` when no override is provided.
  */
 export function resolveTestScriptPath(profileId: SupportedProfileId): string {
   return join(_profilesDir, profileId, 'test.sh');
@@ -51,7 +51,7 @@ export function resolveTestScriptPath(profileId: SupportedProfileId): string {
 
 /**
  * Returns the absolute path to the Dockerfile for the given profile id.
- * Used by agents.ts as the default --test-image when no override is provided.
+ * Used when resolving the test-runner image / Dockerfile for a profile (see `parseTestImage` in CLI).
  */
 export function resolveTestDockerfilePath(profileId: SupportedProfileId): string {
   return join(_profilesDir, profileId, 'Dockerfile');

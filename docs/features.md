@@ -140,7 +140,7 @@ You can easily configure in which language + framework to run your tests in with
 Use `--test-profile` CLI option:
 
 ```bash
-pnpm agents feat:test --test-profile python-playwright
+saifac feat run --test-profile python-playwright
 ```
 
 | Profile                 | Language + framework    |

@@ -136,7 +136,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 **`runResume`:** Reconstructs workspace from storage, then delegates to `runStartCore` (which uses `createSandbox` and `runAgent`). Scripts come from the stored config; CLI overrides are merged in.
 
-### 7. CLI (`scripts/commands/agents.ts`)
+### 7. CLI (citty — `src/cli/commands/feat.ts`, `src/cli/commands/run.ts`)
 
 **Flags for `saifac feat run` and `saifac run resume`:**
 
@@ -149,13 +149,13 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
 | `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands`          |
 
-**Parsing:**
+**Parsing** (see `src/cli/utils.ts` helpers used by `parseRunArgs` in `feat.ts`):
 
-- `parseGateScript(ctx, profile)`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)` and `isDefault: true`. Otherwise reads the file and returns its content.
-- `parseGateRetries(ctx)`: If `--gate-retries` is not set, returns 5. Otherwise parses a positive integer.
-- `parseAgentScript(ctx)`: If `--agent-script` is not set, returns `DEFAULT_AGENT_SCRIPT` (OpenHands) and `isDefault: true`. Otherwise reads the file and returns its content.
-- `parseAgentEnv(ctx)`: Merges `--agent-env-file` entries (first) and `--agent-env KEY=VALUE` flags (override). Malformed entries emit a warning and are skipped.
-- `parseAgentLogFormat(ctx)`: Returns `'raw'` if `--agent-log-format raw`; defaults to `'openhands'`.
+- `parseGateScript({ args, projectDir, config })`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)`. Otherwise reads the file from `projectDir`.
+- `parseGateRetries(args, config)`: If `--gate-retries` is not set, returns 10 (or config default). Otherwise parses a positive integer.
+- `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-start.sh` and `agent.sh` from the agent profile or from `--agent-start-script` / `--agent-script` paths.
+- `parseAgentEnv({ args, projectDir, config })`: Merges config baseline, `--agent-env-file`, then `--agent-env` (CLI wins). Malformed entries emit a warning and are skipped.
+- `parseAgentLogFormat(args, agentProfile, config)`: Returns `'raw'` if `--agent-log-format raw`; otherwise profile/config default.
 
 ---
 
@@ -298,10 +298,10 @@ Example feedback injected into the task:
 
 ```
 
-> agents@0.0.0 check
-> tsx src/commands/cli.ts check
+> pnpm run lint
+> eslint .
 
-sh: 1: tsx: not found
+… (example: command not found or lint failures)
 
 ```
 

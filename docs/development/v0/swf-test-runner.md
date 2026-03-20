@@ -321,7 +321,7 @@ Use `--test-script` with a script that runs Playwright/Vitest browser tests. You
 | `saifac feat run --test-image <tag> --test-script <path>` | Combine both. Script is bind-mounted; image provides runtime.                          |
 | `pnpm docker build test [--all]`                          | Build test images locally (for development or offline; default images are on GHCR).    |
 
-`--test-image` and `--test-script` apply to `saifac feat run`, `saifac run resume`, `feat:test`, and `saifac feat design-fail2pass`.
+`--test-image` and `--test-script` apply to `saifac feat run`, `saifac run resume`, `saifac run test`, and `saifac feat design-fail2pass`.
 
 ---
 

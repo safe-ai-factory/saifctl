@@ -72,7 +72,7 @@ The original design document contained several Critical and High vulnerabilities
 
 **How it was fixed:**
 
-- `validateFeatureName()` in `agents.ts` enforces `^[a-z0-9]+(-[a-z0-9]+)*$` at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error.
+- `validateFeatureName()` in `src/cli/utils.ts` enforces kebab-case / safe path segments at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error.
 - This applies to all input paths: `--name`/`-n` flag and the interactive `saifac feat new` prompt (which already had the regex).
 - Shell commands that use `featureName` quote paths (e.g. `"${sandboxBasePath}"`) as a secondary layer, but the primary control is at the boundary.
 
@@ -135,7 +135,7 @@ This is belt-and-suspenders: the sandbox's `.git` directory is owned by the orch
 
 Validation was added at two layers:
 
-1. **CLI boundary (`scripts/commands/agents.ts`)** — `validateImageTag()` enforces `^[a-zA-Z0-9_.\-:/@]+$` (covers all valid Docker image reference characters) for `--test-image`, `--node-image`, and `--coder-image`. Invalid values exit immediately with a clear error before any shell command is executed.
+1. **CLI boundary (`src/cli/utils.ts`)** — `validateImageTag()` enforces `^[a-zA-Z0-9_.\-:/@]+$` (covers all valid Docker image reference characters) for `--test-image` and `--coder-image`. Invalid values exit immediately with a clear error before any shell command is executed.
 
 2. **Library boundary** — `assertSafeImageTag()` (same regex) is called before starting the test runner container, so callers that bypass the CLI (e.g. tests, direct API usage) are also protected.
 

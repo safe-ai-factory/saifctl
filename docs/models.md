@@ -174,15 +174,15 @@ Keys are checked in the order listed above; the first match wins.
 
 ## Agent reference
 
-| Agent                             | ID                  | Commands                                         |
-| --------------------------------- | ------------------- | ------------------------------------------------ |
-| Coding agent<br/>(e.g. OpenHands) | `coder`             | `feat run`<br/>`feat run resume`                 |
-| Tests planner                     | `tests-planner`     | `feat design-tests`<br/>`feat design`            |
-| Tests cataloger                   | `tests-catalog`     | `feat design-tests`<br/>`feat design`            |
-| Tests writer                      | `tests-writer`      | `feat design-tests`<br/>`feat design`            |
-| Vague Specs checker               | `vague-specs-check` | `feat run`<br/>`feat run resume`<br/>`feat test` |
-| PR summarizer                     | `pr-summarizer`     | `feat run`<br/>`feat run resume`<br/>`feat test` |
-| Semantic reviewer                 | `reviewer`          | `feat run`<br/>`feat run resume`                 |
+| Agent                             | ID                  | Commands                                   |
+| --------------------------------- | ------------------- | ------------------------------------------ |
+| Coding agent<br/>(e.g. OpenHands) | `coder`             | `feat run`<br/>`run resume`                |
+| Tests planner                     | `tests-planner`     | `feat design-tests`<br/>`feat design`      |
+| Tests cataloger                   | `tests-catalog`     | `feat design-tests`<br/>`feat design`      |
+| Tests writer                      | `tests-writer`      | `feat design-tests`<br/>`feat design`      |
+| Vague Specs checker               | `vague-specs-check` | `feat run`<br/>`run resume`<br/>`run test` |
+| PR summarizer                     | `pr-summarizer`     | `feat run`<br/>`run resume`<br/>`run test` |
+| Semantic reviewer                 | `reviewer`          | `feat run`<br/>`run resume`                |
 
 **Example — override agents individually:**
 
@@ -205,5 +205,5 @@ saifac feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-
 - [Environment variables](env-vars.md) — API keys and container-injected vars
 - [feat design-specs](commands/feat-design-specs.md) — Spec generation command
 - [feat design-tests](commands/feat-design-tests.md) — Test generation command
-- [feat run / feat run resume](commands/README.md) — Coding agent loop commands
+- [feat run / run resume](commands/README.md) — Coding agent loop commands
 - [Semantic reviewer](reviewer.md) — Uses `reviewer` agent.

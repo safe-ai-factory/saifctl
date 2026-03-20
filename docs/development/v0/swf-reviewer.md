@@ -140,13 +140,13 @@ In `saifac/config.json` (or equivalent):
 
 The orchestrator injects these into the coder container when the reviewer is enabled:
 
-| Variable                  | Purpose                                        |
-| ------------------------- | ---------------------------------------------- |
+| Variable                 | Purpose                                       |
+| ------------------------ | --------------------------------------------- |
 | `SAIFAC_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/saifac/reviewer.sh`) |
-| `REVIEWER_LLM_PROVIDER`   | LLM provider (e.g. `anthropic`, `openai`)      |
-| `REVIEWER_LLM_MODEL`      | Model string                                   |
-| `REVIEWER_LLM_API_KEY`    | API key for the provider                       |
-| `REVIEWER_LLM_BASE_URL`   | Optional custom base URL                       |
+| `REVIEWER_LLM_PROVIDER`  | LLM provider (e.g. `anthropic`, `openai`)     |
+| `REVIEWER_LLM_MODEL`     | Model string                                  |
+| `REVIEWER_LLM_API_KEY`   | API key for the provider                      |
+| `REVIEWER_LLM_BASE_URL`  | Optional custom base URL                      |
 
 These are **reserved** — do not override them with `--agent-env`. See [env-vars.md](env-vars.md) for details.
 
@@ -161,10 +161,9 @@ The reviewer is **skipped** in these cases:
 | `saifac feat run` (default)         | Yes                                    |
 | `saifac feat run --no-reviewer`     | No                                     |
 | `saifac feat run --dangerous-debug` | No                                     |
-| `saifac feat run resume`            | Same as initial run (from stored opts) |
-| `saifac feat test`                  | No (no coder agent)                    |
 | `saifac feat design-fail2pass`      | No (no coder agent)                    |
-| `saifac feat assess`                | No (patch test only)                   |
+| `saifac run resume`                 | Same as initial run (from stored opts) |
+| `saifac run test <runId>`           | No (no coder agent)                    |
 
 ---
 

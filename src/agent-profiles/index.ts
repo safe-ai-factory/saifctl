@@ -60,7 +60,7 @@ const _agentProfilesDir = join(getSaifRoot(), 'src', 'agent-profiles');
 
 /**
  * Returns the absolute path to the agent.sh script for the given profile id.
- * Used by agents.ts as the default --agent-script when no override is provided.
+ * Used by the saifac CLI (`parseAgentScripts`) as the default `--agent-script` when no override is provided.
  */
 export function resolveAgentScriptPath(profileId: SupportedAgentProfileId): string {
   return join(_agentProfilesDir, profileId, 'agent.sh');
@@ -68,7 +68,7 @@ export function resolveAgentScriptPath(profileId: SupportedAgentProfileId): stri
 
 /**
  * Returns the absolute path to the agent-start.sh script for the given profile id.
- * Used by agents.ts as the default --agent-start-script when no override is provided.
+ * Used by the saifac CLI (`parseAgentScripts`) as the default `--agent-start-script` when no override is provided.
  */
 export function resolveAgentStartScriptPath(profileId: SupportedAgentProfileId): string {
   return join(_agentProfilesDir, profileId, 'agent-start.sh');

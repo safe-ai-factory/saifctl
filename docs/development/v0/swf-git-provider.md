@@ -77,7 +77,7 @@ Use the `--git-provider` flag on subcommands that support push and PR creation:
 
 - `saifac feat run`
 - `saifac run resume`
-- `feat:test`
+- `saifac run test`
 
 **Syntax:**
 
@@ -308,7 +308,7 @@ const SUPPORTED_PROVIDERS = ['github', 'gitlab', 'bitbucket', 'gitea'] as const;
 
 ### Step 3: Document the provider
 
-Add the new provider to this document (section 4) and to the CLI help text in `scripts/commands/agents.ts` (the `--git-provider` description and the env var list).
+Add the new provider to this document (section 4) and to user-facing CLI docs — e.g. `docs/commands/feat-run.md` / `docs/commands/run-resume.md` and the `--git-provider` entry in `src/cli/args.ts` (`featRunArgs`).
 
 ### Step 4: Use it
 
