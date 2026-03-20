@@ -46,8 +46,8 @@ When Leash is enabled, the Orchestrator runs:
 
 ```bash
 npx leash --no-interactive --verbose
-      --image factory-coder-node-pnpm-python:latest
-      --volume /tmp/factory-sandbox/<feat>-<runId>/code:/workspace
+      --image saifac-coder-node-pnpm-python:latest
+      --volume /tmp/saifac/<feat>-<runId>/code:/workspace
       --policy leash-policy.cedar
       --agent-env LLM_MODEL=... --agent-env LLM_API_KEY=... [-e LLM_PROVIDER=...] [-e LLM_BASE_URL=...] --agent-env SAIFAC_WORKSPACE_BASE=/workspace
       --agent-env LEASH_E2E=1 --agent-env LEASH_BOOTSTRAP_SKIP_ENFORCE=1
@@ -57,7 +57,7 @@ npx leash --no-interactive --verbose
 Leash spawns two containers:
 
 1. **Leash manager container** (`agents-leash`) — runs `leashd`, enforces Cedar policy, monitors activity, serves the Control UI at `http://localhost:18080`.
-2. **Target container** (`agents`) — runs our custom `factory-coder` image with OpenHands inside. Mounts `/workspace` (the sandbox copy).
+2. **Target container** (`agents`) — runs our custom `saifac-coder` image with OpenHands inside. Mounts `/workspace` (the sandbox copy).
 
 Leash is a **CLI wrapper**. You do not pull or run any StrongDM Docker image yourself — Leash manages its own Docker containers when you invoke it.
 
@@ -67,7 +67,7 @@ Leash is a **CLI wrapper**. You do not pull or run any StrongDM Docker image you
 
 ### Custom Coder Image
 
-Leash's default `coder` image includes `claude-code`, `codex`, `gemini-cli` — but not OpenHands. We provide **`factory-coder-node-pnpm-python:latest`** (and profile-specific variants), built from the sandbox profile's `Dockerfile.coder`. It extends `factory-coder-base` and adds:
+Leash's default `coder` image includes `claude-code`, `codex`, `gemini-cli` — but not OpenHands. We provide **`saifac-coder-node-pnpm-python:latest`** (and profile-specific variants), built from the sandbox profile's `Dockerfile.coder`. It extends `saifac-coder-base` and adds:
 
 - Python 3, uv, OpenHands
 - Git
@@ -95,7 +95,7 @@ Leash's full network enforcement uses a MITM proxy that intercepts all outbound 
 
 ### What We Rely On
 
-- **Pure file copy sandbox** — `rsync` copies the repo to `/tmp/factory-sandbox/.../code`; agent only sees that copy.
+- **Pure file copy sandbox** — `rsync` copies the repo to `/tmp/saifac/.../code`; agent only sees that copy.
 - **Cedar policy** — `leash-policy.cedar` permits read/write in `/workspace`, explicitly forbids writes to `/workspace/saifac/`.
 - **Patch filtering** — any `saifac/` changes are dropped before the patch is applied to the host.
 
@@ -119,7 +119,7 @@ Override with `--cedar <path>` when running `saifac feat run` or `saifac run res
 | --------------------- | -------------------------------------------------------------------------------------------------------- |
 | `--dangerous-debug`   | Skip Leash; run OpenHands directly on the host (filesystem sandbox only). Use for debugging.             |
 | `--cedar <path>`      | Custom Cedar policy file (default: `src/orchestrator/leash-policy.cedar`).                               |
-| `--coder-image <tag>` | Custom target container image (default: from `--profile`, e.g. `factory-coder-node-pnpm-python:latest`). |
+| `--coder-image <tag>` | Custom target container image (default: from `--profile`, e.g. `saifac-coder-node-pnpm-python:latest`). |
 
 ---
 
@@ -131,7 +131,7 @@ Leash is pulled in as an npm dependency (`@strongdm/leash`). The Orchestrator in
 
 ### OpenHands
 
-OpenHands must be on PATH for the target container. It is pre-installed in `factory-coder`. For `--dangerous-debug` mode, install on the host:
+OpenHands must be on PATH for the target container. It is pre-installed in `saifac-coder`. For `--dangerous-debug` mode, install on the host:
 
 ```bash
 uv tool install openhands --python 3.12
@@ -139,8 +139,8 @@ uv tool install openhands --python 3.12
 
 ### First Run
 
-1. **Test Runner image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:latest`).
-2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/factory-coder:latest`).
+1. **Test Runner image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest`).
+2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifac-coder:latest`).
 
 ---
 

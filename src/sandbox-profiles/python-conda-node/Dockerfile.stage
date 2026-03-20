@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-conda-node/Dockerfile.stage \
-#                -t factory-stage-python-conda-node:latest .
+#                -t saifac-stage-python-conda-node:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile python-conda-node

@@ -7,7 +7,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-node-python/Dockerfile.stage \
-#                -t factory-stage-go-node-python:latest .
+#                -t saifac-stage-go-node-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile go-node-python

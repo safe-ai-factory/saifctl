@@ -114,7 +114,7 @@ The Test Runner sends HTTP requests to the sidecar running inside the staging co
 
 ### Request Format
 
-`POST` to `http://<test-host>:<sidecarPort><sidecarPath>` (e.g. `http://factory-stage-abc123:8080/exec`):
+`POST` to `http://<test-host>:<sidecarPort><sidecarPath>` (e.g. `http://saifac-stage-abc123:8080/exec`):
 
 ```json
 {

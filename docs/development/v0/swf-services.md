@@ -154,7 +154,7 @@ In many frameworks (Next.js, Django, Rails), overriding configuration via raw sh
 #### Missing Compose Networks
 
 If a user writes a `docker-compose.yml` but explicitly defines custom networks (e.g., `networks: [ backend-net, frontend-net ]`), Docker Compose will not put services on the default bridge network.
-**Mitigation:** SAIFAC handles this elegantly. It first programmatically creates a single "God Network" (`factory-net-<runId>`). After running `docker compose up`, SAIFAC iterates through every service spawned by Compose and forcefully attaches them to this God Network (`docker network connect`). SAIFAC then boots the Agent onto the God Network, giving it complete visibility into the mock topology regardless of how complex the user's YAML networking was.
+**Mitigation:** SAIFAC handles this elegantly. It first programmatically creates a single "God Network" (`saifac-net-<runId>`). After running `docker compose up`, SAIFAC iterates through every service spawned by Compose and forcefully attaches them to this God Network (`docker network connect`). SAIFAC then boots the Agent onto the God Network, giving it complete visibility into the mock topology regardless of how complex the user's YAML networking was.
 
 #### Kubernetes Readiness
 

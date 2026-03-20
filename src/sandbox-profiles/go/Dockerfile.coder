@@ -6,11 +6,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go/Dockerfile.coder \
-#                -t factory-coder-go:latest .
+#                -t saifac-coder-go:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile go
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

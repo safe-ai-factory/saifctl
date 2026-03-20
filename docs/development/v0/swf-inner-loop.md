@@ -41,7 +41,7 @@ flowchart TD
 A shell script that wraps each agent invocation with a post-run validation step.
 
 - **Location:** `src/orchestrator/scripts/coder-start.sh`
-- **In container:** Copied into the Docker image at `/factory/coder-start.sh` (see `Dockerfile.coder`)
+- **In container:** Copied into the Docker image at `/saifac/coder-start.sh` (see `Dockerfile.coder`)
 - **Not modifiable by the agent:** Baked into the image; the agent cannot reach it
 
 **Behaviour:**
@@ -51,7 +51,7 @@ A shell script that wraps each agent invocation with a post-run validation step.
 3. Loop up to `SAIFAC_GATE_RETRIES` times (default: 5):
    - Write `$current_task` to `$SAIFAC_TASK_PATH` (default: `/workspace/.factory_task.md`)
    - Invoke the agent script: `bash "$SAIFAC_AGENT_SCRIPT"` — the script must read the task from `$SAIFAC_TASK_PATH`
-   - If `SAIFAC_GATE_SCRIPT` (or `/factory/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
+   - If `SAIFAC_GATE_SCRIPT` (or `/saifac/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
    - Else run the gate script, capture stdout+stderr and exit code
    - If gate exits 0: run the semantic reviewer (if `SAIFAC_REVIEWER_SCRIPT` is set and exists). If reviewer passes → exit 0 (success). If reviewer fails → append output and loop again
    - If gate exits non-zero → append the output to `current_task` as "## Validation Failed — Fix Before Finishing" and loop again
@@ -63,9 +63,9 @@ A shell script that wraps each agent invocation with a post-run validation step.
 | ------------------------- | -------- | ----------------------------- | ---------------------------------------------------------------------- |
 | `SAIFAC_INITIAL_TASK`    | yes      | —                             | Full task prompt; written to `SAIFAC_TASK_PATH` each round            |
 | `SAIFAC_GATE_RETRIES`    | no       | 5                             | Max inner loop rounds before giving up                                 |
-| `SAIFAC_GATE_SCRIPT`     | no       | `/factory/gate.sh`            | Path to the gate script                                                |
+| `SAIFAC_GATE_SCRIPT`     | no       | `/saifac/gate.sh`            | Path to the gate script                                                |
 | `SAIFAC_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
-| `SAIFAC_AGENT_SCRIPT`    | no       | `/factory/agent.sh`           | Path to the agent runner script                                        |
+| `SAIFAC_AGENT_SCRIPT`    | no       | `/saifac/agent.sh`           | Path to the agent runner script                                        |
 | `SAIFAC_TASK_PATH`       | no       | `/workspace/.factory_task.md` | Path where the current task is written before each invocation          |
 | `SAIFAC_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
 
@@ -74,12 +74,12 @@ A shell script that wraps each agent invocation with a post-run validation step.
 The loop script is copied into the Leash coder image:
 
 ```dockerfile
-RUN mkdir -p /factory
-COPY src/orchestrator/scripts/coder-start.sh /factory/coder-start.sh
-RUN chmod +x /factory/coder-start.sh
+RUN mkdir -p /saifac
+COPY src/orchestrator/scripts/coder-start.sh /saifac/coder-start.sh
+RUN chmod +x /saifac/coder-start.sh
 ```
 
-The container entrypoint is `/factory/coder-start.sh` (invoked by `leash`); it is not `openhands` directly.
+The container entrypoint is `/saifac/coder-start.sh` (invoked by `leash`); it is not `openhands` directly.
 
 ### 3. `gate.sh` (per-profile default gate script)
 
@@ -102,17 +102,17 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 **`RunAgentOpts`:**
 
 - `sandboxBasePath` — used to locate `gate.sh`, `startup.sh`, and `agent.sh` for mounting
-- `agentPath` — absolute host path to `sandboxBasePath/agent.sh`; mounted `:ro` at `/factory/agent.sh`
+- `agentPath` — absolute host path to `sandboxBasePath/agent.sh`; mounted `:ro` at `/saifac/agent.sh`
 - `gateRetries` — max gate retries (required; caller supplies default)
 - `agentEnv` — extra env vars to forward into the container (reserved keys filtered out)
 - `agentLogFormat` — `'openhands'` (parse JSON event stream) or `'raw'` (line-stream)
 
 **Leash mode:**
 
-- Mount `sandboxBasePath/gate.sh` at `/factory/gate.sh` with `:ro` (read-only)
-- Mount `sandboxBasePath/agent.sh` at `/factory/agent.sh` with `:ro` (read-only)
+- Mount `sandboxBasePath/gate.sh` at `/saifac/gate.sh` with `:ro` (read-only)
+- Mount `sandboxBasePath/agent.sh` at `/saifac/agent.sh` with `:ro` (read-only)
 - Pass `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_AGENT_SCRIPT`, `SAIFAC_WORKSPACE_BASE` as environment variables
-- Invoke `/factory/coder-start.sh` as the container command (not the agent directly)
+- Invoke `/saifac/coder-start.sh` as the container command (not the agent directly)
 
 **Dangerous-debug mode:**
 
@@ -164,10 +164,10 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 After sandbox creation:
 
 ```
-/tmp/factory-sandbox/{proj}-{feat}-{runId}/
-  gate.sh              ← written by createSandbox; mounted :ro at /factory/gate.sh
-  startup.sh           ← written by createSandbox; mounted :ro at /factory/startup.sh
-  agent.sh             ← written by createSandbox; mounted :ro at /factory/agent.sh
+/tmp/saifac/{proj}-{feat}-{runId}/
+  gate.sh              ← written by createSandbox; mounted :ro at /saifac/gate.sh
+  startup.sh           ← written by createSandbox; mounted :ro at /saifac/startup.sh
+  agent.sh             ← written by createSandbox; mounted :ro at /saifac/agent.sh
   tests.full.json
   code/                ← rsync copy of repo; mounted as /workspace
     .git/

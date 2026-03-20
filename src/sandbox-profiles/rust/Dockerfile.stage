@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust/Dockerfile.stage \
-#                -t factory-stage-rust:latest .
+#                -t saifac-stage-rust:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile rust

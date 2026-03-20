@@ -8,11 +8,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-node-python/Dockerfile.coder \
-#                -t factory-coder-go-node-python:latest .
+#                -t saifac-coder-go-node-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile go-node-python
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

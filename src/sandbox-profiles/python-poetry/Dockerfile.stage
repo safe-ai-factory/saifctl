@@ -7,7 +7,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-poetry/Dockerfile.stage \
-#                -t factory-stage-python-poetry:latest .
+#                -t saifac-stage-python-poetry:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile python-poetry

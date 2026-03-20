@@ -99,16 +99,16 @@ export async function createResumeWorktree(
 
   const gitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: 'factory',
-    GIT_AUTHOR_EMAIL: 'factory@localhost',
-    GIT_COMMITTER_NAME: 'factory',
-    GIT_COMMITTER_EMAIL: 'factory@localhost',
+    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@localhost',
+    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@localhost',
   };
 
   const worktreeDir = join(projectDir, '.saifac', 'worktrees');
   await mkdir(worktreeDir, { recursive: true });
   const worktreePath = join(worktreeDir, `resume-${runId}`);
-  const branchName = `factory-resume-${runId}`;
+  const branchName = `saifac-resume-${runId}`;
 
   consola.log(`[orchestrator] Preparing workspace from storage...`);
 

@@ -6,11 +6,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-pip-node/Dockerfile.coder \
-#                -t factory-coder-python-pip-node:latest .
+#                -t saifac-coder-python-pip-node:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-pip-node
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

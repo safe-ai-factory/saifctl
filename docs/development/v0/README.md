@@ -88,7 +88,7 @@ The pipeline bridges human intent (Markdown PRDs) with deterministic software ge
 5. **Orchestrator** runs Fail2Pass check
    - At least one feature test must fail on current main (partial overlap OK)
 6. **Orchestrator** starts **OpenHands** headlessly
-   - When Leash is enabled (default), runs `npx leash --image factory-coder-node-pnpm-python:latest ... openhands ...`; Leash manages sandboxing and Cedar policy internally
+   - When Leash is enabled (default), runs `npx leash --image saifac-coder-node-pnpm-python:latest ... openhands ...`; Leash manages sandboxing and Cedar policy internally
    - Use `--dangerous-debug` to run OpenHands directly on the host (no container during the agent phase)
 7. **OpenHands** runs autonomously
    - Implements the feature until completion
@@ -169,7 +169,7 @@ Here is how we integrate these components into our current multi-agent monorepo:
 
 ### Step 4: Secure the Execution Sandbox
 
-- Wrap the Coder Agent and test execution in a **pure file copy** sandbox: the Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to `/tmp/factory-sandbox/{feature}-{runId}/code`, so the agent cannot corrupt the host's `.git` or files. Use Docker containers (borrowing concepts from **SWE-Factory**) or **Leash** to ensure that when the agent is blindly trying to fix a test 50 times in a row, it doesn't accidentally execute a destructive database query or delete the workspace.
+- Wrap the Coder Agent and test execution in a **pure file copy** sandbox: the Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to `/tmp/saifac/{feature}-{runId}/code`, so the agent cannot corrupt the host's `.git` or files. Use Docker containers (borrowing concepts from **SWE-Factory**) or **Leash** to ensure that when the agent is blindly trying to fix a test 50 times in a row, it doesn't accidentally execute a destructive database query or delete the workspace.
 
 ---
 

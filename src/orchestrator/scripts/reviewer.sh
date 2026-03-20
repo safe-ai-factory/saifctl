@@ -1,6 +1,6 @@
 #!/bin/sh
 # reviewer.sh — semantic AI code review via Argus.
-# Mounted read-only at /factory/reviewer.sh inside the coder container.
+# Mounted read-only at /saifac/reviewer.sh inside the coder container.
 #
 # Environment:
 #   REVIEWER_LLM_PROVIDER   — e.g. anthropic, openai, gemini

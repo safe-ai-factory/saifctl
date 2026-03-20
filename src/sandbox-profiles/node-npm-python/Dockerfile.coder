@@ -7,11 +7,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-npm-python/Dockerfile.coder \
-#                -t factory-coder-node-npm-python:latest .
+#                -t saifac-coder-node-npm-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-npm-python
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

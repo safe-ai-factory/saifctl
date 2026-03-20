@@ -165,7 +165,7 @@ Push and PR happen at the end of a successful run. If the agent hits `--max-runs
 
 ## Branch and Base
 
-- **Feature branch:** Automatically created from your feature name (e.g. `feat/my-feature-abc123`).
+- **Feature branch:** Automatically created as `saifac/<featureName>-<runId>` after a successful run (separate from your working branch).
 - **Base branch:** The branch you had checked out when the command started. The PR targets that branch.
 
 ---

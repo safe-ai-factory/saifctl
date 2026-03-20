@@ -85,7 +85,7 @@ See [Environments and Infrastructure](services.md) for a user guide. See [Softwa
 | Field            | Type   | Example                  | CLI equivalent       |
 | ---------------- | ------ | ------------------------ | -------------------- |
 | `project`        | string | `"my-app"`               | `-p` / `--project`   |
-| `sandboxBaseDir` | string | `"/tmp/factory-sandbox"` | `--sandbox-base-dir` |
+| `sandboxBaseDir` | string | `"/tmp/saifac"` | `--sandbox-base-dir` |
 
 ### Run params
 
@@ -96,7 +96,7 @@ See [Environments and Infrastructure](services.md) for a user guide. See [Softwa
 | `resolveAmbiguity` | `"off" \| "prompt" \| "ai"` | `"ai"`                    | `--resolve-ambiguity`                     |
 | `dangerousDebug`   | boolean                     | `false`                   | `--dangerous-debug`                       |
 | `cedarPolicyPath`  | string                      | `"/path/to/policy.cedar"` | `--cedar`                                 |
-| `coderImage`       | string                      | `"factory-coder:latest"`  | `--coder-image`                           |
+| `coderImage`       | string                      | `"saifac-coder:latest"`  | `--coder-image`                           |
 | `gateRetries`      | number                      | `10`                      | `--gate-retries`                          |
 | `agentLogFormat`   | `"openhands" \| "raw"`      | `"openhands"`             | `--agent-log-format`                      |
 | `push`             | string                      | `"origin"`                | `--push`                                  |
@@ -139,7 +139,7 @@ Discovery runs only when `discoveryMcps` or `discoveryTools` is configured. Outp
 | Field              | Type   | Example                      | CLI equivalent         |
 | ------------------ | ------ | ---------------------------- | ---------------------- |
 | `testScript`       | string | `"./scripts/test.sh"`        | `--test-script`        |
-| `testImage`        | string | `"factory-test-node:latest"` | `--test-image`         |
+| `testImage`        | string | `"saifac-test-node:latest"` | `--test-image`         |
 | `startupScript`    | string | `"./scripts/startup.sh"`     | `--startup-script`     |
 | `stageScript`      | string | `"./scripts/stage.sh"`       | `--stage-script`       |
 | `gateScript`       | string | `"./scripts/gate.sh"`        | `--gate-script`        |

@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-bun/Dockerfile.stage \
-#                -t factory-stage-node-bun:latest .
+#                -t saifac-stage-node-bun:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile node-bun

@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-yarn-python/Dockerfile.stage \
-#                -t factory-stage-node-yarn-python:latest .
+#                -t saifac-stage-node-yarn-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile node-yarn-python

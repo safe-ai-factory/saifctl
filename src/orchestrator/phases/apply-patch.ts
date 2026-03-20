@@ -30,7 +30,7 @@ export interface ApplyPatchOpts {
   projectDir: string;
   feature: Feature;
   /**
-   * Unique run id used to construct the branch name (factory/<featureName>-<runId>),
+   * Unique run id used to construct the branch name (saifac/<featureName>-<runId>),
    * ensuring parallel runs for different attempts never collide.
    */
   runId: string;
@@ -51,7 +51,7 @@ export interface ApplyPatchOpts {
  * the main working tree's checked-out branch is never modified — safe for parallel runs.
  *
  * Flow:
- *   1. Create a temporary worktree at <sandboxBasePath>/worktree on branch factory/<featureName>-<runId>
+ *   1. Create a temporary worktree at <sandboxBasePath>/worktree on branch saifac/<featureName>-<runId>
  *   2. Apply patch.diff and commit inside the worktree
  *   3. Optionally push the branch to the remote target
  *   4. Optionally open a Pull Request via the configured git provider
@@ -84,15 +84,15 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
     );
   }
 
-  const branchName = `factory/${feature.name}-${runId}`;
+  const branchName = `saifac/${feature.name}-${runId}`;
   const wtPath = join(sandboxBasePath, 'worktree');
 
   const gitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'factory',
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'factory@localhost',
-    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'factory',
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'factory@localhost',
+    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@localhost',
+    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@localhost',
   };
 
   // Capture the current branch for the PR base *before* touching anything

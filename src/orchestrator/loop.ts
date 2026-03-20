@@ -73,7 +73,7 @@ export interface IterativeLoopOpts {
    */
   projectName: string;
   /**
-   * Test Docker image tag (default: 'factory-test-<profileId>:latest').
+   * Test Docker image tag (default: 'saifac-test-<profileId>:latest').
    *
    * Override via --test-image CLI flag.
    */

@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-pnpm/Dockerfile.stage \
-#                -t factory-stage-node-pnpm:latest .
+#                -t saifac-stage-node-pnpm:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile node-pnpm

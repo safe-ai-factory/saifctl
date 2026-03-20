@@ -143,14 +143,14 @@ Each profile has its own image. They're all pre-built and pulled automatically.
 
 | Profile             | Language + framework          | URL                                                               |
 | ------------------- | ----------------------------- | ----------------------------------------------------------------- |
-| `node-vitest`       | TypeScript + Vitest (default) | ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest       |
-| `node-playwright`   | TypeScript + Playwright       | ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-playwright   |
-| `python-pytest`     | Python + pytest               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest     |
-| `python-playwright` | Python + Playwright           | ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-playwright |
-| `go-gotest`         | Go + gotest                   | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-gotest         |
-| `go-playwright`     | Go + Playwright               | ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-playwright     |
-| `rust-rusttest`     | Rust + cargo test             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-rusttest     |
-| `rust-playwright`   | Rust + Playwright             | ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-playwright   |
+| `node-vitest`       | TypeScript + Vitest (default) | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest       |
+| `node-playwright`   | TypeScript + Playwright       | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-playwright   |
+| `python-pytest`     | Python + pytest               | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest     |
+| `python-playwright` | Python + Playwright           | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-playwright |
+| `go-gotest`         | Go + gotest                   | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-go-gotest         |
+| `go-playwright`     | Go + Playwright               | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-go-playwright     |
+| `rust-rusttest`     | Rust + cargo test             | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-rust-rusttest     |
+| `rust-playwright`   | Rust + Playwright             | ghcr.io/JuroOravec/safe-ai-factory/saifac-test-rust-playwright   |
 
 Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 
@@ -159,7 +159,7 @@ Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 To lock to a specific version instead of `latest`:
 
 ```bash
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:v1.0.0
+saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:v1.0.0
 ```
 
 Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleeding edge.

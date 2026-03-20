@@ -25,11 +25,11 @@ saifac feature design-fail2pass [options]
 | `--saifac-dir`       | —     | string | Path to saifac directory (default: `saifac`)                                                    |
 | `--project-dir`      | —     | string | Project directory (default: current working directory)                                          |
 | `--project`          | `-p`  | string | Project name override (default: package.json "name")                                            |
-| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/factory-sandbox`)                            |
+| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/saifac`)                            |
 | `--profile`          | —     | string | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script. |
 | `--test-profile`     | —     | string | Test profile id (default: node-vitest)                                                          |
 | `--test-script`      | —     | string | Path to a shell script that overrides test.sh inside the Test Runner container.                 |
-| `--test-image`       | —     | string | Test runner Docker image tag (default: factory-test-\<profile\>:latest)                         |
+| `--test-image`       | —     | string | Test runner Docker image tag (default: saifac-test-\<profile\>:latest)                         |
 | `--startup-script`   | —     | string | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.)     |
 | `--stage-script`     | —     | string | Path to a shell script mounted into the staging container. Must handle app startup.             |
 

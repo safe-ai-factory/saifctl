@@ -7,11 +7,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust/Dockerfile.coder \
-#                -t factory-coder-rust:latest .
+#                -t saifac-coder-rust:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile rust
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

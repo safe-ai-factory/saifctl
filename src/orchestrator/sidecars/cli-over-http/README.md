@@ -140,12 +140,12 @@ The binary is read into memory as a `Buffer` — it never touches the filesystem
 
 The injection happens **between `createContainer` and `container.start()`**, before the container has run a single instruction. This is the window where the Docker daemon (running as root) can write files into the container's filesystem via `putArchive`, regardless of what user the container will eventually run as.
 
-The orchestrator injects two files via `putArchive` (sidecar and staging-start.sh must be executable; bind mounts can lose the +x bit). stage.sh is mounted read-only instead — it's invoked via `sh /factory/stage.sh` so it need not be executable.
+The orchestrator injects two files via `putArchive` (sidecar and staging-start.sh must be executable; bind mounts can lose the +x bit). stage.sh is mounted read-only instead — it's invoked via `sh /saifac/stage.sh` so it need not be executable.
 
 ```
-/factory/sidecar          ← injected via putArchive (Go binary, mode 0755)
-/factory/staging-start.sh ← injected via putArchive (entrypoint script)
-/factory/stage.sh         ← mounted from host (profile's startup script, e.g. pnpm run start)
+/saifac/sidecar          ← injected via putArchive (Go binary, mode 0755)
+/saifac/staging-start.sh ← injected via putArchive (entrypoint script)
+/saifac/stage.sh         ← mounted from host (profile's startup script, e.g. pnpm run start)
 ```
 
 The archive injection:
@@ -155,7 +155,7 @@ const tarBuffer = createTarArchive([
   { filename: 'sidecar', content: SIDECAR_BINARY, mode: '0000755' },
   { filename: 'staging-start.sh', content: STAGING_START_SCRIPT, mode: '0000755' },
 ]);
-await container.putArchive(tarBuffer, { path: '/factory' });
+await container.putArchive(tarBuffer, { path: '/saifac' });
 ```
 
 `SIDECAR_BINARY` is a `Buffer` loaded once at orchestrator startup — the raw bytes of the pre-compiled binary for the host's architecture.
@@ -164,19 +164,19 @@ await container.putArchive(tarBuffer, { path: '/factory' });
 
 ## The startup sequence inside the container
 
-Once `container.start()` is called, the container runs `/bin/sh /factory/staging-start.sh`. Here is exactly what happens, in order:
+Once `container.start()` is called, the container runs `/bin/sh /saifac/staging-start.sh`. Here is exactly what happens, in order:
 
 ```
-1. sh /factory/startup.sh
+1. sh /saifac/startup.sh
    Install workspace dependencies.
    Same script the coder container runs: pnpm install, pip install, cargo fetch, etc.
    Ensures the staging environment is identical to where the code was written.
 
-2. /factory/sidecar &
+2. /saifac/sidecar &
    Start the sidecar in the background.
    It binds to 0.0.0.0:$SAIFAC_SIDECAR_PORT immediately.
 
-3. sh /factory/stage.sh
+3. sh /saifac/stage.sh
    Run the profile's staging script.
    For web apps: pnpm run start, uvicorn app:main, cargo run, etc.
    For CLI-only projects: wait (keeps the container alive).

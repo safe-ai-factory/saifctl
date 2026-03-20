@@ -98,7 +98,7 @@ For agents that need custom binaries or heavy dependencies, extend `Dockerfile.c
 
 ```dockerfile
 # Dockerfile.my-coder
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 # Install Aider (Python)
 RUN pip install aider-chat

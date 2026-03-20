@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Cache CLI — manage factory sandbox entries in /tmp/factory-sandbox/.
+ * Cache CLI — manage factory sandbox entries in /tmp/saifac/.
  *
  * Usage: pnpm cache <subcommand> [options]
  *   list    List sandbox dirs for this project (--all: all projects)
@@ -101,7 +101,7 @@ const clearCommand = defineCommand({
     const removeEntries = async (toRemove: string[]) => {
       await Promise.all(
         toRemove.map(async (entry) => {
-          // E.g. `/tmp/factory-sandbox/crawlee-one-feat-abc1234`
+          // E.g. `/tmp/saifac/crawlee-one-feat-abc1234`
           await rmAsync(`${sandboxBase}/${entry}`, { recursive: true, force: true });
           consola.log(`  removed ${entry}`);
         }),

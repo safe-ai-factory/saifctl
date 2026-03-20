@@ -111,13 +111,13 @@ export interface StartStagingOpts {
   projectName: string;
   /**
    * Absolute host path to startup.sh.
-   * Mounted read-only at /factory/startup.sh and run once at container start
+   * Mounted read-only at /saifac/startup.sh and run once at container start
    * to install workspace dependencies.
    */
   startupPath: string;
   /**
    * Absolute host path to stage.sh.
-   * Mounted read-only at /factory/stage.sh; starts the app (or keeps container alive).
+   * Mounted read-only at /saifac/stage.sh; starts the app (or keeps container alive).
    */
   stagePath: string;
 }
@@ -135,7 +135,7 @@ export interface RunTestsOpts {
    * Read by the provisioner after the container exits to populate testSuites.
    */
   reportPath: string;
-  /** Test runner image tag (e.g. 'factory-test-node-vitest:latest'). */
+  /** Test runner image tag (e.g. 'saifac-test-node-vitest:latest'). */
   testImage: string;
   /**
    * Absolute host path to test.sh, always bind-mounted at
@@ -178,11 +178,11 @@ export interface RunAgentOpts {
   coderImage: string;
   /** Maximum gate iterations per agent run. Forwarded as SAIFAC_GATE_RETRIES. */
   gateRetries: number;
-  /** Absolute host path to startup.sh. Mounted at /factory/startup.sh. */
+  /** Absolute host path to startup.sh. Mounted at /saifac/startup.sh. */
   startupPath: string;
-  /** Absolute host path to agent-start.sh. Mounted at /factory/agent-start.sh. */
+  /** Absolute host path to agent-start.sh. Mounted at /saifac/agent-start.sh. */
   agentStartPath: string;
-  /** Absolute host path to agent.sh. Mounted at /factory/agent.sh. */
+  /** Absolute host path to agent.sh. Mounted at /saifac/agent.sh. */
   agentPath: string;
   /**
    * User-supplied extra env vars. Reserved SAIFAC_* and LLM_* keys are silently
@@ -218,7 +218,7 @@ export interface Provisioner {
   /**
    * 1. Initialize the isolated environment and start background services.
    *
-   * Docker: Creates a bridge network (`factory-net-…`) and runs
+   * Docker: Creates a bridge network (`saifac-net-…`) and runs
    *   `docker compose -p saifac-<runId> -f <file> up -d --wait`.
    * Attaches compose services to the network via `docker network connect`.
    *

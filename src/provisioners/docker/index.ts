@@ -201,7 +201,7 @@ export class DockerProvisioner implements Provisioner {
     this.projectDir = projectDir;
 
     // Create an isolated bridge network for this run
-    this.networkName = `factory-net-${projectName}-${featureName}-${runId}`;
+    this.networkName = `saifac-net-${projectName}-${featureName}-${runId}`;
     await ensureCreateNetwork(this.networkName);
     this.registry.registerNetwork(this.networkName);
 
@@ -250,8 +250,8 @@ export class DockerProvisioner implements Provisioner {
     } = opts;
 
     const containerConfig = stagingEnvironment.app;
-    const containerName = `factory-stage-${projectName}-${feature.name}-${this.runId}`;
-    const imageTag = `factory-stage-${projectName}-${feature.name}-img-${this.runId}`;
+    const containerName = `saifac-stage-${projectName}-${feature.name}-${this.runId}`;
+    const imageTag = `saifac-stage-${projectName}-${feature.name}-img-${this.runId}`;
 
     // Build ephemeral staging image
     await this.buildStagingImage({
@@ -272,13 +272,13 @@ export class DockerProvisioner implements Provisioner {
     const container = await docker.createContainer({
       Image: imageTag,
       name: containerName,
-      Cmd: ['/bin/sh', '/factory/staging-start.sh'],
+      Cmd: ['/bin/sh', '/saifac/staging-start.sh'],
       HostConfig: {
         NetworkMode: this.networkName,
         Binds: [
           `${codePath}:/workspace`,
-          `${startupPath}:/factory/startup.sh:ro`,
-          `${stagePath}:/factory/stage.sh:ro`,
+          `${startupPath}:/saifac/startup.sh:ro`,
+          `${stagePath}:/saifac/stage.sh:ro`,
         ],
         SecurityOpt: ['no-new-privileges'],
         CapDrop: ['ALL'],
@@ -293,8 +293,8 @@ export class DockerProvisioner implements Provisioner {
         `SAIFAC_FEATURE_NAME=${feature.name}`,
         `SAIFAC_SIDECAR_PORT=${containerConfig.sidecarPort}`,
         `SAIFAC_SIDECAR_PATH=${containerConfig.sidecarPath}`,
-        `SAIFAC_STARTUP_SCRIPT=/factory/startup.sh`,
-        `SAIFAC_STAGE_SCRIPT=/factory/stage.sh`,
+        `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
+        `SAIFAC_STAGE_SCRIPT=/saifac/stage.sh`,
       ],
       WorkingDir: '/workspace',
     });
@@ -306,7 +306,7 @@ export class DockerProvisioner implements Provisioner {
       { filename: 'sidecar', content: sidecarBinary, mode: '0000755' },
       { filename: 'staging-start.sh', content: stagingStartScript, mode: '0000755' },
     ]);
-    await container.putArchive(tarBuffer, { path: '/factory' });
+    await container.putArchive(tarBuffer, { path: '/saifac' });
 
     await container.start();
     consola.log(`[docker] ${containerName} started`);
@@ -343,7 +343,7 @@ export class DockerProvisioner implements Provisioner {
 
     assertSafeImageTag(testImage);
 
-    const containerName = `factory-test-${projectName}-${runId}`;
+    const containerName = `saifac-test-${projectName}-${runId}`;
     const containerTestsDir = '/tests';
     const containerOutputFile = '/test-runner-output/results.xml';
 
@@ -560,23 +560,23 @@ export class DockerProvisioner implements Provisioner {
         '--volume',
         `${codePath}:${CONTAINER_WORKSPACE}`,
         '--volume',
-        `${sandboxBasePath}/gate.sh:/factory/gate.sh:ro`,
+        `${sandboxBasePath}/gate.sh:/saifac/gate.sh:ro`,
         '--volume',
-        `${startupPath}:/factory/startup.sh:ro`,
+        `${startupPath}:/saifac/startup.sh:ro`,
         '--volume',
-        `${agentStartPath}:/factory/agent-start.sh:ro`,
+        `${agentStartPath}:/saifac/agent-start.sh:ro`,
         '--volume',
-        `${agentPath}:/factory/agent.sh:ro`,
+        `${agentPath}:/saifac/agent.sh:ro`,
       ];
 
       if (reviewer) {
         leashArgs.push(
           '--volume',
-          `${reviewer.scriptPath}:/factory/reviewer.sh:ro`,
+          `${reviewer.scriptPath}:/saifac/reviewer.sh:ro`,
           '--volume',
           `${reviewer.argusBinaryPath}:/usr/local/bin/argus:ro`,
         );
-        envForward.SAIFAC_REVIEWER_SCRIPT = '/factory/reviewer.sh';
+        envForward.SAIFAC_REVIEWER_SCRIPT = '/saifac/reviewer.sh';
         envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
         envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.fullModelString;
         envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
@@ -604,12 +604,12 @@ export class DockerProvisioner implements Provisioner {
         '--env',
         `SAIFAC_GATE_RETRIES=${gateRetries}`,
         '--env',
-        `SAIFAC_STARTUP_SCRIPT=/factory/startup.sh`,
+        `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
         '--env',
-        `SAIFAC_AGENT_START_SCRIPT=/factory/agent-start.sh`,
+        `SAIFAC_AGENT_START_SCRIPT=/saifac/agent-start.sh`,
         '--env',
-        `SAIFAC_AGENT_SCRIPT=/factory/agent.sh`,
-        '/factory/coder-start.sh',
+        `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
+        '/saifac/coder-start.sh',
       );
 
       const SENSITIVE_ENV_KEYS = new Set([
@@ -1053,7 +1053,7 @@ export function getStagingImageTag(
 ): string | null {
   if (stagingApp.build?.dockerfile === null) return null;
   const { projectName, featureName, runId } = opts;
-  return `factory-stage-${projectName}-${featureName}-img-${runId}`;
+  return `saifac-stage-${projectName}-${featureName}-img-${runId}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -6,10 +6,10 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 
 | Image                | Default tag                             | Purpose                                                    |
 | -------------------- | --------------------------------------- | ---------------------------------------------------------- |
-| `factory-test-*`     | `factory-test-<profile>:latest`         | Test runner containers; one per language/framework profile |
-| `factory-coder-base` | `factory-coder-base:latest`             | Base for coder images; contains coder-start.sh only        |
-| `factory-coder`      | `factory-coder-node-pnpm-python:latest` | Extends coder-base; adds OpenHands (default coder agent)   |
-| `factory-stage`      | `factory-stage:latest`                  | Stage/staging container image                              |
+| `saifac-test-*`     | `saifac-test-<profile>:latest`         | Test runner containers; one per language/framework profile |
+| `saifac-coder-base` | `saifac-coder-base:latest`             | Base for coder images; contains coder-start.sh only        |
+| `saifac-coder`      | `saifac-coder-node-pnpm-python:latest` | Extends coder-base; adds OpenHands (default coder agent)   |
+| `saifac-stage`      | `saifac-stage:latest`                  | Stage/staging container image                              |
 
 ### Test runner profiles
 
@@ -55,7 +55,7 @@ It does **not** run on push to `main` or on pull requests.
 2. **Build** — Builds all images:
    - All test runner profiles (`pnpm docker build test --all`)
    - Coder base, coder, and stage images
-3. **Publish** — Pushes each `factory-*` image to GHCR.
+3. **Publish** — Pushes each `saifac-*` image to GHCR.
 
 ### Published tags
 
@@ -74,11 +74,11 @@ When `--test-image` or `--coder-image` is omitted, Docker pulls the default imag
 
 ```bash
 # Test runners (use :latest or :v1.0.0 to pin a release)
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:latest
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest:v1.0.0
+saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest
+saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest:v1.0.0
 
 # Coder image
-saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/factory-coder:latest
+saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder:latest
 ```
 
 ## Storage

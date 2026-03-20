@@ -51,13 +51,13 @@ This phase runs directly on the developer's machine and is NOT automated. It exi
 
 Once the constraints are approved, the autonomous loop begins. To prevent polluting the active workspace, the Orchestrator isolates this work.
 
-5. **Isolate via Pure File Copy:** The Orchestrator creates true isolation by copying the current repository to a disposable folder (e.g., `/tmp/factory-sandbox/feature-x`). It uses tools like `rsync` with `--filter=':- .gitignore'` to ensure it doesn't copy `node_modules` or build artifacts. After rsync, it recursively removes _all_ `hidden/` directories under `saifac/features/` from the code copy so the agent cannot see holdout tests from any feature (current or others). This guarantees that even if the agent maliciously deletes `.git` or corrupts files, the host repository is 100% safe, and the agent has no access to hidden tests.
+5. **Isolate via Pure File Copy:** The Orchestrator creates true isolation by copying the current repository to a disposable folder (e.g., `/tmp/saifac/feature-x`). It uses tools like `rsync` with `--filter=':- .gitignore'` to ensure it doesn't copy `node_modules` or build artifacts. After rsync, it recursively removes _all_ `hidden/` directories under `saifac/features/` from the code copy so the agent cannot see holdout tests from any feature (current or others). This guarantees that even if the agent maliciously deletes `.git` or corrupts files, the host repository is 100% safe, and the agent has no access to hidden tests.
 6. **Fail2Pass Check (Sanity Check):**
    - Within the isolated sandbox, the Orchestrator runs the Black-Box test harness (e.g., Playwright or HTTP request to the Sidecar) against the holdout tests. For a web app or CLI wrapped in a Sidecar, this requires spinning up the app and invoking the test runner.
    - It parses the Vitest JSON report to check that _at least one_ feature test (excluding infrastructure health checks) failed. If all feature tests pass, the loop aborts — the feature already exists or the tests are invalid.
    - Partial overlap is OK: some tests (e.g. negative-path) may pass on `main` before implementation. Fail2pass only requires that some tests fail.
 7. **Start OpenHands (Headless) in Leash Sandbox:**
-   - When Leash is enabled (default), the Orchestrator runs `npx leash --no-interactive --image factory-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy leash-policy.cedar ... openhands --headless ...`. Leash wraps OpenHands in our custom coder image (built from the sandbox profile's `Dockerfile.coder`) and enforces Cedar policies. The image is pulled from GHCR when not present locally.
+   - When Leash is enabled (default), the Orchestrator runs `npx leash --no-interactive --image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy leash-policy.cedar ... openhands --headless ...`. Leash wraps OpenHands in our custom coder image (built from the sandbox profile's `Dockerfile.coder`) and enforces Cedar policies. The image is pulled from GHCR when not present locally.
    - Pass `--dangerous-debug` to run OpenHands directly on the host (no container during the agent phase).
    - OpenHands runs autonomously. The Orchestrator waits for the process to exit.
 8. **Extract Artifact:**
@@ -91,7 +91,7 @@ This is where we enforce the "Perfect Black Box" to prevent reward hacking. We m
     - The Orchestrator applies `patch.diff` to the actual host repository.
     - It triggers `/opsx:archive` via an **async** subprocess helper (e.g. `child_process.exec` from `node:child_process/promises`, or `spawn` with Promises) so OpenSpec updates the master documentation — avoid blocking `execSync` in real implementations.
     - It uses the GitHub API (via `octokit`) to open a Pull Request.
-    - It removes the entire disposable sandbox (`rm -rf /tmp/factory-sandbox/{feat}-{runId}/`). Holdout tests lived in that directory alongside `code/`; no separate `/tmp/factory-holdouts/` folder.
+    - It removes the entire disposable sandbox (`rm -rf /tmp/saifac/{feat}-{runId}/`). Holdout tests lived in that directory alongside `code/`; no separate `/tmp/saifac-holdouts/` folder.
 
 ---
 
@@ -108,7 +108,7 @@ Here is a more robust pseudocode sketch of the core loop. It addresses the pract
 3. **The Sandbox Illusion:** Inside the disposable copy, we remove all `hidden/` dirs under `saifac/features/` from the code copy before the agent runs. The agent's workspace contains only public tests; holdout tests are physically absent.
    ```
    /tmp/
-     |- factory-sandbox/
+     |- saifac/
          |- {featName}-{runId}/
              |- code/                      (Mounted to Agent)
                  |- .git
@@ -162,7 +162,7 @@ async function generateSpecsAndTests(featureName: string, proposalPath: string) 
 async function runFactoryFloor(featureName: string) {
   const hostRepoPath = __dirname;
   const runId = Math.random().toString(36).substring(7);
-  const sandboxBasePath = `/tmp/factory-sandbox/${featureName}-${runId}`;
+  const sandboxBasePath = `/tmp/saifac/${featureName}-${runId}`;
   const codePath = `${sandboxBasePath}/code`;
 
   // NOTE 1: OpenSpec supports nested paths (e.g. /specs/accounts/feat.md).
@@ -220,12 +220,12 @@ async function runFactoryFloor(featureName: string) {
     attempts++;
 
     // Start OpenHands in the secure Leash Sandbox (or directly on host if --dangerous-debug)
-    // When Leash is enabled, we run npx leash --image factory-coder-node-pnpm-python:latest ...
+    // When Leash is enabled, we run npx leash --image saifac-coder-node-pnpm-python:latest ...
     // openhands ... — Leash wraps OpenHands in a sandboxed container and enforces Cedar policies.
     console.log(`Unleashing Coder Agent (Attempt ${attempts})...`);
     const openhandsCmd = dangerousDebug
       ? `openhands --headless --workspace-dir "${codePath}" -t "Implement plan.md. Fix errors: ${errorFeedback}"`
-      : `npx leash --no-interactive --image factory-coder-node-pnpm-python:latest --volume "${codePath}:/workspace" --policy leash-policy.cedar openhands --headless --always-approve -t "Implement plan.md. Fix errors: ${errorFeedback}"`;
+      : `npx leash --no-interactive --image saifac-coder-node-pnpm-python:latest --volume "${codePath}:/workspace" --policy leash-policy.cedar openhands --headless --always-approve -t "Implement plan.md. Fix errors: ${errorFeedback}"`;
     await exec(openhandsCmd, { cwd: codePath, shell: sh, maxBuffer: 1024 * 1024 * 64 });
 
     // Extract Artifact (Patch)

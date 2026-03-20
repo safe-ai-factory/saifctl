@@ -6,11 +6,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-yarn-python/Dockerfile.coder \
-#                -t factory-coder-node-yarn-python:latest .
+#                -t saifac-coder-node-yarn-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-yarn-python
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

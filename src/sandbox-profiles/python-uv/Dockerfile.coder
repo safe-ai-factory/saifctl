@@ -6,11 +6,11 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-uv/Dockerfile.coder \
-#                -t factory-coder-python-uv:latest .
+#                -t saifac-coder-python-uv:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-uv
-FROM factory-coder-base:latest
+FROM saifac-coder-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 

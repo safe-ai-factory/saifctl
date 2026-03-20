@@ -397,7 +397,7 @@ export function parseSandboxProfile(args: OrchestratorArgs, config?: SaifConfig)
   }
 }
 
-/** Returns the test image tag. Uses config or defaults to factory-test-<profileId>:latest. */
+/** Returns the test image tag. Uses config or defaults to saifac-test-<profileId>:latest. */
 export function parseTestImage(
   args: OrchestratorArgs,
   profileId: string,

@@ -1,7 +1,7 @@
 #!/bin/bash
-# coder-start.sh — inner agentic loop, baked into the coder image at /factory/coder-start.sh.
+# coder-start.sh — inner agentic loop, baked into the coder image at /saifac/coder-start.sh.
 #
-# Runs the agent script, then calls /factory/gate.sh (injected read-only per-run).
+# Runs the agent script, then calls /saifac/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
 # If the gate fails, the failure output is appended to the task prompt and
 # the agent is re-invoked, up to SAIFAC_GATE_RETRIES times.
@@ -9,7 +9,7 @@
 # Environment variables:
 #   SAIFAC_INITIAL_TASK        — the full task prompt (required)
 #   SAIFAC_GATE_RETRIES        — max inner rounds before giving up (default: 5)
-#   SAIFAC_GATE_SCRIPT         — path to the gate script (default: /factory/gate.sh)
+#   SAIFAC_GATE_SCRIPT         — path to the gate script (default: /saifac/gate.sh)
 #   SAIFAC_STARTUP_SCRIPT      — path to the installation script (required); run once before
 #                                 the agent loop. Set via --profile (default: node-pnpm-python) or
 #                                 --startup-script.
@@ -17,7 +17,7 @@
 #                                 the startup script and before the agent loop. Use to
 #                                 install the coding agent (e.g. pipx install aider-chat).
 #                                 When unset or empty, this step is skipped.
-#   SAIFAC_AGENT_SCRIPT        — path to the agent script (default: /factory/agent.sh)
+#   SAIFAC_AGENT_SCRIPT        — path to the agent script (default: /saifac/agent.sh)
 #                                 The script is called once per inner round. It must read
 #                                 the task from $SAIFAC_TASK_PATH and run the coding agent.
 #   SAIFAC_TASK_PATH           — path where the current task prompt is written before each
@@ -30,8 +30,8 @@
 
 set -euo pipefail
 
-GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/factory/gate.sh}"
-AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/factory/agent.sh}"
+GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/saifac/gate.sh}"
+AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/saifac/agent.sh}"
 GATE_RETRIES="${SAIFAC_GATE_RETRIES:-5}"
 TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.factory_task.md}"
 

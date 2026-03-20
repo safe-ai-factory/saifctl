@@ -4,7 +4,7 @@
  *
  * Usage: pnpm docker <action> [image] [options]
  *   build test       Build test runner image(s) (default: node-vitest, --all: all profiles)
- *   build coder-base Build coder base image (factory-coder-base:latest)
+ *   build coder-base Build coder base image (saifac-coder-base:latest)
  *   build coder      Build coder image (default: node-pnpm-python, --all: all profiles)
  *   build stage      Build stage image (default: node-pnpm-python, --all: all profiles)
  *   clear            Remove factory containers/images (scoped to project; --all: everything)
@@ -91,8 +91,8 @@ const testBuildCommand = defineCommand({
 
     for (const profile of profilesToBuild) {
       const tag = buildAll
-        ? `factory-test-${profile.id}:latest`
-        : args['test-image']?.trim() || `factory-test-${profile.id}:latest`;
+        ? `saifac-test-${profile.id}:latest`
+        : args['test-image']?.trim() || `saifac-test-${profile.id}:latest`;
       if (!buildAll) validateImageTag(tag, '--test-image');
 
       const dockerfilePath = resolveTestDockerfilePath(profile.id);
@@ -120,7 +120,7 @@ const testBuildCommand = defineCommand({
 
     consola.log('Test image(s) built successfully.');
     if (!buildAll) {
-      const tag = args['test-image']?.trim() || `factory-test-${profilesToBuild[0]!.id}:latest`;
+      const tag = args['test-image']?.trim() || `saifac-test-${profilesToBuild[0]!.id}:latest`;
       consola.log(`Use it with: npx saifac feat run --test-image ${tag}`);
     }
   },
@@ -131,14 +131,14 @@ const testBuildCommand = defineCommand({
 const coderBaseBuildCommand = defineCommand({
   meta: {
     name: 'coder-base',
-    description: 'Build coder base image (factory-coder-base:latest) from Dockerfile.coder-base',
+    description: 'Build coder base image (saifac-coder-base:latest) from Dockerfile.coder-base',
   },
   args: {
     'coder-base-image': { type: 'string', description: 'Image tag override' },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
-    const tag = args['coder-base-image']?.trim() || 'factory-coder-base:latest';
+    const tag = args['coder-base-image']?.trim() || 'saifac-coder-base:latest';
     if (args['coder-base-image']) validateImageTag(tag, '--coder-base-image');
 
     const dockerfilePath = resolve(repoRoot, 'Dockerfile.coder-base');
@@ -321,9 +321,9 @@ const clearCommand = defineCommand({
     const clearAll = args.all === true;
     const projName = clearAll ? null : await parseProjectName(args);
 
-    const stagingPrefix = clearAll ? 'factory-stage-' : `factory-stage-${projName}-`;
-    const testRunnerPrefix = clearAll ? 'factory-test-' : `factory-test-${projName}-`;
-    const networkPrefix = clearAll ? 'factory-net-' : `factory-net-${projName}-`;
+    const stagingPrefix = clearAll ? 'saifac-stage-' : `saifac-stage-${projName}-`;
+    const testRunnerPrefix = clearAll ? 'saifac-test-' : `saifac-test-${projName}-`;
+    const networkPrefix = clearAll ? 'saifac-net-' : `saifac-net-${projName}-`;
 
     let removedContainers = 0;
     let removedImages = 0;

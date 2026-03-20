@@ -2,12 +2,12 @@
  * Sandbox management for the Software Factory Orchestrator.
  *
  * Creates an isolated copy of the repository in a sandbox base directory
- * (default: /tmp/factory-sandbox/) so the agent can work without touching
+ * (default: /tmp/saifac/) so the agent can work without touching
  * the host's .git history or files.
  *
  * Directory structure produced:
  *   {sandboxBaseDir}/{proj}-{feat}-{runId}/
- *     gate.sh                ← user-supplied or default gate script; mounted :ro at /factory/gate.sh
+ *     gate.sh                ← user-supplied or default gate script; mounted :ro at /saifac/gate.sh
  *     code/                  ← rsync copy of repo; workspace for OpenHands; build context/mount
  *                              for staging container (Container A) during tests
  *       .git/                ← fresh git repo for diffing
@@ -62,40 +62,40 @@ export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
 export interface Sandbox {
   /** Run ID suffix used in the sandbox directory name */
   runId: string;
-  /** /tmp/factory-sandbox/{proj}-{feat}-{runId} */
+  /** /tmp/saifac/{proj}-{feat}-{runId} */
   sandboxBasePath: string;
   /** sandboxBasePath/code — rsync copy of the repo */
   codePath: string;
-  /** sandboxBasePath/gate.sh — inner gate script; mounted :ro at /factory/gate.sh in the container */
+  /** sandboxBasePath/gate.sh — inner gate script; mounted :ro at /saifac/gate.sh in the container */
   gatePath: string;
   /**
-   * sandboxBasePath/startup.sh — installation script; mounted :ro at /factory/startup.sh.
+   * sandboxBasePath/startup.sh — installation script; mounted :ro at /saifac/startup.sh.
    * Used by both the coder container and the staging container to install workspace deps.
    * Set via --profile (default: node-pnpm-python) or --startup-script.
    */
   startupPath: string;
   /**
-   * sandboxBasePath/agent-start.sh — one-time agent setup script; mounted :ro at /factory/agent-start.sh.
+   * sandboxBasePath/agent-start.sh — one-time agent setup script; mounted :ro at /saifac/agent-start.sh.
    * coder-start.sh runs this once after the startup script and before the agent loop begins.
    * Used to install the coding agent (e.g. pipx install aider-chat).
    * When absent / empty, the step is skipped.
    */
   agentStartPath: string;
   /**
-   * sandboxBasePath/agent.sh — agent runner script; mounted :ro at /factory/agent.sh.
+   * sandboxBasePath/agent.sh — agent runner script; mounted :ro at /saifac/agent.sh.
    * coder-start.sh invokes this once per inner round with the task in $SAIFAC_TASK_PATH.
    * Resolved from the agent profile (openhands by default). Override with --agent-script.
    */
   agentPath: string;
   /**
-   * sandboxBasePath/stage.sh — profile's stage script; mounted read-only in the staging container at /factory/stage.sh.
+   * sandboxBasePath/stage.sh — profile's stage script; mounted read-only in the staging container at /saifac/stage.sh.
    * Invoked by staging-start.sh after the installation script and the sidecar have run.
    * Set via --profile or --stage-script.
    */
   stagePath: string;
 }
 
-export const DEFAULT_SANDBOX_BASE_DIR = '/tmp/factory-sandbox';
+export const DEFAULT_SANDBOX_BASE_DIR = '/tmp/saifac';
 
 export interface CreateSandboxOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
@@ -116,12 +116,12 @@ export interface CreateSandboxOpts {
   saifDir: string;
   /**
    * Base directory where sandbox entries are created.
-   * Defaults to `/tmp/factory-sandbox`.
+   * Defaults to `/tmp/saifac`.
    */
   sandboxBaseDir: string;
   /**
    * Content of the gate script to write into the sandbox as `gate.sh`.
-   * The script is mounted read-only at `/factory/gate.sh` inside the coder container
+   * The script is mounted read-only at `/saifac/gate.sh` inside the coder container
    * and called by `coder-start.sh` after each OpenHands run. It must exit 0 to pass,
    * non-zero to fail (stdout+stderr are fed back to the agent as task feedback).
    *
@@ -130,7 +130,7 @@ export interface CreateSandboxOpts {
   gateScript: string;
   /**
    * Content of the startup script to write into the sandbox as `startup.sh`.
-   * The script is mounted read-only at `/factory/startup.sh` inside the coder container
+   * The script is mounted read-only at `/saifac/startup.sh` inside the coder container
    * and executed once by `coder-start.sh` before the agent loop begins.
    *
    * Use for workspace setup that must run after the workspace is mounted:
@@ -142,7 +142,7 @@ export interface CreateSandboxOpts {
   startupScript: string;
   /**
    * Content of the agent setup script to write into the sandbox as `agent-start.sh`.
-   * The script is mounted read-only at `/factory/agent-start.sh` inside the coder container
+   * The script is mounted read-only at `/saifac/agent-start.sh` inside the coder container
    * and executed once by `coder-start.sh` after the startup script and before the agent loop.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
@@ -153,7 +153,7 @@ export interface CreateSandboxOpts {
   agentStartScript: string;
   /**
    * Content of the agent script to write into the sandbox as `agent.sh`.
-   * The script is mounted read-only at `/factory/agent.sh` inside the coder container
+   * The script is mounted read-only at `/saifac/agent.sh` inside the coder container
    * and invoked by `coder-start.sh` once per inner round.
    *
    * The script must read the task from `$SAIFAC_TASK_PATH` and run the desired
@@ -164,7 +164,7 @@ export interface CreateSandboxOpts {
   agentScript: string;
   /**
    * Content of the staging script to write into the sandbox as `stage.sh`.
-   * Mounted read-only in the staging container (Container A) at /factory/stage.sh and
+   * Mounted read-only in the staging container (Container A) at /saifac/stage.sh and
    * invoked by staging-start.sh after startup.sh and the sidecar have run.
    *
    * The script is responsible for app startup (e.g. `npm run start`) or keeping
@@ -280,30 +280,30 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   consola.log(`[sandbox] git init + initial commit done in ${codePath}`);
 
   // Write gate.sh: user-supplied content or the built-in pnpm check default.
-  // Mounted read-only at /factory/gate.sh inside the coder container.
+  // Mounted read-only at /saifac/gate.sh inside the coder container.
   await writeUtf8(gatePath, gateScript);
   await chmod(gatePath, 0o755);
   consola.log(`[sandbox] Gate script written to ${gatePath}`);
 
-  // Write startup.sh — always present; mounted read-only at /factory/startup.sh.
+  // Write startup.sh — always present; mounted read-only at /saifac/startup.sh.
   // Set via --profile or --startup-script.
   await writeUtf8(startupPath, startupScript);
   await chmod(startupPath, 0o755);
   consola.log(`[sandbox] Startup script written to ${startupPath}`);
 
-  // Write agent-start.sh — mounted read-only at /factory/agent-start.sh.
+  // Write agent-start.sh — mounted read-only at /saifac/agent-start.sh.
   // Run once after project startup, before the agent loop. Used to install the agent.
   await writeUtf8(agentStartPath, agentStartScript);
   await chmod(agentStartPath, 0o755);
   consola.log(`[sandbox] Agent start script written to ${agentStartPath}`);
 
-  // Write agent.sh — mounted read-only at /factory/agent.sh.
+  // Write agent.sh — mounted read-only at /saifac/agent.sh.
   // Defaults to the agent profile's agent.sh (OpenHands). Override with --agent-script.
   await writeUtf8(agentPath, agentScript);
   await chmod(agentPath, 0o755);
   consola.log(`[sandbox] Agent script written to ${agentPath}`);
 
-  // Write stage.sh — mounted read-only in the staging container at /factory/stage.sh.
+  // Write stage.sh — mounted read-only in the staging container at /saifac/stage.sh.
   // Set via --profile or --stage-script.
   await writeUtf8(stagePath, stageScript);
   await chmod(stagePath, 0o755);

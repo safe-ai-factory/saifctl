@@ -75,7 +75,7 @@ The Orchestrator passes these environment variables to the Test Runner container
 Each of `public/`, `hidden/`, `helpers.ts`, and `infra.spec.ts` is mounted only if it exists on the host. The `test.sh` and `reportDir` mounts are always present.
 
 - `testsDir` = `{projectDir}/{saifDir}/features/{featureName}/tests`
-- `reportDir` = sandbox root (e.g. `/tmp/factory-sandbox/proj-feat-abc123`)
+- `reportDir` = sandbox root (e.g. `/tmp/saifac/proj-feat-abc123`)
 - `test.sh` is written by the Orchestrator from `test-default.sh` (or a custom `--test-script`).
 
 ### Exit Code Contract
@@ -102,7 +102,7 @@ The Test Runner communicates with the Staging container **only over HTTP** on a 
 
 ### Network
 
-- All containers join `factory-net-{runId}`.
+- All containers join `saifac-net-{runId}`.
 - Staging container has network alias `staging`.
 - Test Runner reaches it via `http://staging:<port><path>`.
 
@@ -166,20 +166,20 @@ Pre-built test runner images are published to `ghcr.io/JuroOravec/safe-ai-factor
 
 | Profile           | Image                                                                      |
 | ----------------- | -------------------------------------------------------------------------- |
-| node-vitest       | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-vitest:latest`       |
-| node-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-playwright:latest`   |
-| python-pytest     | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest:latest`     |
-| python-playwright | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-playwright:latest` |
-| go-gotest         | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-gotest:latest`         |
-| go-playwright     | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-go-playwright:latest`     |
-| rust-rusttest     | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-rusttest:latest`     |
-| rust-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/factory-test-rust-playwright:latest`   |
+| node-vitest       | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest`       |
+| node-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-playwright:latest`   |
+| python-pytest     | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest:latest`     |
+| python-playwright | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-playwright:latest` |
+| go-gotest         | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-go-gotest:latest`         |
+| go-playwright     | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-go-playwright:latest`     |
+| rust-rusttest     | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-rust-rusttest:latest`     |
+| rust-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-rust-playwright:latest`   |
 
 When `--test-image` is omitted, the orchestrator uses the default profile (`node-vitest`). Docker pulls the image from GHCR automatically when not present locally. To use another profile:
 
 ```bash
 saifac feat run --test-profile python-pytest   # Uses GHCR python-pytest image
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-node-playwright:latest
+saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-playwright:latest
 ```
 
 Use `:v1.0.0` (or another tag) to pin a release. See [docs/development/docker.md](../../../docs/development/docker.md).
@@ -329,7 +329,7 @@ Use `--test-script` with a script that runs Playwright/Vitest browser tests. You
 
 | Scenario                       | Behavior                                                                               |
 | ------------------------------ | -------------------------------------------------------------------------------------- |
-| `--test-image` not provided    | Use `factory-test-<profile>:latest`. Docker pulls from GHCR when not present locally.  |
+| `--test-image` not provided    | Use `saifac-test-<profile>:latest`. Docker pulls from GHCR when not present locally.  |
 | `--test-image my-tag` provided | Use `my-tag`. Must exist locally or be pullable; Docker pulls automatically if needed. |
 
 For supported profiles, prefer GHCR images. Custom images must exist locally or be pullable.

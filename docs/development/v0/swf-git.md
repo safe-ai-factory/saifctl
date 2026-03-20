@@ -24,7 +24,7 @@ The Software Factory uses Git in three distinct phases:
 
 | Phase       | Where                                                     | Purpose                                                                                                                                                                |
 | ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sandbox** | Isolated `code/` directory inside `/tmp/factory-sandbox/` | A _fresh_ Git repo (not a clone) used solely for diffing agent changes against a baseline. The host's `.git` is never mounted or copied, to avoid exposing git history |
+| **Sandbox** | Isolated `code/` directory inside `/tmp/saifac/` | A _fresh_ Git repo (not a clone) used solely for diffing agent changes against a baseline. The host's `.git` is never mounted or copied, to avoid exposing git history |
 | **Tests**   | Same sandbox                                              | The extracted patch is applied to the sandbox with `git apply` so the staging containers can verify the implementation.                                                |
 | **Success** | Host repository                                           | A Git worktree is used to create a feature branch, apply the patch, commit, and optionally push/PR—_without ever changing the main working tree's checked-out branch_. |
 
@@ -197,7 +197,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
 ### Design goals
 
 - **Never touch the main working tree.** The user may have multiple agents running; each must be able to create its own branch without conflicting.
-- **Branch visibility.** The new branch `factory/<featureName>-<runId>` appears in `git branch` immediately and persists after the worktree is removed.
+- **Branch visibility.** The new branch `saifac/<featureName>-<runId>` appears in `git branch` immediately and persists after the worktree is removed.
 - **Optional push and PR.** The user can supply `--push` and `--pr` to push the branch and open a GitHub Pull Request.
 
 ### Flow
@@ -209,7 +209,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
 3. **Create a worktree** at `{sandboxBasePath}/worktree` on a new branch:
 
    ```bash
-   git worktree add "${sandboxBasePath}/worktree" -b "factory/${featureName}-${runId}"
+   git worktree add "${sandboxBasePath}/worktree" -b "saifac/${featureName}-${runId}"
    ```
 
    - Branch name includes `runId` to avoid collisions when multiple agents run in parallel.
@@ -310,7 +310,7 @@ Patches that modify `.git/hooks/` are **rejected** before application. A malicio
 ### Parallel-run safety
 
 - **Worktree:** The main working tree is never checked out to a different branch. Multiple agents can run simultaneously; each creates its own worktree and branch.
-- **Branch naming:** `factory/<featureName>-<runId>` ensures that two runs for the same change (e.g. retries or different attempt numbers) do not collide.
+- **Branch naming:** `saifac/<featureName>-<runId>` ensures that two runs for the same change (e.g. retries or different attempt numbers) do not collide.
 - **Sandbox isolation:** Each run has its own sandbox directory. Patches are written to `sandboxBasePath/patch.diff`, not to a shared location.
 
 ### Patch exclude rules

@@ -112,21 +112,21 @@ We can leverage existing open-source evaluation infrastructure rather than build
 
 ### Integrating Leash with OpenHands
 
-**Our integration:** We use **Leash as a CLI wrapper** around a custom coder image (`factory-coder-node-pnpm-python:latest` or profile-specific) that includes OpenHands. Instead of running `openhands ...` directly on the host, the Orchestrator runs:
+**Our integration:** We use **Leash as a CLI wrapper** around a custom coder image (`saifac-coder-node-pnpm-python:latest` or profile-specific) that includes OpenHands. Instead of running `openhands ...` directly on the host, the Orchestrator runs:
 
 ```bash
-npx leash --no-interactive --image factory-coder-node-pnpm-python:latest \
+npx leash --no-interactive --image saifac-coder-node-pnpm-python:latest \
   --volume /path/to/sandbox:/workspace --policy leash-policy.cedar \
   openhands --headless --always-approve -t "Implement plan.md"
 ```
 
 Leash manages its own containers; we never pull StrongDM images. Use `--dangerous-debug` to skip Leash and run OpenHands directly on the host (no container during the agent phase). See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for full details.
 
-**Alternative (Remote Sandbox):** OpenHands also supports `RUNTIME=remote` with `SANDBOX_REMOTE_RUNTIME_API_URL` for pluggable runtimes. That model would require a Leash-compatible Sandbox API; our current implementation uses `npx leash --image factory-coder-node-pnpm-python:latest ... openhands ...`. See [Runtime Overview](https://docs.all-hands.dev/usage/runtimes/overview) for reference.
+**Alternative (Remote Sandbox):** OpenHands also supports `RUNTIME=remote` with `SANDBOX_REMOTE_RUNTIME_API_URL` for pluggable runtimes. That model would require a Leash-compatible Sandbox API; our current implementation uses `npx leash --image saifac-coder-node-pnpm-python:latest ... openhands ...`. See [Runtime Overview](https://docs.all-hands.dev/usage/runtimes/overview) for reference.
 
 ### Host-to-Docker Code Flow (Local vs Remote)
 
-**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/factory-sandbox/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifac/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with `--dangerous-debug` it runs on the host.
+**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/saifac/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifac/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with `--dangerous-debug` it runs on the host.
 
 **OpenHands' traditional flow (for reference):**
 

@@ -47,7 +47,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   sandboxBaseDir: string;
   /**
    * Content of the gate script to run after each OpenHands round. In leash mode the script is
-   * written to sandboxBasePath/gate.sh and mounted read-only at /factory/gate.sh inside the
+   * written to sandboxBasePath/gate.sh and mounted read-only at /saifac/gate.sh inside the
    * container. In --dangerous-debug mode it runs directly on the host via bash.
    *
    * It must exit 0 to pass; non-zero causes the inner loop to retry with the output as feedback.
@@ -57,7 +57,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   gateScript: string;
   /**
    * Content of the startup script to run once before the agent loop begins.
-   * Written to sandboxBasePath/startup.sh and mounted read-only at /factory/startup.sh
+   * Written to sandboxBasePath/startup.sh and mounted read-only at /saifac/startup.sh
    * inside the coder container (or run directly on the host in --dangerous-debug mode).
    *
    * Use for workspace setup that requires the workspace to be mounted first:
@@ -69,7 +69,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   startupScript: string;
   /**
    * Content of the agent setup script to write into the sandbox as `agent-start.sh`.
-   * Mounted read-only at `/factory/agent-start.sh` inside the coder container and executed
+   * Mounted read-only at `/saifac/agent-start.sh` inside the coder container and executed
    * once by `coder-start.sh` after the startup script, before the agent loop begins.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
@@ -79,7 +79,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   agentStartScript: string;
   /**
    * Content of the agent script to write into the sandbox as `agent.sh`.
-   * Mounted read-only at `/factory/agent.sh` inside the coder container and invoked
+   * Mounted read-only at `/saifac/agent.sh` inside the coder container and invoked
    * by `coder-start.sh` once per inner round. The script must read the task from
    * `$SAIFAC_TASK_PATH`.
    *
@@ -88,7 +88,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
    */
   agentScript: string;
   /**
-   * Content of the staging script mounted read-only in the staging container at /factory/stage.sh.
+   * Content of the staging script mounted read-only in the staging container at /saifac/stage.sh.
    * Invoked by staging-start.sh after the installation script and the sidecar have run.
    *
    * Resolved by the CLI: set via --profile or --stage-script. When neither is provided,

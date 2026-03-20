@@ -39,7 +39,7 @@ echo "[app] Starting sidecar server in background..."
 PORT="${SAIFAC_SIDECAR_PORT}" \
   SIDECAR_PATH="${SAIFAC_SIDECAR_PATH}" \
   WORKSPACE=/workspace \
-  /factory/sidecar &
+  /saifac/sidecar &
 
 if [ -z "${SAIFAC_STAGE_SCRIPT:-}" ]; then
   echo "[app] ERROR: SAIFAC_STAGE_SCRIPT is not set." >&2

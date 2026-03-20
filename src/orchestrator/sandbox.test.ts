@@ -418,39 +418,39 @@ describe('createSandbox + destroySandbox (integration)', () => {
  * if the format changes, both places must be updated in sync (intentional coupling).
  *
  * Format (from docker.ts):
- *   container:  factory-stage-{projectName}-{featureName}-{runId}
- *   image:      factory-stage-{projectName}-{featureName}-img-{runId}
- *   test runner: factory-test-{projectName}-{runId}
+ *   container:  saifac-stage-{projectName}-{featureName}-{runId}
+ *   image:      saifac-stage-{projectName}-{featureName}-img-{runId}
+ *   test runner: saifac-test-{projectName}-{runId}
  *
  * featureName is the canonical slug from getFeatNameOrPrompt (safe for filesystem/Docker).
  *
  * The `docker clear` command:
- *   --all    → matches prefix "factory-stage-" and "factory-test-"
- *   default  → matches prefix "factory-stage-{projectName}-" and "factory-test-{projectName}-"
+ *   --all    → matches prefix "saifac-stage-" and "saifac-test-"
+ *   default  → matches prefix "saifac-stage-{projectName}-" and "saifac-test-{projectName}-"
  */
 describe('container/image naming convention (documentation)', () => {
   const buildContainerName = (projectName: string, featureName: string, runId: string) =>
-    `factory-stage-${projectName}-${featureName}-${runId}`;
+    `saifac-stage-${projectName}-${featureName}-${runId}`;
 
   const buildImageTag = (projectName: string, featureName: string, runId: string) =>
-    `factory-stage-${projectName}-${featureName}-img-${runId}`;
+    `saifac-stage-${projectName}-${featureName}-img-${runId}`;
 
-  it('container name starts with factory-stage-', () => {
-    expect(buildContainerName('my-project', 'greet-cmd', 'abc1234')).toMatch(/^factory-stage-/);
+  it('container name starts with saifac-stage-', () => {
+    expect(buildContainerName('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifac-stage-/);
   });
 
-  it('image tag starts with factory-stage-', () => {
-    expect(buildImageTag('my-project', 'greet-cmd', 'abc1234')).toMatch(/^factory-stage-/);
+  it('image tag starts with saifac-stage-', () => {
+    expect(buildImageTag('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifac-stage-/);
   });
 
   it('container name is scoped by project name', () => {
     const name = buildContainerName('crawlee-one', 'greet-cmd', 'abc1234');
-    expect(name.startsWith('factory-stage-crawlee-one-')).toBe(true);
+    expect(name.startsWith('saifac-stage-crawlee-one-')).toBe(true);
   });
 
   it('image tag is scoped by project name', () => {
     const tag = buildImageTag('crawlee-one', 'greet-cmd', 'abc1234');
-    expect(tag.startsWith('factory-stage-crawlee-one-')).toBe(true);
+    expect(tag.startsWith('saifac-stage-crawlee-one-')).toBe(true);
   });
 
   it('container name includes the feature name (canonical slug)', () => {
@@ -461,7 +461,7 @@ describe('container/image naming convention (documentation)', () => {
   it('nested features use slug in container names (auth-login from (auth)/login)', () => {
     const name = buildContainerName('my-project', 'auth-login', 'abc1234');
     expect(name).not.toMatch(/[()/]/);
-    expect(name).toBe('factory-stage-my-project-auth-login-abc1234');
+    expect(name).toBe('saifac-stage-my-project-auth-login-abc1234');
   });
 
   it('image tag includes -img- segment to distinguish from containers', () => {
@@ -474,16 +474,16 @@ describe('container/image naming convention (documentation)', () => {
     const proj2 = buildContainerName('project-ab', 'feat', 'id1');
     // project-a- should NOT match project-ab-
     expect(proj1).not.toBeUndefined(); // keep proj1 used
-    expect(proj2.startsWith(`factory-stage-project-a-`)).toBe(false);
+    expect(proj2.startsWith(`saifac-stage-project-a-`)).toBe(false);
   });
 
   it('test runner container name is scoped by project name', () => {
     const buildTestRunnerName = (projectName: string, runId: string) =>
-      `factory-test-${projectName}-${runId}`;
+      `saifac-test-${projectName}-${runId}`;
 
     const name = buildTestRunnerName('crawlee-one', 'abc1234');
-    expect(name.startsWith('factory-test-crawlee-one-')).toBe(true);
-    // test runner containers are scoped: docker clear (no --all) uses factory-test-{proj}-
-    expect(name).not.toContain('factory-test-other-project');
+    expect(name.startsWith('saifac-test-crawlee-one-')).toBe(true);
+    // test runner containers are scoped: docker clear (no --all) uses saifac-test-{proj}-
+    expect(name).not.toContain('saifac-test-other-project');
   });
 });

@@ -26,7 +26,7 @@ saifac feature debug [options]
 | `--saifac-dir`       | —     | string | Path to saifac directory (default: `saifac`)                                                 |
 | `--project-dir`      | —     | string | Project directory (default: current working directory)                                       |
 | `--project`          | `-p`  | string | Project name override (default: package.json "name")                                         |
-| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/factory-sandbox`)                         |
+| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/saifac`)                         |
 | `--profile`          | —     | string | Sandbox profile. Sets defaults for startup-script and stage-script.                          |
 | `--startup-script`   | —     | string | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.). |
 | `--stage-script`     | —     | string | Path to a shell script mounted into the staging container. Must handle app startup.          |
@@ -54,7 +54,7 @@ saifac feat debug -n add-login --profile python-pip
 Custom startup script (e.g. pip install):
 
 ```bash
-saifac feat debug -n add-login --startup-script ./scripts/factory-startup.sh
+saifac feat debug -n add-login --startup-script ./scripts/my-startup.sh
 ```
 
 ## What it does

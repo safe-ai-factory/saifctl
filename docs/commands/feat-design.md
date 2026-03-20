@@ -41,10 +41,10 @@ saifac feature design [options]
 | `--project`          | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                                            |
 | `--test-profile`     | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
 | `--indexer`          | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
-| `--sandbox-base-dir` | —     | string  | Base directory for sandbox entries (default: `/tmp/factory-sandbox`)                                                                                            |
+| `--sandbox-base-dir` | —     | string  | Base directory for sandbox entries (default: `/tmp/saifac`)                                                                                            |
 | `--profile`          | —     | string  | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script.                                                                 |
 | `--test-script`      | —     | string  | Path to a shell script that overrides test.sh inside the Test Runner container.                                                                                 |
-| `--test-image`       | —     | string  | Test runner Docker image tag (default: factory-test-\<profile\>:latest)                                                                                         |
+| `--test-image`       | —     | string  | Test runner Docker image tag (default: saifac-test-\<profile\>:latest)                                                                                         |
 | `--startup-script`   | —     | string  | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.)                                                                     |
 | `--stage-script`     | —     | string  | Path to a shell script mounted into the staging container. Must handle app startup.                                                                             |
 

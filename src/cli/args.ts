@@ -57,7 +57,7 @@ const testScriptArg = {
 };
 const testImageArg = {
   type: 'string' as const,
-  description: 'Test runner Docker image tag (default: factory-test-<profile>:latest).',
+  description: 'Test runner Docker image tag (default: saifac-test-<profile>:latest).',
 };
 
 export const profileArg = {

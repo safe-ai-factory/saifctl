@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-node/Dockerfile.stage \
-#                -t factory-stage-go-node:latest .
+#                -t saifac-stage-go-node:latest .
 #
 # Or via CLI:
 #   pnpm docker build stage --profile go-node

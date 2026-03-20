@@ -142,7 +142,7 @@ The orchestrator injects these into the coder container when the reviewer is ena
 
 | Variable                  | Purpose                                        |
 | ------------------------- | ---------------------------------------------- |
-| `SAIFAC_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/factory/reviewer.sh`) |
+| `SAIFAC_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/saifac/reviewer.sh`) |
 | `REVIEWER_LLM_PROVIDER`   | LLM provider (e.g. `anthropic`, `openai`)      |
 | `REVIEWER_LLM_MODEL`      | Model string                                   |
 | `REVIEWER_LLM_API_KEY`    | API key for the provider                       |
