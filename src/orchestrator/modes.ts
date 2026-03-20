@@ -1,10 +1,10 @@
 /**
  * Four orchestration modes for the Software Factory.
  *
- *  1. fail2pass  — Verify at least one feature test fails on current codebase (sanity check; partial overlap OK)
- *  2. start      — Create a fresh sandbox and run the iterative agent loop
- *  3. resume     — Resume a failed run from storage then calls start
- *  4. test       — Apply a candidate patch to a fresh sandbox and run mutual verification
+ *  1. fail2pass      — Verify at least one feature test fails on current codebase (sanity check; partial overlap OK)
+ *  2. start          — Create a fresh sandbox and run the iterative agent loop
+ *  3. resume         — Resume a failed run from storage then calls start
+ *  4. test           — Re-test a stored run's patch without running the coding agent loop
  */
 
 import { join } from 'node:path';
@@ -19,9 +19,10 @@ import { consola } from '../logger.js';
 import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
 import { type TestsResult } from '../provisioners/types.js';
-import type { RunStorage } from '../runs/index.js';
+import { deserializeArtifactConfig, type RunStorage } from '../runs/index.js';
+import { type Feature, resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, writeUtf8 } from '../utils/io.js';
 import {
   type IterativeLoopOpts,
   type OrchestratorResult,
@@ -175,7 +176,7 @@ function withCleanupRegistry<T, R>(
 export const runFail2Pass = withCleanupRegistry(runFail2PassCore);
 export const runStart = withCleanupRegistry(runStartCore);
 export const runResume = withCleanupRegistry(runResumeCore);
-export const runTests = withCleanupRegistry(runTestsCore);
+export const runTestsFromRun = withCleanupRegistry(runTestsFromRunCore);
 
 // ---------------------------------------------------------------------------
 // Mode 1: fail2pass
@@ -514,10 +515,9 @@ async function runResumeCore(
 // Mode 4: test
 // ---------------------------------------------------------------------------
 
-type TestOpts = Pick<
+type SharedTestOpts = Pick<
   OrchestratorOpts,
   | 'sandboxProfileId'
-  | 'feature'
   | 'projectDir'
   | 'testRetries'
   | 'saifDir'
@@ -539,7 +539,79 @@ type TestOpts = Pick<
   | 'overrides'
   | 'reviewerEnabled'
   | 'verbose'
-> & {
+>;
+export interface TestFromRunOpts extends SharedTestOpts {
+  runId: string;
+  runStorage: RunStorage;
+}
+
+/**
+ * Re-tests the patch from a stored run without running the coding agent loop.
+ *
+ * 1. Fetches the run artifact from storage.
+ * 2. Reconstructs the workspace (base commit + basePatchDiff + runPatchDiff) via a git worktree.
+ * 3. Writes the agent patch to a temp file.
+ * 4. Delegates to runTestsCore (staging → tests → optional downstream push/PR).
+ *
+ * Useful after a run completes/fails/pauses to re-run just the test phase with
+ * updated tests, a different test profile, or to promote a passing patch to a PR.
+ */
+async function runTestsFromRunCore(
+  opts: TestFromRunOpts,
+  registry: CleanupRegistry,
+): Promise<OrchestratorResult> {
+  const { runId, projectDir, runStorage } = opts;
+
+  const artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+  }
+
+  consola.log(
+    `\n[orchestrator] MODE: test-from-run — ${artifact.config.featureName} (run ${runId})`,
+  );
+
+  const { worktreePath, branchName } = await createResumeWorktree({
+    projectDir,
+    runId,
+    baseCommitSha: artifact.baseCommitSha,
+    basePatchDiff: artifact.basePatchDiff,
+    runPatchDiff: artifact.runPatchDiff,
+  });
+
+  try {
+    const deserialized = deserializeArtifactConfig(artifact.config);
+    const feature = await resolveFeature({
+      input: deserialized.featureName,
+      projectDir,
+      saifDir: deserialized.saifDir,
+    });
+
+    // Write the agent's patch diff to a temp file so runTestsCore can apply it.
+    // The worktree is already at baseCommit+basePatch state; runPatchDiff is the
+    // delta the coding agent produced. runTestsCore will apply it on top.
+    const patchPath = join(worktreePath, '.saifac-run-test.patch');
+    await writeUtf8(patchPath, artifact.runPatchDiff);
+
+    return await runTestsCore(
+      {
+        ...opts,
+        feature,
+        projectDir: worktreePath,
+        patchPath,
+      },
+      registry,
+    );
+  } finally {
+    await cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
+      // Best-effort cleanup — log but don't throw
+      consola.warn(`[orchestrator] Could not clean up worktree at ${worktreePath}`);
+    });
+  }
+}
+
+type TestOpts = SharedTestOpts & {
+  feature: Feature;
   /**
    * Required for mode='test': path to a patch file to apply before tests.
    * (e.g. /path/to/patch.diff)
@@ -548,7 +620,8 @@ type TestOpts = Pick<
 };
 
 /**
- * Applies a candidate patch to a fresh sandbox and runs Mutual Verification.
+ * Applies a candidate patch to a fresh sandbox and runs tests.
+ *
  * If tests fail, retries up to testRetries (useful for flaky environments).
  * If tests pass, applies the patch to the host repo and opens a PR.
  */

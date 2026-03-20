@@ -407,7 +407,7 @@ export function parseTestImage(
   const tag =
     (typeof v === 'string' && v.trim() ? v.trim() : null) ??
     config?.defaults?.testImage ??
-    `factory-test-${profileId}:latest`;
+    `saifac-test-${profileId}:latest`;
   validateImageTag(tag, '--test-image');
   return tag;
 }

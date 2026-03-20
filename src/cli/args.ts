@@ -122,21 +122,14 @@ export const featAgentArgs = {
   },
 };
 
-// Run-specific args (run, resume)
-export const featRunArgs = {
-  name: nameArg,
+// Args for `run test` — re-test a stored run's patch (no agent/coding flags).
+export const runTestArgs = {
   'saifac-dir': saifDirArg,
   'project-dir': projectDirArg,
   project: projectArg,
   'test-profile': testProfileArg,
   ...featTestsArgs,
-  ...featAgentArgs,
   ...modelOverrideArgs,
-
-  'max-runs': {
-    type: 'string' as const,
-    description: 'Max full pipeline runs before giving up (default: 5).',
-  },
   'test-retries': {
     type: 'string' as const,
     description: 'How many times to retry when the tests fail (default: 1).',
@@ -145,6 +138,43 @@ export const featRunArgs = {
     type: 'string' as const,
     description:
       'How to handle test failures caused by ambiguous specs failures. "ai" (use AI for clarification) | "prompt" (ask human for clarification) | "off" (all failures treated as genuine) (default: ai).',
+  },
+  'no-reviewer': {
+    type: 'boolean' as const,
+    description:
+      'Skip the semantic AI reviewer (Argus) after static checks. Use when Argus is unavailable.',
+  },
+  storage: storageArg,
+  push: {
+    type: 'string' as const,
+    description:
+      'Push feature branch after tests pass. Accepts Git URL, slug (owner/repo), or remote name.',
+  },
+  pr: {
+    type: 'boolean' as const,
+    description: 'Open a Pull Request after pushing. Requires --push and provider token env var.',
+  },
+  'git-provider': {
+    type: 'string' as const,
+    description:
+      'Git hosting provider for push/PR. github | gitlab | bitbucket | azure | gitea (default: github).',
+  },
+  verbose: {
+    type: 'boolean' as const,
+    alias: 'v' as const,
+    description: 'Show verbose logs. Default: quiet logs.',
+  },
+};
+
+// Run-specific args (feat run, run resume). Builds on runTestArgs + agent flags + coder-only options.
+export const featRunArgs = {
+  name: nameArg,
+  ...runTestArgs,
+  ...featAgentArgs,
+
+  'max-runs': {
+    type: 'string' as const,
+    description: 'Max full pipeline runs before giving up (default: 5).',
   },
   'dangerous-debug': {
     type: 'boolean' as const,
@@ -163,11 +193,6 @@ export const featRunArgs = {
     type: 'string' as const,
     description: 'Max gate retries per run (default: 10).',
   },
-  'no-reviewer': {
-    type: 'boolean' as const,
-    description:
-      'Skip the semantic AI reviewer (Argus) after static checks. Use when Argus is unavailable.',
-  },
   'agent-env': {
     type: 'string' as const,
     description:
@@ -181,25 +206,5 @@ export const featRunArgs = {
   'agent-log-format': {
     type: 'string' as const,
     description: 'How to parse agent stdout. openhands | raw (default: from agent profile).',
-  },
-  storage: storageArg,
-  push: {
-    type: 'string' as const,
-    description:
-      'Push feature branch after success. Accepts Git URL, slug (owner/repo), or remote name.',
-  },
-  pr: {
-    type: 'boolean' as const,
-    description: 'Open a Pull Request after pushing. Requires --push and provider token env var.',
-  },
-  'git-provider': {
-    type: 'string' as const,
-    description:
-      'Git hosting provider for push/PR. github | gitlab | bitbucket | azure | gitea (default: github).',
-  },
-  verbose: {
-    type: 'boolean' as const,
-    alias: 'v' as const,
-    description: 'Show verbose logs. Default: quiet logs.',
   },
 };
