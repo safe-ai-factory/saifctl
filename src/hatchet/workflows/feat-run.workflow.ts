@@ -35,7 +35,6 @@
  *   The on-failure handler saves a RunArtifact so `saifac run resume <runId>` works.
  */
 
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -49,6 +48,7 @@ import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
 import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
 import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
 import { buildRunArtifact } from '../../runs/index.js';
+import { gitClean, gitResetHard } from '../../utils/git.js';
 import { getHatchetClient } from '../client.js';
 import { deserializeOrchestratorOpts } from '../utils/serialize-opts.js';
 import { buildInitialTaskForWorkflow } from '../utils/task-builder.js';
@@ -294,7 +294,7 @@ export function createFeatRunWorkflow() {
     executionTimeout: '5m',
     fn: async (input) => {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
-      return createSandbox({
+      return (await createSandbox({
         feature: opts.feature,
         projectDir: getSandboxSourceDir(opts),
         saifDir: opts.saifDir,
@@ -306,7 +306,7 @@ export function createFeatRunWorkflow() {
         agentScript: opts.agentScript,
         stageScript: opts.stageScript,
         verbose: !!opts.verbose,
-      }) as Sandbox & { [x: string]: JsonValue };
+      })) as Sandbox & { [x: string]: JsonValue };
     },
   });
 
@@ -396,8 +396,8 @@ export function createFeatRunWorkflow() {
         console.log(`\n[hatchet] Attempt ${attempt} FAILED.`);
 
         // Reset sandbox for next coder round
-        execSync('git reset --hard HEAD', { cwd: sandboxRaw.codePath });
-        execSync('git clean -fd', { cwd: sandboxRaw.codePath });
+        await gitResetHard({ cwd: sandboxRaw.codePath });
+        await gitClean({ cwd: sandboxRaw.codePath });
       }
 
       console.error(`\n[hatchet] Max runs (${maxRuns}) reached without success.`);

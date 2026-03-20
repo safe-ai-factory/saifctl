@@ -36,6 +36,15 @@ import { minimatch } from 'minimatch';
 
 import type { TestCatalog } from '../design-tests/schema.js';
 import type { Feature } from '../specs/discover.js';
+import {
+  gitAdd,
+  gitApply,
+  gitClean,
+  gitCommit,
+  gitDiff,
+  gitInit,
+  gitResetHard,
+} from '../utils/git.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export function removeAllHiddenDirs(baseDir: string): number {
@@ -190,7 +199,7 @@ export interface CreateSandboxOpts {
  * 7. Write agent.sh (from agent profile or --agent-script) to sandboxBasePath/agent.sh
  * 8. Write stage.sh (from profile or --stage-script) to sandboxBasePath/stage.sh
  */
-export function createSandbox(opts: CreateSandboxOpts): Sandbox {
+export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const {
     feature,
     projectDir,
@@ -256,11 +265,12 @@ export function createSandbox(opts: CreateSandboxOpts): Sandbox {
   console.log(`[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`);
 
   // Initialize a fresh git repo inside code/ for patch extraction
-  execSync('git init', { cwd: codePath, stdio: 'inherit' });
-  execSync('git add .', { cwd: codePath, stdio: 'inherit' });
-  const baseCommitQuiet = verbose === true ? '' : '-q ';
-  execSync(`git commit ${baseCommitQuiet}-m "Base state"`, {
+  await gitInit({ cwd: codePath, stdio: 'inherit' });
+  await gitAdd({ cwd: codePath, stdio: 'inherit' });
+  await gitCommit({
     cwd: codePath,
+    message: 'Base state',
+    verbose,
     stdio: 'inherit',
     env: {
       ...process.env,
@@ -348,10 +358,10 @@ export interface ExtractPatchOpts {
  *
  * Returns both the patch content and the path where patch.diff was written.
  */
-export function extractPatch(
+export async function extractPatch(
   codePath: string,
   opts: ExtractPatchOpts = {},
-): { patch: string; patchPath: string } {
+): Promise<{ patch: string; patchPath: string }> {
   // Write outside the git working tree so git clean cannot delete it.
   const sandboxBasePath = join(codePath, '..');
   const patchPath = join(sandboxBasePath, 'patch.diff');
@@ -363,15 +373,15 @@ export function extractPatch(
     GIT_COMMITTER_EMAIL: 'factory@localhost',
   };
 
-  execSync('git add .', { cwd: codePath, env: gitEnv });
-  const rawPatch = execSync('git diff HEAD', { cwd: codePath, env: gitEnv }).toString();
+  await gitAdd({ cwd: codePath, env: gitEnv });
+  const rawPatch = await gitDiff({ cwd: codePath, env: gitEnv, args: ['HEAD'] });
 
   const patch = opts.exclude?.length ? filterPatchHunks(rawPatch, opts.exclude) : rawPatch;
   writeFileSync(patchPath, patch, 'utf8');
 
   // Reset for next attempt
-  execSync('git reset --hard HEAD', { cwd: codePath, env: gitEnv });
-  execSync('git clean -fd', { cwd: codePath, env: gitEnv });
+  await gitResetHard({ cwd: codePath, env: gitEnv });
+  await gitClean({ cwd: codePath, env: gitEnv });
 
   return { patch, patchPath };
 }
@@ -421,10 +431,10 @@ function isExcluded(filePath: string, rules: PatchExcludeRule[]): boolean {
  * Applies a patch file to the code directory.
  * Used by 'test' mode to inject a candidate implementation.
  */
-export function applyPatch(codePath: string, patchPath: string): void {
+export async function applyPatch(codePath: string, patchPath: string): Promise<void> {
   if (!existsSync(patchPath)) {
     throw new Error(`Patch file not found: ${patchPath}`);
   }
   console.log(`[sandbox] Applying patch from ${patchPath}`);
-  execSync(`git apply "${patchPath}"`, { cwd: codePath, stdio: 'inherit' });
+  await gitApply({ cwd: codePath, patchFile: patchPath, stdio: 'inherit' });
 }

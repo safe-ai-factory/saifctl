@@ -11,13 +11,13 @@
  * even when Hatchet cancels the step (ctx.abortController.signal fires).
  */
 
-import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import { getSaifRoot } from '../../constants.js';
 import { resolveAgentLlmConfig } from '../../llm-config.js';
 import { createProvisioner } from '../../provisioners/index.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
+import { gitApply } from '../../utils/git.js';
 import type { IterativeLoopOpts } from '../loop.js';
 import { extractPatch, type PatchExcludeRule, type Sandbox } from '../sandbox.js';
 import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
@@ -125,14 +125,14 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     await codingProvisioner.teardown({ runId: codingRunId });
   }
 
-  const { patch: patchContent, patchPath } = extractPatch(sandbox.codePath, {
+  const { patch: patchContent, patchPath } = await extractPatch(sandbox.codePath, {
     exclude: patchExclude,
   });
 
   if (patchContent.trim()) {
     // Re-apply so tests can run against the patched code.
     // extractPatch resets to base state, so we need to re-apply.
-    execSync(`git apply "${patchPath}"`, { cwd: sandbox.codePath });
+    await gitApply({ cwd: sandbox.codePath, patchFile: patchPath });
   }
 
   return { patchContent, patchPath };

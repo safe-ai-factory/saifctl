@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
+import { gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { createSandbox, destroySandbox, filterPatchHunks, removeAllHiddenDirs } from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
@@ -150,17 +151,18 @@ describe('createSandbox + destroySandbox (integration)', () => {
   const AGENT_SCRIPT = '#!/bin/sh\necho "agent"';
   const STAGE_SCRIPT = '#!/bin/sh\necho "stage"';
 
-  it('creates sandbox with hidden dirs removed, clean git, and mounted scripts; destroySandbox cleans up', () => {
+  it('creates sandbox with hidden dirs removed, clean git, and mounted scripts; destroySandbox cleans up', async () => {
     const projectDir = mkdtempSync(join(process.cwd(), 'createSandbox-project-'));
     const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase: .git, .gitignore, saifac/features with public + hidden tests
       writeFileSync(join(projectDir, '.gitignore'), 'node_modules\n');
-      execSync('git init', { cwd: projectDir });
+      await gitInit({ cwd: projectDir });
       writeFileSync(join(projectDir, 'README.md'), 'dummy');
-      execSync('git add README.md', { cwd: projectDir });
-      execSync('git commit -m "Initial"', {
+      await gitAdd({ cwd: projectDir, paths: ['README.md'] });
+      await gitCommit({
         cwd: projectDir,
+        message: 'Initial',
         env: {
           ...process.env,
           GIT_AUTHOR_NAME: 'test',
@@ -200,7 +202,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         projectDir,
         saifDir: 'saifac',
       });
-      const paths = createSandbox({
+      const paths = await createSandbox({
         feature,
         projectDir,
         saifDir,
@@ -276,17 +278,18 @@ describe('createSandbox + destroySandbox (integration)', () => {
     }
   });
 
-  it('works with nested features (auth)/login', () => {
+  it('works with nested features (auth)/login', async () => {
     const projectDir = mkdtempSync(join(process.cwd(), 'createSandbox-project-'));
     const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase with nested feature saifac/features/(auth)/login
       writeFileSync(join(projectDir, '.gitignore'), 'node_modules\n');
-      execSync('git init', { cwd: projectDir });
+      await gitInit({ cwd: projectDir });
       writeFileSync(join(projectDir, 'README.md'), 'dummy');
-      execSync('git add README.md', { cwd: projectDir });
-      execSync('git commit -m "Initial"', {
+      await gitAdd({ cwd: projectDir, paths: ['README.md'] });
+      await gitCommit({
         cwd: projectDir,
+        message: 'Initial',
         env: {
           ...process.env,
           GIT_AUTHOR_NAME: 'test',
@@ -354,7 +357,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         projectDir,
         saifDir,
       });
-      const paths = createSandbox({
+      const paths = await createSandbox({
         feature,
         projectDir,
         saifDir,

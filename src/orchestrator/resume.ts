@@ -5,7 +5,6 @@
  * save-on-Ctrl+C artifact persistence, and merging restored config with CLI overrides.
  */
 
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -16,6 +15,14 @@ import {
   type RunStorage,
 } from '../runs/index.js';
 import { resolveFeature } from '../specs/discover.js';
+import {
+  git,
+  gitApply,
+  gitBranchDelete,
+  gitDiff,
+  gitWorktreeAdd,
+  gitWorktreeRemove,
+} from '../utils/git.js';
 import { type IterativeLoopOpts, type RunStorageContext } from './loop.js';
 import type { OrchestratorOpts } from './modes.js';
 import type { Sandbox } from './sandbox.js';
@@ -28,22 +35,16 @@ import type { Sandbox } from './sandbox.js';
  * Captures the current git state so we can reconstruct it when resuming.
  * Returns baseCommitSha and basePatchDiff (unstaged + staged) for RunStorageContext.
  */
-export function captureBaseGitState(projectDir: string): RunStorageContext {
+export async function captureBaseGitState(projectDir: string): Promise<RunStorageContext> {
   let baseCommitSha: string;
   let basePatchDiff: string | undefined;
 
-  const gitCommand = (args: string[]) => {
-    const result = spawnSync('git', args, { cwd: projectDir, encoding: 'utf8' });
-    if (result.status !== 0) throw new Error(result.stderr ?? '');
-    return result.stdout ?? '';
-  };
-
   try {
-    baseCommitSha = gitCommand(['rev-parse', 'HEAD']).trim();
-    const status = gitCommand(['status', '--porcelain']).trim();
+    baseCommitSha = (await git({ cwd: projectDir, args: ['rev-parse', 'HEAD'] })).trim();
+    const status = (await git({ cwd: projectDir, args: ['status', '--porcelain'] })).trim();
     if (status) {
-      const unstaged = gitCommand(['diff']).trim();
-      const staged = gitCommand(['diff', '--cached']).trim();
+      const unstaged = (await gitDiff({ cwd: projectDir })).trim();
+      const staged = (await gitDiff({ cwd: projectDir, staged: true })).trim();
       basePatchDiff = [unstaged, staged].filter(Boolean).join('\n').trim() || undefined;
     }
   } catch (err) {
@@ -81,14 +82,13 @@ export interface CreateResumeWorktreeResult {
  * base commit + base patch diff -> state of the workspace at the time of starting the run.
  * (base commit + base patch diff) + run patch diff -> state when the coding agent ended.
  */
-export function createResumeWorktree(
+export async function createResumeWorktree(
   params: CreateResumeWorktreeParams,
-): CreateResumeWorktreeResult {
+): Promise<CreateResumeWorktreeResult> {
   const { projectDir, runId, baseCommitSha, basePatchDiff, runPatchDiff } = params;
 
   try {
-    const r = spawnSync('git', ['rev-parse', baseCommitSha], { cwd: projectDir });
-    if (r.status !== 0) throw new Error(r.stderr?.toString() ?? '');
+    await git({ cwd: projectDir, args: ['rev-parse', baseCommitSha] });
   } catch {
     throw new Error(
       `baseCommitSha ${baseCommitSha} not found. Ensure you have pulled the latest changes or are on the correct machine.`,
@@ -110,36 +110,28 @@ export function createResumeWorktree(
 
   console.log(`[orchestrator] Preparing workspace from storage...`);
 
-  const addResult = spawnSync(
-    'git',
-    ['worktree', 'add', worktreePath, '-b', branchName, baseCommitSha],
-    { cwd: projectDir, env: gitEnv },
-  );
-  if (addResult.status !== 0) {
-    throw new Error(
-      addResult.stderr?.toString() ?? `git worktree add failed with status ${addResult.status}`,
-    );
-  }
+  await gitWorktreeAdd({
+    cwd: projectDir,
+    path: worktreePath,
+    branch: branchName,
+    startCommit: baseCommitSha,
+    env: gitEnv,
+  });
 
-  const applyPatchFromString = (diff: string) => {
+  const applyPatchFromString = async (diff: string) => {
     const tmpPath = join(worktreePath, '.saifac-apply.patch');
     writeFileSync(tmpPath, diff, 'utf8');
-    const applyResult = spawnSync('git', ['apply', tmpPath], { cwd: worktreePath, env: gitEnv });
-    if (applyResult.status !== 0) {
-      throw new Error(
-        applyResult.stderr?.toString() ?? `git apply failed with status ${applyResult.status}`,
-      );
-    }
+    await gitApply({ cwd: worktreePath, env: gitEnv, patchFile: tmpPath });
     unlinkSync(tmpPath);
   };
 
   try {
     if (basePatchDiff?.trim()) {
-      applyPatchFromString(basePatchDiff);
+      await applyPatchFromString(basePatchDiff);
     }
-    applyPatchFromString(runPatchDiff);
+    await applyPatchFromString(runPatchDiff);
   } catch (err: unknown) {
-    cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
+    await cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
       throw new Error(
         `Failed to apply stored diffs. The run state may be incompatible with the current tree.\n${err}`,
       );
@@ -163,14 +155,14 @@ export interface CleanupResumeWorkspaceParams {
  * Removes the resume worktree and deletes the branch.
  * Calls onError if cleanup throws.
  */
-export function cleanupResumeWorkspace(
+export async function cleanupResumeWorkspace(
   params: CleanupResumeWorkspaceParams,
   onError: () => void,
-): void {
+): Promise<void> {
   const { worktreePath, projectDir, branchName } = params;
   try {
-    spawnSync('git', ['worktree', 'remove', '--force', worktreePath], { cwd: projectDir });
-    spawnSync('git', ['branch', '-D', branchName], { cwd: projectDir });
+    await gitWorktreeRemove({ cwd: projectDir, path: worktreePath });
+    await gitBranchDelete({ cwd: projectDir, branch: branchName, force: true });
   } catch {
     onError();
   }

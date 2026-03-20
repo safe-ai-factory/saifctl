@@ -3,7 +3,6 @@
  * Used by mode 'start' (and 'resume' via runStartCore).
  */
 
-import { execSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -30,6 +29,7 @@ import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/cleanup.js';
+import { gitApply, gitClean, gitResetHard } from '../utils/git.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import { destroySandbox, extractPatch, type PatchExcludeRule, type Sandbox } from './sandbox.js';
@@ -371,10 +371,9 @@ export async function runIterativeLoop(
       }
 
       // 2. Extract the patch, stripping any excluded paths (reward-hacking prevention)
-      const { patch: patchContent, patchPath }: { patch: string; patchPath: string } = extractPatch(
-        sandbox.codePath,
-        { exclude: patchExclude },
-      );
+      const { patch: patchContent, patchPath } = await extractPatch(sandbox.codePath, {
+        exclude: patchExclude,
+      });
 
       if (!patchContent.trim()) {
         console.warn('[orchestrator] OpenHands produced no changes (empty patch). Skipping tests.');
@@ -387,7 +386,7 @@ export async function runIterativeLoop(
 
       // Re-apply the patch for tests (extractPatch resets to base state).
       // patchPath is outside codePath so git clean cannot have deleted it.
-      execSync(`git apply "${patchPath}"`, { cwd: sandbox.codePath });
+      await gitApply({ cwd: sandbox.codePath, patchFile: patchPath });
 
       // 3. Mutual Verification (with test retries for flaky environments)
       let testAttempts = 0;
@@ -528,8 +527,8 @@ export async function runIterativeLoop(
       );
 
       // Reset sandbox to base state for next coder agent run
-      execSync('git reset --hard HEAD', { cwd: sandbox.codePath });
-      execSync('git clean -fd', { cwd: sandbox.codePath });
+      await gitResetHard({ cwd: sandbox.codePath });
+      await gitClean({ cwd: sandbox.codePath });
     }
 
     // Max attempts reached

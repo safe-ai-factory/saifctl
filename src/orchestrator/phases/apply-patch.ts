@@ -2,7 +2,6 @@
  * Phase: apply-patch — apply sandbox patch to host via git worktree.
  */
 
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -10,6 +9,16 @@ import { generatePRSummary } from '../../git/agents/pr-summarizer.js';
 import type { GitProvider } from '../../git/types.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import type { Feature } from '../../specs/discover.js';
+import {
+  gitAdd,
+  gitApply,
+  gitBranchShowCurrent,
+  gitCommit,
+  gitPush,
+  gitWorktreeAdd,
+  gitWorktreePrune,
+  gitWorktreeRemove,
+} from '../../utils/git.js';
 
 export type { OrchestratorResult } from '../loop.js';
 
@@ -88,7 +97,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   // Capture the current branch for the PR base *before* touching anything
   let baseBranch = 'main';
   try {
-    const current = execSync('git branch --show-current', { cwd: projectDir }).toString().trim();
+    const current = await gitBranchShowCurrent({ cwd: projectDir });
     baseBranch = current || 'main';
   } catch {
     // fall back to 'main'
@@ -97,27 +106,25 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   console.log(`[orchestrator] Creating worktree at ${wtPath} on branch ${branchName}...`);
 
   // 1. Create worktree + branch — main worktree HEAD is never touched
-  execSync(`git worktree add "${wtPath}" -b "${branchName}"`, { cwd: projectDir, env: gitEnv });
+  await gitWorktreeAdd({ cwd: projectDir, path: wtPath, branch: branchName, env: gitEnv });
 
   try {
     // 2. Apply patch inside the worktree
-    execSync(`git apply "${patchFile}"`, { cwd: wtPath, env: gitEnv });
-    execSync('git add .', { cwd: wtPath, env: gitEnv });
-    const implCommitQuiet = verbose === true ? '' : '-q ';
-    execSync(
-      `git commit ${implCommitQuiet}-m "feat(${feature.name}): auto-generated implementation"`,
-      {
-        cwd: wtPath,
-        env: gitEnv,
-      },
-    );
+    await gitApply({ cwd: wtPath, env: gitEnv, patchFile: patchFile });
+    await gitAdd({ cwd: wtPath, env: gitEnv });
+    await gitCommit({
+      cwd: wtPath,
+      env: gitEnv,
+      message: `feat(${feature.name}): auto-generated implementation`,
+      verbose,
+    });
     console.log(`[orchestrator] Committed patch on branch ${branchName}`);
 
     // 4. Push
     if (push) {
       const pushUrl = gitProvider.resolvePushUrl(push, projectDir);
       console.log(`[orchestrator] Pushing ${branchName} to remote...`);
-      execSync(`git push "${pushUrl}" "${branchName}"`, { cwd: wtPath, env: gitEnv });
+      await gitPush({ cwd: wtPath, env: gitEnv, remote: pushUrl, branch: branchName });
       console.log(`[orchestrator] Branch ${branchName} pushed.`);
 
       // 5. Create PR
@@ -162,11 +169,11 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   } finally {
     // 6. Deregister the worktree from git's registry before destroySandbox deletes the dir
     try {
-      execSync(`git worktree remove --force "${wtPath}"`, { cwd: projectDir });
+      await gitWorktreeRemove({ cwd: projectDir, path: wtPath });
     } catch (err) {
       // If the directory is already gone somehow, prune stale entries
       try {
-        execSync('git worktree prune', { cwd: projectDir });
+        await gitWorktreePrune({ cwd: projectDir });
       } catch {
         // best-effort
       }

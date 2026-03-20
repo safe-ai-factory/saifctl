@@ -229,7 +229,7 @@ async function runFail2PassCore(
 
   console.log(`\n[orchestrator] MODE: fail2pass — ${feature.name}`);
 
-  const sandbox = createSandbox({
+  const sandbox = await createSandbox({
     feature,
     projectDir,
     saifDir,
@@ -361,10 +361,10 @@ async function runStartCore(
     runContext = opts.resume.runContext;
   } else {
     // Start: capture the current git state so we can reconstruct it when resuming
-    runContext = captureBaseGitState(projectDir);
+    runContext = await captureBaseGitState(projectDir);
   }
 
-  const sandbox = createSandbox({
+  const sandbox = await createSandbox({
     feature,
     projectDir: sandboxSourceDir,
     saifDir,
@@ -477,7 +477,7 @@ async function runResumeCore(
 
   // Create temp worktree in `.saifac/worktrees/resume-<runId>`
   // to reconstruct the state of the workspace at the time of the run (+ agent's changes)
-  const { worktreePath, branchName } = createResumeWorktree({
+  const { worktreePath, branchName } = await createResumeWorktree({
     projectDir,
     runId,
     baseCommitSha: artifact.baseCommitSha,
@@ -503,7 +503,7 @@ async function runResumeCore(
     // Finally, run the same flow as when we run `saifac feat start <featureName>`
     return await runStartCore(mergedOpts, registry);
   } finally {
-    cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
+    await cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
       // Best-effort cleanup
     });
   }
@@ -591,7 +591,7 @@ async function runTestsCore(
   console.log(`\n[orchestrator] MODE: test — ${feature.name}`);
   console.log(`[orchestrator] Patch: ${patchPath}`);
 
-  const sandbox = createSandbox({
+  const sandbox = await createSandbox({
     feature,
     projectDir,
     saifDir,
@@ -611,7 +611,7 @@ async function runTestsCore(
   });
 
   // Apply the candidate patch
-  applyPatch(sandbox.codePath, patchPath);
+  await applyPatch(sandbox.codePath, patchPath);
 
   let lastStderr = '';
   let attempts = 0;
@@ -772,7 +772,7 @@ export async function runDebug(
 
   console.log(`\n[orchestrator] DEBUG MODE — ${feature.name}`);
 
-  const sandbox = createSandbox({
+  const sandbox = await createSandbox({
     feature,
     projectDir,
     saifDir,
