@@ -92,7 +92,7 @@ Each of `public/`, `hidden/`, `helpers.ts`, and `infra.spec.ts` is mounted only 
 - **Bind-mount:** `reportDir` on the host maps to `/test-runner-output` in the container, so the Orchestrator reads `{reportDir}/results.xml` after the container exits.
 - **Absent file:** If the runner crashes before producing output, the file may be absent; the Orchestrator handles this gracefully (falls back to exit code only).
 
-JUnit XML is the universal format: Vitest, pytest, go test, cargo test, and most CI systems support it. The Orchestrator parses it for per-suite analysis (e.g. `hasFeatureTestFailures` to distinguish infra vs feature test failures in fail2pass).
+JUnit XML is the universal format: Vitest, pytest, go test, cargo test, and most CI systems support it. The Orchestrator parses it for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to distinguish infra vs feature test failures in fail2pass).
 
 ---
 
@@ -352,7 +352,7 @@ For non-JS tests (Python, Go, etc.), implement equivalent helpers that read `os.
 
 The Orchestrator parses JUnit XML for:
 
-- Per-suite analysis (`hasFeatureTestFailures` — skips `sidecar:health` infra tests in fail2pass).
+- Per-suite analysis (`hasFeatureSuccessfullyFailed` — skips `sidecar:health` infra tests in fail2pass).
 - Vague Specs Checker input (failing test names and messages for ambiguity detection).
 
 Your runner's JUnit output should follow the standard structure:

@@ -93,7 +93,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 ### 4. Sandbox (`sandbox.ts`)
 
-- **`SandboxPaths.gatePath`:** `sandboxBasePath/gate.sh` — path to the gate script on the host
+- **`Sandbox.gatePath`:** `sandboxBasePath/gate.sh` — path to the gate script on the host
 - **`CreateSandboxOpts.gateScript`:** Content of the gate script. Supplied by the CLI; when `--gate-script` is not set, the CLI reads `gate.sh` from the resolved sandbox profile.
 - **`createSandbox`:** Writes `gate.sh` to `sandboxBasePath/gate.sh` with mode `0o755` at the end of sandbox creation.
 

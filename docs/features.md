@@ -176,6 +176,24 @@ SAIFAC runs agents in a zero-trust, sandboxed environment. Docker isolation, hid
 
 See [Security & Isolation](./security.md) for the full architecture.
 
+## Durability and Observability (Hatchet)
+
+The factory orchestrates complex, long-running agent loops that can span hours. By default, `saifac` runs everything in-process on your local machine.
+
+If you want **durability** (runs survive process crashes and can be resumed from where they left off) and a **local dashboard** to watch step graphs, logs, and retry history in real time, you can opt into the Hatchet integration.
+
+Simply install the Hatchet CLI, start a local server, and set your token:
+
+```bash
+export HATCHET_CLIENT_TOKEN=<your-token>
+export HATCHET_SERVER_URL=localhost:7077
+saifac feat run -n my-feature
+```
+
+There is zero functional difference or configuration changes required — the factory seamlessly shifts from in-process loop to Hatchet-backed workflow execution.
+
+See [Hatchet integration](hatchet.md) for the quick-start guide.
+
 ## Access control with Cedar
 
 The coding agents' have restricted filesystem and network access.

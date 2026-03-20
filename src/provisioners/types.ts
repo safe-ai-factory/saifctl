@@ -32,9 +32,12 @@ export interface StagingHandle {
   sidecarUrl: string;
 }
 
+/** Outcome of a test run (mutually exclusive). */
+export type TestRunStatus = 'passed' | 'failed' | 'aborted';
+
 /** Parsed test result (same shape whether Docker or K8s). */
 export interface TestsResult {
-  passed: boolean;
+  status: TestRunStatus;
   stderr: string;
   stdout: string;
   /**
@@ -144,6 +147,11 @@ export interface RunTestsOpts {
   feature: Feature;
   projectName: string;
   runId: string;
+  /**
+   * Optional abort signal. When fired, the test runner container is stopped
+   * immediately and the result is returned with status='aborted'.
+   */
+  signal?: AbortSignal;
 }
 
 export interface RunAgentOpts {
@@ -190,6 +198,12 @@ export interface RunAgentOpts {
     scriptPath: string;
     argusBinaryPath: string;
   } | null;
+  /**
+   * Optional abort signal. When fired (e.g. Hatchet step cancellation), the
+   * agent child process is killed immediately and teardown() is still called
+   * by the caller's finally block.
+   */
+  signal?: AbortSignal;
 }
 
 export interface ProvisionerTeardownOpts {

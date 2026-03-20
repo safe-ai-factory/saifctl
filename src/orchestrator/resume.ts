@@ -18,7 +18,7 @@ import {
 import { resolveFeature } from '../specs/discover.js';
 import { type IterativeLoopOpts, type RunStorageContext } from './loop.js';
 import type { OrchestratorOpts } from './modes.js';
-import type { SandboxPaths } from './sandbox.js';
+import type { Sandbox } from './sandbox.js';
 
 // ---------------------------------------------------------------------------
 // Base git state capture (for run storage on start)
@@ -181,7 +181,7 @@ export function cleanupResumeWorkspace(
 // ---------------------------------------------------------------------------
 
 export interface CreateSaveRunHandlerParams {
-  sandbox: SandboxPaths;
+  sandbox: Sandbox;
   runContext: RunStorageContext;
   opts: IterativeLoopOpts & { gitProvider: { id: string }; testProfile: { id: string } };
   runStorage: RunStorage;

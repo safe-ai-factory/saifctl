@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineCommand, runMain } from 'citty';
 
 import cacheCommand from './commands/cache.js';
+import doctorCommand from './commands/doctor.js';
 import featCommand from './commands/feat.js';
 import initCommand from './commands/init.js';
 import runCommand from './commands/run.js';
@@ -16,6 +17,7 @@ const main = defineCommand({
   },
   subCommands: {
     cache: cacheCommand,
+    doctor: doctorCommand,
     feat: featCommand,
     feature: featCommand,
     init: initCommand,

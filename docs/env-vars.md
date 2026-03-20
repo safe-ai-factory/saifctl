@@ -72,3 +72,14 @@ for Claude Code).
 
 These are the **private** contract between the orchestrator and the
 container — you should never need to set them directly.
+
+## Hatchet (optional)
+
+Setting these options enables the Hatchet-backed orchestrator, which adds
+durability and a local dashboard. When absent, saifac runs in the default
+in-process mode. See [Hatchet integration](hatchet.md) for setup instructions.
+
+| Variable               | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
+| `HATCHET_CLIENT_TOKEN` | API token from the Hatchet dashboard. Enables Hatchet.   |
+| `HATCHET_SERVER_URL`   | gRPC address of the Hatchet server. Defaults to `localhost:7077`. |

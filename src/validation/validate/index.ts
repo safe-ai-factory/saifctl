@@ -7,11 +7,13 @@
  */
 
 import { readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { getSaifRoot } from '../../constants.js';
+
+/** Package-root based: works when this module is bundled into dist/chunks. */
+const __dirname = join(getSaifRoot(), 'src', 'validation', 'validate');
 
 /**
  * Run all validation scripts in this directory.
@@ -31,7 +33,9 @@ export async function runValidation(): Promise<void> {
   for (const script of scripts) {
     console.log(`\n=== ${script} ===\n`);
     try {
-      const mod = (await import(join(__dirname, script))) as { default?: unknown };
+      const mod = (await import(pathToFileURL(join(__dirname, script)).href)) as {
+        default?: unknown;
+      };
       if (typeof mod.default !== 'function') {
         throw new Error(`${script} does not export a default function`);
       }

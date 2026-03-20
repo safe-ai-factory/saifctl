@@ -11,8 +11,8 @@
  */
 
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { getSaifRoot } from '../constants.js';
 import { gotestProfile } from './go-gotest/profile.js';
 import { goPlaywrightProfile } from './go-playwright/profile.js';
 import { nodePlaywrightProfile } from './node-playwright/profile.js';
@@ -39,7 +39,7 @@ export const SUPPORTED_PROFILES = {
 /** Returns the default profile (node-vitest). */
 export const DEFAULT_PROFILE: TestProfile = SUPPORTED_PROFILES['node-vitest'];
 
-const _profilesDir = join(fileURLToPath(import.meta.url), '..');
+const _profilesDir = join(getSaifRoot(), 'src', 'test-profiles');
 
 /**
  * Returns the absolute path to the test.sh script for the given profile id.

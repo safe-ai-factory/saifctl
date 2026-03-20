@@ -10,20 +10,26 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { hasFeatureTestFailures } from '../provisioners/docker/index.js';
+import { getHatchetClient } from '../hatchet/client.js';
+import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
+import {
+  createFeatRunWorkflow,
+  type FeatRunSerializedInput,
+} from '../hatchet/workflows/feat-run.workflow.js';
+import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
 import { type TestsResult } from '../provisioners/types.js';
 import type { RunStorage } from '../runs/index.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import {
-  applyPatchToHost,
-  getTestRunnerOpts,
   type IterativeLoopOpts,
   type OrchestratorResult,
+  prepareTestRunnerOpts,
   runIterativeLoop,
-  runVagueSpecsCheckerForFailure,
   type RunStorageContext,
+  runVagueSpecsCheckerForFailure,
 } from './loop.js';
+import { applyPatchToHost } from './phases/apply-patch.js';
 import {
   captureBaseGitState,
   cleanupResumeWorkspace,
@@ -234,7 +240,7 @@ async function runFail2PassCore(
     agentScript,
     stageScript,
   });
-  const testRunnerOpts = getTestRunnerOpts({
+  const testRunnerOpts = prepareTestRunnerOpts({
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
@@ -280,7 +286,7 @@ async function runFail2PassCore(
       );
     }
 
-    if (hasFeatureTestFailures(result)) {
+    if (hasFeatureSuccessfullyFailed(result)) {
       console.log(
         '\n[orchestrator] ✓ FAIL2PASS CONFIRMED — feature tests correctly fail on current codebase',
       );
@@ -340,11 +346,7 @@ async function runStartCore(
 
   console.log(`\n[orchestrator] MODE: start — ${feature.name}`);
 
-  // ─── Sandbox source directory ─────────────────────────────────────────────
-  // Where createSandbox rsyncs FROM:
-  // - Start:  The main project directory as-is
-  // - Resume: A worktree with recreated state in `.saifac/worktrees/resume-<runId>` (see runResumeCore)
-  const sandboxSourceDir = opts.resume?.sandboxSourceDir ?? projectDir;
+  const sandboxSourceDir = getSandboxSourceDir(opts);
 
   // ─── Run context (for save-on-Ctrl+C / save-on-failure) ────────────────────
   // Capture all the relevant state so that we can resume the run later.
@@ -391,6 +393,48 @@ async function runStartCore(
     });
   }
 
+  // ─── Hatchet path ─────────────────────────────────────────────────────────
+  // When HATCHET_CLIENT_TOKEN is set, dispatch via Hatchet (distributed mode).
+  // Signal handling is skipped here — Hatchet owns the worker process lifecycle.
+  //
+  // OrchestratorOpts is not JSON-serializable (contains gitProvider/testProfile class
+  // instances, patchExclude RegExp), so we serialize it at dispatch and reconstruct it
+  // on the worker via deserializeOrchestratorOpts — no ambient in-process state needed.
+  const hatchet = getHatchetClient();
+  if (hatchet) {
+    console.log('[orchestrator] Hatchet token detected — dispatching via Hatchet workflow.');
+
+    const serializedOpts = serializeOrchestratorOpts(opts);
+    const featRunWorkflow = createFeatRunWorkflow();
+
+    // Start an inline worker for this request. In production a persistent
+    // worker process (`saifac worker start`) is preferred.
+    const worker = await hatchet.worker('saifac-worker', { workflows: [featRunWorkflow] });
+    await worker.start();
+
+    try {
+      const input: FeatRunSerializedInput = {
+        serializedOpts,
+        runContext: {
+          baseCommitSha: runContext.baseCommitSha,
+          basePatchDiff: runContext.basePatchDiff,
+          lastErrorFeedback: runContext.lastErrorFeedback,
+        },
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (await hatchet.run<FeatRunSerializedInput, any>(
+        featRunWorkflow.name,
+        input,
+      )) as OrchestratorResult;
+    } finally {
+      // Note: There is finally, but not `catch` branch, so the error still throws
+      // after the cleanup.
+      await worker.stop();
+    }
+  }
+
+  // ─── Existing in-process path ──────────────────────────────────────────────
   return runIterativeLoop(sandbox, {
     ...opts,
     saifDir,
@@ -554,7 +598,7 @@ async function runTestsCore(
     agentScript,
     stageScript,
   });
-  const testRunnerOpts = getTestRunnerOpts({
+  const testRunnerOpts = prepareTestRunnerOpts({
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
@@ -615,7 +659,7 @@ async function runTestsCore(
         );
       }
 
-      if (result.passed) {
+      if (result.status === 'passed') {
         console.log('\n[orchestrator] ✓ ALL TESTS PASSED');
         await applyPatchToHost({
           codePath: sandbox.codePath,
@@ -632,6 +676,13 @@ async function runTestsCore(
           attempts,
           patchPath,
           message: `Patch verified and applied to host repository after ${attempts} attempt(s).`,
+        };
+      } else if (result.status === 'aborted') {
+        console.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
+        return {
+          success: false,
+          attempts,
+          message: `Tests were aborted after ${attempts} attempt(s).`,
         };
       }
 
@@ -767,4 +818,18 @@ export async function runDebug(
     process.removeListener('SIGTERM', ignoreSignal);
     console.log('[debug] Cleanup complete.');
   }
+}
+
+/**
+ * Resolves the directory `createSandbox` rsyncs FROM.
+ *
+ * - **Start:** the main project directory (`opts.projectDir`).
+ * - **Resume:** the worktree with recreated state (`.saifac/worktrees/resume-<runId>`),
+ *   i.e. `opts.resume.sandboxSourceDir`.
+ */
+export function getSandboxSourceDir(opts: {
+  projectDir: string;
+  resume: { sandboxSourceDir: string } | null;
+}): string {
+  return opts.resume?.sandboxSourceDir ?? opts.projectDir;
 }

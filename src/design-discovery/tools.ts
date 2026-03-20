@@ -8,7 +8,6 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { createTool, type Tool } from '@mastra/core/tools';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -17,8 +16,11 @@ import { createJiti } from 'jiti';
 import { z } from 'zod';
 
 import type { DiscoveryOptions } from '../cli/utils.js';
+import { getSaifRoot } from '../constants.js';
 
-const jitiInstance = createJiti(fileURLToPath(import.meta.url), { interopDefault: true });
+const jitiInstance = createJiti(resolve(getSaifRoot(), 'src', 'design-discovery', 'tools.ts'), {
+  interopDefault: true,
+});
 
 /**
  * Parses an MCP config value: HTTP or HTTPS URL (Streamable HTTP transport).

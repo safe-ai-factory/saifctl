@@ -4,11 +4,12 @@
  */
 
 import { readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { getSaifRoot } from '../../constants.js';
+
+const __dirname = join(getSaifRoot(), 'src', 'validation', 'validate');
 
 export default async function (): Promise<void> {
   const files = await readdir(__dirname);

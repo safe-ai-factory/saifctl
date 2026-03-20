@@ -225,7 +225,7 @@ No `npm install` step. The container starts and runs tests in seconds.
 ### Output
 
 - **Verbose logs:** Streamed to container stdout (visible in orchestrator logs).
-- **JUnit XML report:** Written by the container to `FACTORY_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureTestFailures` to ignore infra health-check failures in fail2pass).
+- **JUnit XML report:** Written by the container to `FACTORY_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to ignore infra health-check failures in fail2pass).
 
 ---
 

@@ -10,8 +10,8 @@
  */
 
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { getSaifRoot } from '../constants.js';
 import { aiderProfile } from './aider/profile.js';
 import { claudeProfile } from './claude/profile.js';
 import { codexProfile } from './codex/profile.js';
@@ -56,7 +56,7 @@ export const SUPPORTED_AGENT_PROFILES = {
 /** Returns the default agent profile (openhands). */
 export const DEFAULT_AGENT_PROFILE: AgentProfile = SUPPORTED_AGENT_PROFILES['openhands'];
 
-const _agentProfilesDir = join(fileURLToPath(import.meta.url), '..');
+const _agentProfilesDir = join(getSaifRoot(), 'src', 'agent-profiles');
 
 /**
  * Returns the absolute path to the agent.sh script for the given profile id.

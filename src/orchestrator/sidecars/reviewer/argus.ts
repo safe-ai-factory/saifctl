@@ -8,8 +8,9 @@
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { arch } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+
+import { getSaifRoot } from '../../../constants.js';
 
 const ARGUS_VERSION = '0.5.2';
 /** GitHub release tag. Argus uses argus-review-vX.Y.Z for the review CLI. */
@@ -22,7 +23,7 @@ const ASSETS: Record<string, string> = {
 };
 
 function getOutDir(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), 'out');
+  return join(getSaifRoot(), 'src', 'orchestrator', 'sidecars', 'reviewer', 'out');
 }
 
 function getBinaryPath(hostArch: 'arm64' | 'x64'): string {

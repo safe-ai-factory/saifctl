@@ -56,11 +56,11 @@ export function removeAllHiddenDirs(baseDir: string): number {
   return removed;
 }
 
-export interface SandboxPaths {
-  /** /tmp/factory-sandbox/{proj}-{feat}-{runId} */
-  sandboxBasePath: string;
+export interface Sandbox {
   /** Run ID suffix used in the sandbox directory name */
   runId: string;
+  /** /tmp/factory-sandbox/{proj}-{feat}-{runId} */
+  sandboxBasePath: string;
   /** sandboxBasePath/code — rsync copy of the repo */
   codePath: string;
   /** sandboxBasePath/gate.sh — inner gate script; mounted :ro at /factory/gate.sh in the container */
@@ -185,7 +185,7 @@ export interface CreateSandboxOpts {
  * 7. Write agent.sh (from agent profile or --agent-script) to sandboxBasePath/agent.sh
  * 8. Write stage.sh (from profile or --stage-script) to sandboxBasePath/stage.sh
  */
-export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
+export function createSandbox(opts: CreateSandboxOpts): Sandbox {
   const {
     feature,
     projectDir,
