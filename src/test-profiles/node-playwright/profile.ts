@@ -1,6 +1,6 @@
-import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { writeUtf8 } from '../../utils/io.js';
 import { validateTypescript } from '../../utils/typescript.js';
 import type { OnDoneOpts, TestProfile, ValidateFilesOpts } from '../types.js';
 
@@ -15,7 +15,7 @@ async function tsPlaywrightValidateFiles(opts: ValidateFilesOpts): Promise<void>
   });
 }
 
-function tsPlaywrightOnDone(opts: OnDoneOpts): void {
+async function tsPlaywrightOnDone(opts: OnDoneOpts): Promise<void> {
   const configPath = join(opts.testsDir, 'playwright.config.ts');
   const configContent = `import { defineConfig } from '@playwright/test';
 
@@ -27,7 +27,7 @@ export default defineConfig({
   },
 });
 `;
-  writeFileSync(configPath, configContent, 'utf8');
+  await writeUtf8(configPath, configContent);
   console.log(`[design-tests:node-playwright] Written ${configPath}`);
 }
 

@@ -2,7 +2,6 @@
  * Phase: apply-patch — apply sandbox patch to host via git worktree.
  */
 
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { generatePRSummary } from '../../git/agents/pr-summarizer.js';
@@ -19,7 +18,7 @@ import {
   gitWorktreePrune,
   gitWorktreeRemove,
 } from '../../utils/git.js';
-import { pathExists } from '../../utils/io.js';
+import { pathExists, readUtf8 } from '../../utils/io.js';
 
 export type { OrchestratorResult } from '../loop.js';
 
@@ -76,7 +75,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
 
   // Reject patches that touch .git/hooks/ — a hook injected here would run on the
   // host machine the next time any git operation triggers it.
-  const patchContent = readFileSync(patchFile, 'utf8');
+  const patchContent = await readUtf8(patchFile);
   if (/^diff --git.*\.git\/hooks\//m.test(patchContent)) {
     throw new Error(
       '[orchestrator] Patch rejected: contains changes to .git/hooks/. ' +

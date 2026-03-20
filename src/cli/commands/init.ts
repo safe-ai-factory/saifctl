@@ -33,7 +33,7 @@ const initCommand = defineCommand({
     const projectDir = parseProjectDir(args);
     const saifDir = parseSaifDir(args);
     const indexerProfile = resolveIndexerProfile(args.indexer);
-    const projectName = resolveProjectName(args, projectDir);
+    const projectName = await resolveProjectName(args, projectDir);
 
     const scaffolded = await scaffoldSaifConfig(saifDir, projectDir);
     if (scaffolded) {

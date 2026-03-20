@@ -5,7 +5,7 @@
  * to return a deterministic TypeScript stub. Real filesystem is used via temp dirs.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
 import { DEFAULT_PROFILE } from '../test-profiles/index.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { generateTests } from './write.js';
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ describe('generateTests', () => {
     mkdirSync(featureDir, { recursive: true });
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
-    writeFileSync(join(testsDir, 'tests.json'), imperativeCatalog(), 'utf8');
+    await writeUtf8(join(testsDir, 'tests.json'), imperativeCatalog());
     feature = await resolveFeature({ input: featureName, projectDir, saifDir });
   });
 
@@ -94,7 +94,7 @@ describe('generateTests', () => {
     });
     const helpersPath = join(result.testsDir, 'helpers.ts');
     expect(await pathExists(helpersPath)).toBe(true);
-    const content = readFileSync(helpersPath, 'utf8');
+    const content = await readUtf8(helpersPath);
     expect(content).toContain('execSidecar');
     expect(content).toContain('baseUrl');
   });
@@ -106,7 +106,7 @@ describe('generateTests', () => {
     });
     const infraPath = join(result.testsDir, 'infra.spec.ts');
     expect(await pathExists(infraPath)).toBe(true);
-    const content = readFileSync(infraPath, 'utf8');
+    const content = await readUtf8(infraPath);
     expect(content).toContain('sidecar:health');
   });
 
@@ -137,14 +137,14 @@ describe('generateTests', () => {
     const testsDir = join(feature.absolutePath, 'tests');
     const existingPath = join(testsDir, 'public', 'happy.spec.ts');
     mkdirSync(join(testsDir, 'public'), { recursive: true });
-    writeFileSync(existingPath, '// custom content', 'utf8');
+    await writeUtf8(existingPath, '// custom content');
 
     const result = await generateTests({
       feature,
       testProfile: DEFAULT_PROFILE,
     });
 
-    expect(readFileSync(existingPath, 'utf8')).toBe('// custom content');
+    expect(await readUtf8(existingPath)).toBe('// custom content');
     expect(result.skippedFiles).toContain('public/happy.spec.ts');
     expect(result.generatedFiles).not.toContain('public/happy.spec.ts');
   });
@@ -152,14 +152,14 @@ describe('generateTests', () => {
   it('does not overwrite helpers.ts when it already exists', async () => {
     const testsDir = join(feature.absolutePath, 'tests');
     const helpersPath = join(testsDir, 'helpers.ts');
-    writeFileSync(helpersPath, '// custom helpers', 'utf8');
+    await writeUtf8(helpersPath, '// custom helpers');
 
     await generateTests({
       feature,
       testProfile: DEFAULT_PROFILE,
     });
 
-    expect(readFileSync(helpersPath, 'utf8')).toBe('// custom helpers');
+    expect(await readUtf8(helpersPath)).toBe('// custom helpers');
   });
 
   it('returns correct testCaseCount', async () => {
@@ -188,7 +188,7 @@ describe('generateTests', () => {
         },
       ],
     });
-    writeFileSync(join(testsDir, 'tests.json'), webCatalog, 'utf8');
+    await writeUtf8(join(testsDir, 'tests.json'), webCatalog);
 
     const result = await generateTests({
       feature,
@@ -222,7 +222,7 @@ describe('generateTests (error cases)', () => {
     mkdirSync(featureDir, { recursive: true });
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
-    writeFileSync(join(testsDir, 'tests.json'), '{"invalid": true}', 'utf8');
+    await writeUtf8(join(testsDir, 'tests.json'), '{"invalid": true}');
     const feature = await resolveFeature({ input: 'bad-feature', projectDir, saifDir: 'saifac' });
     await expect(
       generateTests({

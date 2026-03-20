@@ -1,5 +1,38 @@
 import { spawn, type StdioOptions } from 'node:child_process';
-import { access } from 'node:fs/promises';
+import { access, appendFile, readFile, writeFile } from 'node:fs/promises';
+
+/** Read a file as UTF-8 text. */
+export async function readUtf8(filePath: string): Promise<string> {
+  return readFile(filePath, 'utf8');
+}
+
+export interface WriteUtf8Options {
+  /** Unix file mode, e.g. `0o755`. */
+  mode?: number;
+}
+
+/** Write UTF-8 text; optional file mode (chmod). */
+/* eslint-disable-next-line max-params */
+export async function writeUtf8(
+  filePath: string,
+  data: string,
+  options?: WriteUtf8Options,
+): Promise<void> {
+  await writeFile(filePath, data, {
+    encoding: 'utf8',
+    ...(options?.mode != null ? { mode: options.mode } : {}),
+  });
+}
+
+/** Read a file as a raw buffer (binary). */
+export async function readFileBuffer(filePath: string): Promise<Buffer> {
+  return readFile(filePath);
+}
+
+/** Append UTF-8 text to a file (creates the file if missing). */
+export async function appendUtf8(filePath: string, data: string): Promise<void> {
+  await appendFile(filePath, data, 'utf8');
+}
 
 /** True if `path` is reachable (same idea as {@link import('node:fs').existsSync}). */
 export async function pathExists(path: string): Promise<boolean> {

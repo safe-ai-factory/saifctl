@@ -2,7 +2,6 @@
  * Shared CLI helpers used across command implementations.
  */
 
-import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
@@ -57,7 +56,7 @@ import {
   type SupportedProfileId,
   type TestProfile,
 } from '../test-profiles/index.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8 } from '../utils/io.js';
 
 /**
  * Resolves the sandbox base directory from --sandbox-base-dir.
@@ -239,18 +238,18 @@ export function parseSaifDir(args: { 'saifac-dir'?: string }): string {
  * Resolves the project name: --project override, config default, else package.json "name" from repo root.
  * Throws if neither yields a usable name.
  */
-export function resolveProjectName(
+export async function resolveProjectName(
   opts: { project?: string },
   projectDir: string,
   config?: SaifConfig,
-): string {
+): Promise<string> {
   const fromOpt = typeof opts.project === 'string' ? opts.project.trim() : '';
   const fromConfig = config?.defaults?.project;
   const explicit = fromOpt || (typeof fromConfig === 'string' ? fromConfig.trim() : '');
   if (explicit) return explicit;
 
   try {
-    const pkg = JSON.parse(readFileSync(resolve(projectDir, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(await readUtf8(resolve(projectDir, 'package.json'))) as {
       name?: unknown;
     };
     if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim();
@@ -429,7 +428,7 @@ export async function parseStartupScript(opts: {
     console.error(`Error: --startup-script file not found: ${scriptPath}`);
     process.exit(1);
   }
-  return readFileSync(scriptPath, 'utf8');
+  return readUtf8(scriptPath);
 }
 
 /** Reads gate script from --gate-script or profile default. */
@@ -449,7 +448,7 @@ export async function parseGateScript(opts: {
     console.error(`Error: --gate-script file not found: ${scriptPath}`);
     process.exit(1);
   }
-  return readFileSync(scriptPath, 'utf8');
+  return readUtf8(scriptPath);
 }
 
 /** Reads stage script from --stage-script or profile default. */
@@ -469,7 +468,7 @@ export async function parseStageScript(opts: {
     console.error(`Error: --stage-script file not found: ${scriptPath}`);
     process.exit(1);
   }
-  return readFileSync(scriptPath, 'utf8');
+  return readUtf8(scriptPath);
 }
 
 /** Reads agent scripts from --agent-script / --agent-start-script or profile defaults. */
@@ -489,9 +488,9 @@ export async function parseAgentScripts(opts: {
       console.error(`Error: --agent-start-script file not found: ${p}`);
       process.exit(1);
     }
-    agentStartScript = readFileSync(p, 'utf8');
+    agentStartScript = await readUtf8(p);
   } else {
-    agentStartScript = readFileSync(resolveAgentStartScriptPath(agentProfile.id), 'utf8');
+    agentStartScript = await readUtf8(resolveAgentStartScriptPath(agentProfile.id));
   }
 
   const rawScript = args['agent-script'];
@@ -502,9 +501,9 @@ export async function parseAgentScripts(opts: {
       console.error(`Error: --agent-script file not found: ${p}`);
       process.exit(1);
     }
-    agentScript = readFileSync(p, 'utf8');
+    agentScript = await readUtf8(p);
   } else {
-    agentScript = readFileSync(resolveAgentScriptPath(agentProfile.id), 'utf8');
+    agentScript = await readUtf8(resolveAgentScriptPath(agentProfile.id));
   }
 
   return { agentStartScript, agentScript };
@@ -520,14 +519,14 @@ export async function parseTestScript(opts: {
   const { args, projectDir, profileId, config } = opts;
   const raw = args['test-script'] || config?.defaults?.testScript;
   if (typeof raw !== 'string' || !raw.trim()) {
-    return readFileSync(resolveTestScriptPath(profileId), 'utf8');
+    return readUtf8(resolveTestScriptPath(profileId));
   }
   const scriptPath = resolve(projectDir, raw.trim());
   if (!(await pathExists(scriptPath))) {
     console.error(`Error: --test-script file not found: ${scriptPath}`);
     process.exit(1);
   }
-  return readFileSync(scriptPath, 'utf8');
+  return readUtf8(scriptPath);
 }
 
 /**
@@ -777,7 +776,7 @@ export async function parseAgentEnv(opts: {
 
     // Merge env files left-to-right (later overrides earlier)
     for (const envFilePath of resolved) {
-      const lines = readFileSync(envFilePath, 'utf8').split('\n');
+      const lines = (await readUtf8(envFilePath)).split('\n');
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;

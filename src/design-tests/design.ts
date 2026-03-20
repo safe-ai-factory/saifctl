@@ -7,7 +7,7 @@
  * Outputs are written to saifac/features/<featureName>/tests/
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Tool } from '@mastra/core/tools';
@@ -17,7 +17,7 @@ import { type ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runCatalogAgent } from './agents/tests-catalog.js';
 import { buildPlannerPrompt, createTestsPlannerAgent } from './agents/tests-planner.js';
 import type { TestCatalog } from './schema.js';
@@ -73,7 +73,7 @@ async function readFeatureFiles(featureDir: string): Promise<Record<string, stri
         await walk(fullPath, relPath);
       } else if (entry.isFile() && /\.(md|json|txt|yaml|yml)$/.test(entry.name)) {
         try {
-          files[relPath] = readFileSync(fullPath, 'utf8');
+          files[relPath] = await readUtf8(fullPath);
         } catch {
           // skip unreadable files
         }
@@ -200,7 +200,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
   // Write tests.md
   mkdirSync(testsDir, { recursive: true });
   const testPlanPath = join(testsDir, 'tests.md');
-  writeFileSync(testPlanPath, testPlan, 'utf8');
+  await writeUtf8(testPlanPath, testPlan);
   console.log(`[design-tests:plan] Step 1a complete → ${testPlanPath}`);
 
   console.log(`[design-tests:plan] Step 1b: Generating tests.json...`);
@@ -231,7 +231,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
   }
 
   const catalogPath = join(testsDir, 'tests.json');
-  writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + '\n', 'utf8');
+  await writeUtf8(catalogPath, JSON.stringify(catalog, null, 2) + '\n');
   console.log(`[design-tests:plan] Step 1b complete → ${catalogPath}`);
 
   return {

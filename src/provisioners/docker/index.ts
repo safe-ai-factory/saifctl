@@ -15,7 +15,6 @@
  */
 
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
 import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -30,7 +29,14 @@ import {
 } from '../../sandbox-profiles/index.js';
 import type { Feature } from '../../specs/discover.js';
 import { createTarArchive } from '../../utils/archive.js';
-import { pathExists, spawnAsync, spawnWait } from '../../utils/io.js';
+import {
+  pathExists,
+  readFileBuffer,
+  readUtf8,
+  spawnAsync,
+  spawnWait,
+  writeUtf8,
+} from '../../utils/io.js';
 import type {
   AgentResult,
   Provisioner,
@@ -90,10 +96,16 @@ async function runDocker(
 // Embedded scripts and binaries loaded at module init
 // ---------------------------------------------------------------------------
 
-const STAGING_START_SCRIPT = readFileSync(
-  join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'staging-start.sh'),
-  'utf8',
-);
+let stagingStartScriptPromise: Promise<string> | null = null;
+
+function loadStagingStartScript(): Promise<string> {
+  if (!stagingStartScriptPromise) {
+    stagingStartScriptPromise = readUtf8(
+      join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'staging-start.sh'),
+    );
+  }
+  return stagingStartScriptPromise;
+}
 
 const CODER_START_SCRIPT = join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'coder-start.sh');
 
@@ -288,9 +300,10 @@ export class DockerProvisioner implements Provisioner {
 
     // Inject sidecar binary and staging-start.sh via putArchive (preserves +x bit)
     const sidecarBinary = await getSidecarBinary();
+    const stagingStartScript = await loadStagingStartScript();
     const tarBuffer = createTarArchive([
       { filename: 'sidecar', content: sidecarBinary, mode: '0000755' },
-      { filename: 'staging-start.sh', content: STAGING_START_SCRIPT, mode: '0000755' },
+      { filename: 'staging-start.sh', content: stagingStartScript, mode: '0000755' },
     ]);
     await container.putArchive(tarBuffer, { path: '/factory' });
 
@@ -439,7 +452,9 @@ export class DockerProvisioner implements Provisioner {
     }
 
     const testSuites =
-      reportPath && (await pathExists(reportPath)) ? parseJUnitXmlFromFile(reportPath) : undefined;
+      reportPath && (await pathExists(reportPath))
+        ? await parseJUnitXmlFromFile(reportPath)
+        : undefined;
 
     return {
       status: StatusCode === 0 ? 'passed' : 'failed',
@@ -797,10 +812,9 @@ export class DockerProvisioner implements Provisioner {
     }
 
     // Write a .dockerignore to keep the build context clean
-    writeFileSync(
+    await writeUtf8(
       join(codePath, '.dockerignore'),
       ['node_modules', '.git', '*.log', 'dist', 'build', '.cache'].join('\n') + '\n',
-      'utf8',
     );
 
     console.log(`[docker] Building staging container image: ${imageTag}`);
@@ -1140,7 +1154,7 @@ async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string> {
 
   for (const p of planCandidates) {
     if (await pathExists(p)) {
-      planContent = readFileSync(p, 'utf8');
+      planContent = await readUtf8(p);
       break;
     }
   }
@@ -1191,7 +1205,7 @@ async function getSidecarBinary(): Promise<Buffer> {
     );
   }
 
-  sidecarBinaryCache = readFileSync(binaryPath);
+  sidecarBinaryCache = await readFileBuffer(binaryPath);
   return sidecarBinaryCache;
 }
 

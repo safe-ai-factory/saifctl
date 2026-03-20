@@ -5,14 +5,14 @@
  * or the filesystem. Also includes filesystem-based tests for removeAllHiddenDirs.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { createSandbox, destroySandbox, filterPatchHunks, removeAllHiddenDirs } from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
@@ -66,13 +66,13 @@ describe('removeAllHiddenDirs', () => {
       // feat-a/tests/public, feat-a/tests/hidden
       mkdirSync(join(tmp, 'feat-a', 'tests', 'public'), { recursive: true });
       mkdirSync(join(tmp, 'feat-a', 'tests', 'hidden'), { recursive: true });
-      writeFileSync(join(tmp, 'feat-a', 'tests', 'hidden', 'bar.spec.ts'), '');
+      await writeUtf8(join(tmp, 'feat-a', 'tests', 'hidden', 'bar.spec.ts'), '');
       // feat-b/tests/hidden
       mkdirSync(join(tmp, 'feat-b', 'tests', 'hidden'), { recursive: true });
-      writeFileSync(join(tmp, 'feat-b', 'tests', 'hidden', 'edge.spec.ts'), '');
+      await writeUtf8(join(tmp, 'feat-b', 'tests', 'hidden', 'edge.spec.ts'), '');
       // feat-c/nested/hidden (deep nesting)
       mkdirSync(join(tmp, 'feat-c', 'nested', 'hidden'), { recursive: true });
-      writeFileSync(join(tmp, 'feat-c', 'nested', 'hidden', 'deep.ts'), '');
+      await writeUtf8(join(tmp, 'feat-c', 'nested', 'hidden', 'deep.ts'), '');
 
       const removed = await removeAllHiddenDirs(tmp);
 
@@ -95,7 +95,7 @@ describe('removeAllHiddenDirs', () => {
     const tmp = mkdtempSync(join(process.cwd(), 'sandbox-test-'));
     try {
       mkdirSync(join(tmp, 'feat', 'tests', 'public'), { recursive: true });
-      writeFileSync(join(tmp, 'feat', 'tests', 'public', 'foo.spec.ts'), '');
+      await writeUtf8(join(tmp, 'feat', 'tests', 'public', 'foo.spec.ts'), '');
 
       const removed = await removeAllHiddenDirs(tmp);
 
@@ -148,9 +148,9 @@ describe('createSandbox + destroySandbox (integration)', () => {
     const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase: .git, .gitignore, saifac/features with public + hidden tests
-      writeFileSync(join(projectDir, '.gitignore'), 'node_modules\n');
+      await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
       await gitInit({ cwd: projectDir });
-      writeFileSync(join(projectDir, 'README.md'), 'dummy');
+      await writeUtf8(join(projectDir, 'README.md'), 'dummy');
       await gitAdd({ cwd: projectDir, paths: ['README.md'] });
       await gitCommit({
         cwd: projectDir,
@@ -168,12 +168,12 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
       mkdirSync(join(featureTests, 'public'), { recursive: true });
       mkdirSync(join(featureTests, 'hidden'), { recursive: true });
-      writeFileSync(join(featureTests, 'tests.json'), JSON.stringify(TEST_CATALOG, null, 2));
-      writeFileSync(
+      await writeUtf8(join(featureTests, 'tests.json'), JSON.stringify(TEST_CATALOG, null, 2));
+      await writeUtf8(
         join(featureTests, 'public', 'foo.spec.ts'),
         "import { expect } from 'vitest';\n",
       );
-      writeFileSync(
+      await writeUtf8(
         join(featureTests, 'hidden', 'bar.spec.ts'),
         "import { expect } from 'vitest';\n",
       );
@@ -187,7 +187,10 @@ describe('createSandbox + destroySandbox (integration)', () => {
         'hidden',
       );
       mkdirSync(otherFeatureHidden, { recursive: true });
-      writeFileSync(join(otherFeatureHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
+      await writeUtf8(
+        join(otherFeatureHidden, 'edge.spec.ts'),
+        "import { expect } from 'vitest';\n",
+      );
 
       const feature = await resolveFeature({
         input: 'my-feature',
@@ -224,10 +227,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 4. Assert tests.json contains only public test cases
       const copiedCatalog = JSON.parse(
-        readFileSync(
-          join(codePath, saifDir, 'features', 'my-feature', 'tests', 'tests.json'),
-          'utf8',
-        ),
+        await readUtf8(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'tests.json')),
       );
       expect(copiedCatalog.testCases).toHaveLength(1);
       expect(copiedCatalog.testCases[0].visibility).toBe('public');
@@ -253,7 +253,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         [paths.stagePath, STAGE_SCRIPT],
       ];
       for (const [p, content] of scripts) {
-        expect(readFileSync(p, 'utf8')).toBe(content);
+        expect(await readUtf8(p)).toBe(content);
         expect((statSync(p).mode & 0o111) !== 0).toBe(true);
       }
 
@@ -275,9 +275,9 @@ describe('createSandbox + destroySandbox (integration)', () => {
     const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase with nested feature saifac/features/(auth)/login
-      writeFileSync(join(projectDir, '.gitignore'), 'node_modules\n');
+      await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
       await gitInit({ cwd: projectDir });
-      writeFileSync(join(projectDir, 'README.md'), 'dummy');
+      await writeUtf8(join(projectDir, 'README.md'), 'dummy');
       await gitAdd({ cwd: projectDir, paths: ['README.md'] });
       await gitCommit({
         cwd: projectDir,
@@ -321,12 +321,12 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const loginTests = join(projectDir, saifDir, 'features', '(auth)', 'login', 'tests');
       mkdirSync(join(loginTests, 'public'), { recursive: true });
       mkdirSync(join(loginTests, 'hidden'), { recursive: true });
-      writeFileSync(join(loginTests, 'tests.json'), JSON.stringify(NESTED_CATALOG, null, 2));
-      writeFileSync(
+      await writeUtf8(join(loginTests, 'tests.json'), JSON.stringify(NESTED_CATALOG, null, 2));
+      await writeUtf8(
         join(loginTests, 'public', 'login.spec.ts'),
         "import { expect } from 'vitest';\n",
       );
-      writeFileSync(
+      await writeUtf8(
         join(loginTests, 'hidden', 'holdout.spec.ts'),
         "import { expect } from 'vitest';\n",
       );
@@ -342,7 +342,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         'hidden',
       );
       mkdirSync(profileHidden, { recursive: true });
-      writeFileSync(join(profileHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
+      await writeUtf8(join(profileHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
 
       const feature = await resolveFeature({
         input: '(auth)/login',
@@ -385,9 +385,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 4. Assert tests.json contains only public test cases
       const copiedCatalog = JSON.parse(
-        readFileSync(
+        await readUtf8(
           join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'tests.json'),
-          'utf8',
         ),
       );
       expect(copiedCatalog.testCases).toHaveLength(1);

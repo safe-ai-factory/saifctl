@@ -242,7 +242,7 @@ async function runFail2PassCore(
     stageScript,
     verbose: opts.verbose,
   });
-  const testRunnerOpts = prepareTestRunnerOpts({
+  const testRunnerOpts = await prepareTestRunnerOpts({
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
@@ -604,7 +604,7 @@ async function runTestsCore(
     stageScript,
     verbose,
   });
-  const testRunnerOpts = prepareTestRunnerOpts({
+  const testRunnerOpts = await prepareTestRunnerOpts({
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,

@@ -11,7 +11,7 @@
  * By default existing files are never overwritten. Pass force: true to overwrite.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { getSaifRoot } from '../constants.js';
@@ -19,15 +19,15 @@ import { type ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import type { DrainableChunk } from '../utils/drain-stream.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runTestsWriterAgent } from './agents/tests-writer.js';
 import { TestCatalogSchema } from './schema.js';
 
 const _srcDir = join(getSaifRoot(), 'src');
 
 /** Reads a template file from src/test-profiles/<profileId>/templates/<filename>. */
-function readTemplate(profileId: string, filename: string): string {
-  return readFileSync(join(_srcDir, 'test-profiles', profileId, 'templates', filename), 'utf8');
+async function readTemplate(profileId: string, filename: string): Promise<string> {
+  return readUtf8(join(_srcDir, 'test-profiles', profileId, 'templates', filename));
 }
 
 export interface GenerateTestsOpts {
@@ -97,7 +97,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   console.log(
     `[design-tests:write] Test profile: ${testProfile.id} (${testProfile.language} / ${testProfile.framework})`,
   );
-  const rawJson = JSON.parse(readFileSync(catalogPath, 'utf8')) as unknown;
+  const rawJson = JSON.parse(await readUtf8(catalogPath)) as unknown;
 
   const parseResult = TestCatalogSchema.safeParse(rawJson);
   if (!parseResult.success) {
@@ -112,8 +112,8 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   // Write shared helpers from the profile's template — skip if already exists (unless force).
   const helpersPath = join(testsDir, testProfile.helpersFilename);
   if (!(await pathExists(helpersPath)) || force) {
-    const helpersTemplate = readTemplate(testProfile.id, testProfile.helpersFilename);
-    writeFileSync(helpersPath, helpersTemplate, 'utf8');
+    const helpersTemplate = await readTemplate(testProfile.id, testProfile.helpersFilename);
+    await writeUtf8(helpersPath, helpersTemplate);
     console.log(`[design-tests:write] Written ${helpersPath}`);
   } else {
     console.log(`[design-tests:write] Skipped ${helpersPath} (already exists)`);
@@ -123,8 +123,8 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   if (testProfile.infraFilename) {
     const infraPath = join(testsDir, testProfile.infraFilename);
     if (!(await pathExists(infraPath)) || force) {
-      const infraTemplate = readTemplate(testProfile.id, testProfile.infraFilename);
-      writeFileSync(infraPath, infraTemplate, 'utf8');
+      const infraTemplate = await readTemplate(testProfile.id, testProfile.infraFilename);
+      await writeUtf8(infraPath, infraTemplate);
       console.log(`[design-tests:write] Written ${infraPath}`);
     } else {
       console.log(`[design-tests:write] Skipped ${infraPath} (already exists)`);
@@ -148,7 +148,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   const skippedFiles: string[] = [];
 
   // Read helpers content to pass to the coder agent as context.
-  const helpersContent = readFileSync(helpersPath, 'utf8');
+  const helpersContent = await readUtf8(helpersPath);
 
   // Generate spec files concurrently (bounded to avoid rate limits).
   const CONCURRENCY = 3;
@@ -183,7 +183,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
         });
 
         mkdirSync(dirname(specPath), { recursive: true });
-        writeFileSync(specPath, source, 'utf8');
+        await writeUtf8(specPath, source);
         console.log(`[design-tests:write] Generated ${specPath}`);
         generatedFiles.push(entrypoint);
       }),

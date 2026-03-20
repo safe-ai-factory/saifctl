@@ -35,7 +35,6 @@
  *   The on-failure handler saves a RunArtifact so `saifac run resume <runId>` works.
  */
 
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { JsonValue } from '@hatchet-dev/typescript-sdk/v1/types.js';
@@ -49,7 +48,7 @@ import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
 import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
 import { buildRunArtifact } from '../../runs/index.js';
 import { gitClean, gitResetHard } from '../../utils/git.js';
-import { pathExists } from '../../utils/io.js';
+import { pathExists, readUtf8 } from '../../utils/io.js';
 import { getHatchetClient } from '../client.js';
 import { deserializeOrchestratorOpts } from '../utils/serialize-opts.js';
 
@@ -457,7 +456,7 @@ export function createFeatRunWorkflow() {
       }
 
       const patchPath = join(sandboxRaw.sandboxBasePath, 'patch.diff');
-      const runPatchDiff = (await pathExists(patchPath)) ? readFileSync(patchPath, 'utf8') : '';
+      const runPatchDiff = (await pathExists(patchPath)) ? await readUtf8(patchPath) : '';
       if (!runPatchDiff.trim()) return;
 
       let loopResult: ConvergenceOutput | null = null;

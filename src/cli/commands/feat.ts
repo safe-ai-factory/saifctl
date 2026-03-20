@@ -14,7 +14,7 @@
  *   Alias: saifac feature
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
@@ -35,7 +35,7 @@ import type { ModelOverrides } from '../../llm-config.js';
 import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import { readSandboxGateScript } from '../../sandbox-profiles/index.js';
 import type { Feature } from '../../specs/discover.js';
-import { pathExists } from '../../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import {
   featRunArgs,
   featTestsArgs,
@@ -200,7 +200,7 @@ const newCommand = defineCommand({
     // Write proposal.md if description is provided
     if (description) {
       const proposalPath = resolve(featureDir, 'proposal.md');
-      writeFileSync(proposalPath, `## What Changes\n\n${description}\n`, 'utf8');
+      await writeUtf8(proposalPath, `## What Changes\n\n${description}\n`);
       console.log(`\nCreated: ${featureDir}`);
       console.log(`  proposal.md: ${description}`);
     } else {
@@ -340,8 +340,8 @@ async function _runDesignSpecs(args: {
   const hasProposal = await pathExists(proposalPath);
   const hasDiscovery = await pathExists(discoveryPath);
   if (hasProposal || hasDiscovery) {
-    const proposalContent = hasProposal ? readFileSync(proposalPath, 'utf8') : '';
-    const discoveryContent = hasDiscovery ? readFileSync(discoveryPath, 'utf8') : '';
+    const proposalContent = hasProposal ? await readUtf8(proposalPath) : '';
+    const discoveryContent = hasDiscovery ? await readUtf8(discoveryPath) : '';
     designerPrompt =
       proposalContent +
       (discoveryContent
@@ -438,7 +438,7 @@ async function _runDesignTests({
   config,
   args,
 }: DesignTestsOptions) {
-  const projectName = resolveProjectName(args, projectDir, config);
+  const projectName = await resolveProjectName(args, projectDir, config);
   const testProfile = parseTestProfile(args, config);
   const indexerProfile = parseIndexerProfile(args, config);
 
@@ -549,7 +549,7 @@ async function _runDesignFail2pass(opts: {
   const { feature, projectDir, saifDir, config, args } = opts;
   const sandboxBaseDir = parseSandboxBaseDir(args, config);
 
-  const projectName = resolveProjectName(args, projectDir, config);
+  const projectName = await resolveProjectName(args, projectDir, config);
   const sandboxProfile = parseSandboxProfile(args, config);
   const testProfile = parseTestProfile(args, config);
   const testImage = parseTestImage(args, testProfile.id, config);
@@ -712,7 +712,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
   const maxRuns = parseMaxRuns(runArgs, config);
   const overrides = parseModelOverrides(args, config);
   const sandboxBaseDir = parseSandboxBaseDir(args, config);
-  const projectName = resolveProjectName(args, projectDir, config);
+  const projectName = await resolveProjectName(args, projectDir, config);
   const testProfile = parseTestProfile(args, config);
   const testImage = parseTestImage(runArgs, testProfile.id, config);
   const resolveAmbiguity = parseResolveAmbiguity(runArgs, config);
@@ -824,7 +824,7 @@ const debugCommand = defineCommand({
     const config = await loadSaifConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     const sandboxBaseDir = parseSandboxBaseDir(args, config);
-    const projectName = resolveProjectName(args, projectDir, config);
+    const projectName = await resolveProjectName(args, projectDir, config);
     const sandboxProfile = parseSandboxProfile(args, config);
 
     const [startupScript, stageScript] = await Promise.all([
@@ -833,11 +833,8 @@ const debugCommand = defineCommand({
     ]);
 
     const gateScript = await readSandboxGateScript(sandboxProfile.id);
-    const agentStartScript = readFileSync(
-      resolveAgentStartScriptPath(DEFAULT_AGENT_PROFILE.id),
-      'utf8',
-    );
-    const agentScript = readFileSync(resolveAgentScriptPath(DEFAULT_AGENT_PROFILE.id), 'utf8');
+    const agentStartScript = await readUtf8(resolveAgentStartScriptPath(DEFAULT_AGENT_PROFILE.id));
+    const agentScript = await readUtf8(resolveAgentScriptPath(DEFAULT_AGENT_PROFILE.id));
 
     const stagingEnvironment = parseStagingEnvironment(config);
 

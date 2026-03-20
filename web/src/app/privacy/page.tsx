@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Metadata } from 'next';
@@ -9,13 +9,13 @@ export const metadata: Metadata = {
   description: 'Privacy Policy for Safe AI Factory (SAIFAC).',
 };
 
-function getPolicyHtml(): string {
+async function getPolicyHtml(): Promise<string> {
   const filePath = path.join(process.cwd(), 'src', 'content', 'policy.html');
-  return readFileSync(filePath, 'utf-8');
+  return readFile(filePath, 'utf-8');
 }
 
-export default function PrivacyPage() {
-  const policyHtml = getPolicyHtml();
+export default async function PrivacyPage() {
+  const policyHtml = await getPolicyHtml();
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-gray-200 selection:bg-[#00FF66] selection:text-black">

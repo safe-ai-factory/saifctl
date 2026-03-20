@@ -5,7 +5,7 @@
  * save-on-Ctrl+C artifact persistence, and merging restored config with CLI overrides.
  */
 
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -23,7 +23,7 @@ import {
   gitWorktreeAdd,
   gitWorktreeRemove,
 } from '../utils/git.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { type IterativeLoopOpts, type RunStorageContext } from './loop.js';
 import type { OrchestratorOpts } from './modes.js';
 import type { Sandbox } from './sandbox.js';
@@ -121,7 +121,7 @@ export async function createResumeWorktree(
 
   const applyPatchFromString = async (diff: string) => {
     const tmpPath = join(worktreePath, '.saifac-apply.patch');
-    writeFileSync(tmpPath, diff, 'utf8');
+    await writeUtf8(tmpPath, diff);
     await gitApply({ cwd: worktreePath, env: gitEnv, patchFile: tmpPath });
     unlinkSync(tmpPath);
   };
@@ -194,7 +194,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
 
   if (!(await pathExists(patchPath))) return;
 
-  const runPatchDiff = readFileSync(patchPath, 'utf8');
+  const runPatchDiff = await readUtf8(patchPath);
   if (!runPatchDiff.trim()) return;
 
   const artifact = buildRunArtifact({

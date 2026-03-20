@@ -2,10 +2,10 @@
  * Scaffold config.ts when no config file exists.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { pathExists } from '../utils/io.js';
+import { pathExists, writeUtf8 } from '../utils/io.js';
 
 const CONFIG_TEMPLATE = `import type { SaifConfig } from 'safe-ai-factory';
 
@@ -79,6 +79,6 @@ export async function scaffoldSaifConfig(saifDir: string, projectDir: string): P
   }
 
   const configPath = resolve(configDir, 'config.ts');
-  writeFileSync(configPath, CONFIG_TEMPLATE, 'utf8');
+  await writeUtf8(configPath, CONFIG_TEMPLATE);
   return true;
 }

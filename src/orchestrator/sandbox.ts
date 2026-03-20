@@ -21,7 +21,7 @@
  *       ...rest of repo...
  */
 
-import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
@@ -37,7 +37,7 @@ import {
   gitInit,
   gitResetHard,
 } from '../utils/git.js';
-import { pathExists, spawnAsync } from '../utils/io.js';
+import { pathExists, readUtf8, spawnAsync, writeUtf8 } from '../utils/io.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
@@ -235,7 +235,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
       `tests.json not found at ${testsJsonPath}. Run 'saifac feat design -n ${feature.name}' first.`,
     );
   }
-  const catalog = JSON.parse(readFileSync(testsJsonPath, 'utf8')) as TestCatalog;
+  const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
 
   // Remove ALL hidden/ dirs from saifac/features so the agent
   // cannot see holdout tests from any feature (current or others).
@@ -254,7 +254,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
   };
   mkdirSync(inCodeTestsDir, { recursive: true });
-  writeFileSync(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2), 'utf8');
+  await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
 
   const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
   const publicCount = publicCatalog.testCases.length;
@@ -280,31 +280,31 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 
   // Write gate.sh: user-supplied content or the built-in pnpm check default.
   // Mounted read-only at /factory/gate.sh inside the coder container.
-  writeFileSync(gatePath, gateScript, 'utf8');
+  await writeUtf8(gatePath, gateScript);
   chmodSync(gatePath, 0o755);
   console.log(`[sandbox] Gate script written to ${gatePath}`);
 
   // Write startup.sh — always present; mounted read-only at /factory/startup.sh.
   // Set via --profile or --startup-script.
-  writeFileSync(startupPath, startupScript, 'utf8');
+  await writeUtf8(startupPath, startupScript);
   chmodSync(startupPath, 0o755);
   console.log(`[sandbox] Startup script written to ${startupPath}`);
 
   // Write agent-start.sh — mounted read-only at /factory/agent-start.sh.
   // Run once after project startup, before the agent loop. Used to install the agent.
-  writeFileSync(agentStartPath, agentStartScript, 'utf8');
+  await writeUtf8(agentStartPath, agentStartScript);
   chmodSync(agentStartPath, 0o755);
   console.log(`[sandbox] Agent start script written to ${agentStartPath}`);
 
   // Write agent.sh — mounted read-only at /factory/agent.sh.
   // Defaults to the agent profile's agent.sh (OpenHands). Override with --agent-script.
-  writeFileSync(agentPath, agentScript, 'utf8');
+  await writeUtf8(agentPath, agentScript);
   chmodSync(agentPath, 0o755);
   console.log(`[sandbox] Agent script written to ${agentPath}`);
 
   // Write stage.sh — mounted read-only in the staging container at /factory/stage.sh.
   // Set via --profile or --stage-script.
-  writeFileSync(stagePath, stageScript, 'utf8');
+  await writeUtf8(stagePath, stageScript);
   chmodSync(stagePath, 0o755);
   console.log(`[sandbox] Stage script written to ${stagePath}`);
 
@@ -377,7 +377,7 @@ export async function extractPatch(
   const rawPatch = await gitDiff({ cwd: codePath, env: gitEnv, args: ['HEAD'] });
 
   const patch = opts.exclude?.length ? filterPatchHunks(rawPatch, opts.exclude) : rawPatch;
-  writeFileSync(patchPath, patch, 'utf8');
+  await writeUtf8(patchPath, patch);
 
   // Reset for next attempt
   await gitResetHard({ cwd: codePath, env: gitEnv });

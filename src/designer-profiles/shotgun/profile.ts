@@ -12,11 +12,10 @@
  * querying internally (Context7 integration is configured via `saifac init`).
  */
 
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { runShotgunCli } from '../../indexer-profiles/shotgun/shotgun.js';
-import { pathExists } from '../../utils/io.js';
+import { pathExists, readUtf8 } from '../../utils/io.js';
 import type { DesignerBaseOpts, DesignerProfile, DesignerRunOpts } from '../types.js';
 
 const REQUIRED_FILES = ['plan.md', 'research.md', 'specification.md', 'tasks.md'] as const;
@@ -38,7 +37,7 @@ export const shotgunDesignerProfile: DesignerProfile = {
     const proposalPrompt =
       prompt ??
       ((await pathExists(proposalPath))
-        ? `Based on the following proposal, run the full research, specify, plan, and tasks flow:\n\n${readFileSync(proposalPath, 'utf8')}`
+        ? `Based on the following proposal, run the full research, specify, plan, and tasks flow:\n\n${await readUtf8(proposalPath)}`
         : 'Run the full research, specify, plan, and tasks flow for this feature.');
 
     const runArgs = ['-n', proposalPrompt];

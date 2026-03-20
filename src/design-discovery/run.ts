@@ -4,7 +4,6 @@
  * Only runs when discoveryMcps or discoveryTools are configured.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { DiscoveryOptions } from '../cli/utils.js';
@@ -12,7 +11,7 @@ import type { ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
 import { createDiscoveryAgent } from './agent.js';
-import { pathExists } from '../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { loadDiscoveryTools } from './tools.js';
 
 export interface RunDiscoveryOpts {
@@ -33,7 +32,7 @@ const DISCOVERY_FILENAME = 'discovery.md';
 async function resolveDiscoveryPrompt(opts: DiscoveryOptions): Promise<string | undefined> {
   if (opts.prompt?.trim()) return opts.prompt.trim();
   if (opts.promptFile && (await pathExists(opts.promptFile))) {
-    return readFileSync(opts.promptFile, 'utf8').trim();
+    return (await readUtf8(opts.promptFile)).trim();
   }
   return undefined;
 }
@@ -46,7 +45,7 @@ export async function runDiscovery(opts: RunDiscoveryOpts): Promise<string> {
 
   const proposalPath = join(feature.absolutePath, 'proposal.md');
   const proposalContent = (await pathExists(proposalPath))
-    ? readFileSync(proposalPath, 'utf8')
+    ? await readUtf8(proposalPath)
     : 'No proposal.md found.';
 
   const userPrompt = await resolveDiscoveryPrompt(discovery);
@@ -82,7 +81,7 @@ Gather all necessary context using your tools, then output a structured markdown
   }
 
   const discoveryPath = join(feature.absolutePath, DISCOVERY_FILENAME);
-  writeFileSync(discoveryPath, output.trim() || '(No content generated.)', 'utf8');
+  await writeUtf8(discoveryPath, output.trim() || '(No content generated.)');
 
   return discoveryPath;
 }

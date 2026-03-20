@@ -10,7 +10,6 @@
  *   clear            Remove factory containers/images (scoped to project; --all: everything)
  */
 
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
@@ -31,16 +30,16 @@ import {
   SUPPORTED_PROFILES,
   type TestProfile,
 } from '../src/test-profiles/index.js';
-import { pathExists, spawnAsync, spawnCapture } from '../src/utils/io.js';
+import { pathExists, readUtf8, spawnAsync, spawnCapture } from '../src/utils/io.js';
 
-function parseProjectName(opts: { project?: string }): string {
+async function parseProjectName(opts: { project?: string }): Promise<string> {
   const fromOpt =
     typeof opts.project === 'string' && opts.project.trim() ? opts.project.trim() : '';
   if (fromOpt) return fromOpt;
 
   const repoRoot = getSaifRoot();
   try {
-    const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(await readUtf8(resolve(repoRoot, 'package.json'))) as {
       name?: unknown;
     };
     if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim();
@@ -319,7 +318,7 @@ const clearCommand = defineCommand({
   },
   async run({ args }) {
     const clearAll = args.all === true;
-    const projName = clearAll ? null : parseProjectName(args);
+    const projName = clearAll ? null : await parseProjectName(args);
 
     const stagingPrefix = clearAll ? 'factory-stage-' : `factory-stage-${projName}-`;
     const testRunnerPrefix = clearAll ? 'factory-test-' : `factory-test-${projName}-`;

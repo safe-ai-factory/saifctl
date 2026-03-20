@@ -1,9 +1,10 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { writeUtf8 } from '../utils/io.js';
 import { loadSaifConfig } from './load.js';
 
 function makeTempDir(): string {
@@ -38,7 +39,7 @@ describe('loadSaifConfig', () => {
   it('loads config.json and parses defaults', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    writeFileSync(
+    await writeUtf8(
       join(saifDir, 'config.json'),
       JSON.stringify({
         defaults: {
@@ -62,7 +63,7 @@ describe('loadSaifConfig', () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     // cosmiconfig loads .js; we use module.exports
-    writeFileSync(
+    await writeUtf8(
       join(saifDir, 'config.js'),
       "module.exports = { defaults: { maxRuns: 7, globalStorage: 'memory' } };",
     );
@@ -75,8 +76,8 @@ describe('loadSaifConfig', () => {
   it('prefers config.json when both config.json and config.js exist', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    writeFileSync(join(saifDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
-    writeFileSync(join(saifDir, 'config.js'), 'module.exports = { defaults: { maxRuns: 99 } };');
+    await writeUtf8(join(saifDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
+    await writeUtf8(join(saifDir, 'config.js'), 'module.exports = { defaults: { maxRuns: 99 } };');
 
     const config = await loadSaifConfig('saifac', projectDir);
     // cosmiconfig search order: config.json is typically before config.js in searchPlaces
@@ -86,7 +87,7 @@ describe('loadSaifConfig', () => {
   it('parses storage as globalStorage and storages', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    writeFileSync(
+    await writeUtf8(
       join(saifDir, 'config.json'),
       JSON.stringify({
         defaults: {
@@ -104,7 +105,7 @@ describe('loadSaifConfig', () => {
   it('parses agentEnv object', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    writeFileSync(
+    await writeUtf8(
       join(saifDir, 'config.json'),
       JSON.stringify({
         defaults: {
@@ -126,7 +127,7 @@ describe('loadSaifConfig', () => {
 
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    writeFileSync(
+    await writeUtf8(
       join(saifDir, 'config.json'),
       JSON.stringify({ defaults: { maxRuns: 'not-a-number' } }),
     );

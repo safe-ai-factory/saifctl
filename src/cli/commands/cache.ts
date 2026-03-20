@@ -52,7 +52,7 @@ const listCommand = defineCommand({
     }
 
     const projectDir = parseProjectDir(args);
-    const projName = resolveProjectName(args, projectDir);
+    const projName = await resolveProjectName(args, projectDir);
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 
@@ -117,7 +117,7 @@ const clearCommand = defineCommand({
     }
 
     const projectDir = parseProjectDir(args);
-    const projName = resolveProjectName(args, projectDir);
+    const projName = await resolveProjectName(args, projectDir);
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 

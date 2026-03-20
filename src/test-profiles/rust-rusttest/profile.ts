@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { pathExists, spawnWait } from '../../utils/io.js';
+import { pathExists, spawnWait, writeUtf8 } from '../../utils/io.js';
 import type { OnDoneOpts, TestProfile, ValidateFilesOpts } from '../types.js';
 
 /**
@@ -19,7 +19,7 @@ async function writeNextestConfig(testsDir: string, force: boolean): Promise<voi
 test-output = "immediate-final"
 `;
   mkdirSync(configDir, { recursive: true });
-  writeFileSync(configPath, content, 'utf8');
+  await writeUtf8(configPath, content);
   console.log(`[design-tests:rust-rusttest] Written ${configPath}`);
 }
 
@@ -77,7 +77,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 `;
-  writeFileSync(cargoTomlPath, content, 'utf8');
+  await writeUtf8(cargoTomlPath, content);
   console.log(`[design-tests:rust-rusttest] Written ${cargoTomlPath}`);
 }
 
@@ -109,7 +109,7 @@ async function rusttestOnDone(opts: OnDoneOpts): Promise<void> {
       '\n';
 
     if (!(await pathExists(modRsPath)) || force) {
-      writeFileSync(modRsPath, modRsContent, 'utf8');
+      await writeUtf8(modRsPath, modRsContent);
       console.log(`[design-tests:rust-rusttest] Written ${modRsPath}`);
       generatedFiles.push(`${subdir}/mod.rs`);
     }

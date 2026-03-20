@@ -4,10 +4,9 @@
  * Parses JUnit XML reports and detects test runner errors from stdout/stderr.
  */
 
-import { readFileSync } from 'node:fs';
-
 import { XMLParser } from 'fast-xml-parser';
 
+import { readUtf8 } from '../../utils/io.js';
 import type { AssertionResult, AssertionSuiteResult } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -52,9 +51,11 @@ interface JUnitParsedRoot {
  * Parses a JUnit XML report file into AssertionSuiteResult[].
  * Returns undefined if the file cannot be read or parsed.
  */
-export function parseJUnitXmlFromFile(reportPath: string): AssertionSuiteResult[] | undefined {
+export async function parseJUnitXmlFromFile(
+  reportPath: string,
+): Promise<AssertionSuiteResult[] | undefined> {
   try {
-    const xmlStr = readFileSync(reportPath, 'utf8');
+    const xmlStr = await readUtf8(reportPath);
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '',

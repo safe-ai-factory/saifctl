@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
-
-import { spawnCapture } from '../../utils/io.js';
+import { readUtf8, spawnCapture } from '../../utils/io.js';
 
 export default async function validateDocstrings() {
   const output = await spawnCapture({
@@ -23,7 +21,7 @@ export default async function validateDocstrings() {
     /^export\s+(?:async\s+)?(function|class|interface|type|const)\s+([a-zA-Z0-9_]+)/gm;
 
   for (const file of files) {
-    const content = readFileSync(file, 'utf-8');
+    const content = await readUtf8(file);
     let match;
 
     while ((match = exportRegex.exec(content)) !== null) {
