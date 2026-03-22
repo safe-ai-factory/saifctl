@@ -131,6 +131,18 @@ saifac feat run --profile python-uv
 
 [See all available profiles and step-by-step usage →](./sandbox-profiles.md)
 
+## Agent feedback
+
+When something is wrong, the factory does not only fail the run — it **returns actionable output to the coding agent** so it can fix and retry. There are three layers, from fastest/cheapest to the full validation pass:
+
+1. **Gate (inner loop)** — After each agent round, your [gate script](./gate.md) runs inside the coder environment (e.g. lint, format, typecheck, or a quick test command). Failures append captured stdout/stderr to the task; the agent retries inside the same container session, up to `--gate-retries`. See [Gate script](./gate.md).
+
+2. **Semantic reviewer (inner loop)** — If the gate passes and the reviewer is enabled, an AI reviewer inspects the diff against the original task. A failed review is treated like a gate failure: findings are appended to the task and the agent retries. You can skip this step with `--no-reviewer`. See [Semantic Code Reviewer](./reviewer.md).
+
+3. **Tests (outer loop)** — After the inner loop succeeds, the orchestrator runs your tests in the **Test Runner** container (separate from the sandbox). Failures become **outer-loop** feedback: the pipeline can restart another full run (subject to `--max-runs` and `--test-retries`). Test language and framework are chosen with `--test-profile`. See [Test profiles](./test-profiles.md).
+
+Together, the gate and reviewer catch most mistakes early; the test runner remains the authoritative check against your real test suite.
+
 ## Test profiles: Configure testing containers
 
 Tests run in an isolated container, separate from the sandbox.

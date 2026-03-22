@@ -1,0 +1,38 @@
+name: Publish npm
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    name: Build, pack, and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 25
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check (tests, lint, validate)
+        run: pnpm run check
+
+      - name: Build and pack
+        run: bash scripts/package.sh
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

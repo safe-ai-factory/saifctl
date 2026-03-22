@@ -1,6 +1,7 @@
 node_modules/
 .venv/
 dist/
+dist-pack/
 coverage/
 *.tsbuildinfo
 .pnpm-store/
