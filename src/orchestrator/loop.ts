@@ -100,7 +100,7 @@ export interface IterativeLoopOpts {
   /**
    * Absolute path to a Cedar policy file for Leash.
    *
-   * Defaults to leash-policy.cedar in src/orchestrator/.
+   * Defaults to leash-policy.cedar in src/orchestrator/policies/.
    * Ignored when dangerousDebug=true.
    */
   cedarPolicyPath: string;

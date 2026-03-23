@@ -105,7 +105,7 @@ Dive into the details of what you can customize in the [Features guide](./docs/f
 - [Configuration](./docs/config.md)
 - [Agents](docs/agents/README.md)
 - [Security & Isolation](./docs/security.md)
-- [Access control with Cedar](./docs/cedar-access-control.md)
+- [Access control with Cedar](./docs/leash-access-control.md)
 - [Environments and Infrastructure](./docs/services.md)
 - [Sandbox profiles](./docs/sandbox-profiles.md)
 - [Test profiles](./docs/test-profiles.md)

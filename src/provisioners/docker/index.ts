@@ -695,8 +695,6 @@ export class DockerProvisioner implements Provisioner {
         ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
         ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
         OPENHANDS_WORK_DIR: '/tmp/openhands-state',
-        LEASH_E2E: '1',
-        LEASH_BOOTSTRAP_SKIP_ENFORCE: '1',
         ...safeAgentEnv,
       };
 

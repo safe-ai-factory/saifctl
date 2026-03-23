@@ -38,7 +38,7 @@ When using Leash to wrap our Coder Agent, we can configure rules around:
 ### 2. Network Traffic
 
 - **Actions:** `Action::"NetworkConnect"`
-- **Resources:** IP addresses (`IP::"192.168.1.0/24"`) or Domains (`Domain::"registry.npmjs.org"`).
+- **Resources:** IP addresses (`IP::"192.168.1.0/24"`) or Hostnames (`Host::"registry.npmjs.org"`).
 - **Configuration Power:** You can block the agent from scanning your internal VPC or exfiltrating data to unknown servers, while still allowing it to hit npm to install dependencies.
 
 ### 3. Tool Usage (MCP - Model Context Protocol)
@@ -64,6 +64,8 @@ Because they are plain text, **Cedar policies must be checked into Git** right a
           |- v0/
   |- src/
       |- orchestrator/
+          |- policies/
+          |   |- leash-policy.cedar
           |- run-factory.ts
   |- policies/
       |- agent-sandbox.cedar      <-- Source-controlled policy file
@@ -134,7 +136,7 @@ permit (
 permit (
     principal == User::"coder-agent",
     action == Action::"NetworkConnect",
-    resource in [Domain::"registry.npmjs.org", Domain::"github.com"]
+    resource in [Host::"registry.npmjs.org", Host::"github.com"]
 );
 
 // --------------------------------------------------------

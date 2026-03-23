@@ -11,6 +11,19 @@ set -euo pipefail
 
 echo "[agent/debug] Starting agent debug in agent.sh..."
 
+# HTTP probe exercises Leash NetworkConnect when you tighten Cedar policy.
+# Override URL: SAIFAC_NETWORK_PROBE_URL. Skip entirely: SAIFAC_SKIP_NETWORK_PROBE=1 (e.g. unit tests).
+if [[ -z "${SAIFAC_SKIP_NETWORK_PROBE:-}" ]]; then
+  command -v curl >/dev/null 2>&1 || {
+    echo '[agent/debug] curl is required for the network probe (or set SAIFAC_SKIP_NETWORK_PROBE=1)' >&2
+    exit 1
+  }
+  _probe_url="${SAIFAC_NETWORK_PROBE_URL:-https://example.com}"
+  echo "[agent/debug] Network probe: GET ${_probe_url}"
+  curl -fsS --max-time 15 -o /dev/null "$_probe_url"
+  echo '[agent/debug] Network probe OK'
+fi
+
 _WORKSPACE="${SAIFAC_WORKSPACE_BASE:-/workspace}"
 _dummy_path="$_WORKSPACE/dummy.md"
 

@@ -57,7 +57,7 @@ Once the constraints are approved, the autonomous loop begins. To prevent pollut
    - It parses the Vitest JSON report to check that _at least one_ feature test (excluding infrastructure health checks) failed. If all feature tests pass, the loop aborts — the feature already exists or the tests are invalid.
    - Partial overlap is OK: some tests (e.g. negative-path) may pass on `main` before implementation. Fail2pass only requires that some tests fail.
 7. **Start OpenHands (Headless) in Leash Sandbox:**
-   - When Leash is enabled (default), the Orchestrator runs the Leash CLI (`@strongdm/leash`) with `--no-interactive --image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy leash-policy.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in our custom coder image (built from the sandbox profile's `Dockerfile.coder`) and enforces Cedar policies. The image is pulled from GHCR when not present locally.
+   - When Leash is enabled (default), the Orchestrator runs the Leash CLI (`@strongdm/leash`) with `--no-interactive --image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/leash-policy.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in our custom coder image (built from the sandbox profile's `Dockerfile.coder`) and enforces Cedar policies. The image is pulled from GHCR when not present locally.
    - Pass `--dangerous-debug` to run OpenHands directly on the host (no container during the agent phase).
    - OpenHands runs autonomously. The Orchestrator waits for the process to exit.
 8. **Extract Artifact:**
@@ -225,7 +225,7 @@ async function runFactoryFloor(featureName: string) {
     console.log(`Unleashing Coder Agent (Attempt ${attempts})...`);
     const openhandsCmd = dangerousDebug
       ? `openhands --headless --workspace-dir "${codePath}" -t "Implement plan.md. Fix errors: ${errorFeedback}"`
-      : `node "$LEASH_BIN" --no-interactive --image saifac-coder-node-pnpm-python:latest --volume "${codePath}:/workspace" --policy leash-policy.cedar /saifac/coder-start.sh`;
+      : `node "$LEASH_BIN" --no-interactive --image saifac-coder-node-pnpm-python:latest --volume "${codePath}:/workspace" --policy policies/leash-policy.cedar /saifac/coder-start.sh`;
     await exec(openhandsCmd, { cwd: codePath, shell: sh, maxBuffer: 1024 * 1024 * 64 });
 
     // Extract Artifact (Patch)

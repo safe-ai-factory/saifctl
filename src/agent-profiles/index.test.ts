@@ -43,6 +43,7 @@ describe('agent profiles', () => {
           ...process.env,
           SAIFAC_WORKSPACE_BASE: dir,
           SAIFAC_TASK_PATH: taskPath,
+          SAIFAC_SKIP_NETWORK_PROBE: '1',
         },
         stdio: 'pipe',
       });

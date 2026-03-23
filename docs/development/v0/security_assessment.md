@@ -110,7 +110,7 @@ Additional (postgres, redis, etc.) containers receive `SecurityOpt: ['no-new-pri
 
 **How it was fixed:**
 
-A `forbid` rule was added to `leash-policy.cedar` denying writes to `/workspace/.git`:
+A `forbid` rule was added to `src/orchestrator/policies/leash-policy.cedar` denying writes to `/workspace/.git`:
 
 ```
 forbid (

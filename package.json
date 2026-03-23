@@ -33,7 +33,7 @@
   "files": [
     "dist",
     "src/orchestrator/scripts",
-    "src/orchestrator/leash-policy.cedar",
+    "src/orchestrator/policies",
     "src/sandbox-profiles",
     "src/agent-profiles",
     "src/test-profiles",

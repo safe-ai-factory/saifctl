@@ -78,7 +78,7 @@ A simple HTTP test is easy to fake. To prevent the agent from hardcoding respons
 
 The agent must **never** have write access to the test files.
 
-- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our `leash-policy.cedar` forbids writes to `/workspace/openspec/`, so Leash blocks such attempts in real time.
+- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our default `src/orchestrator/policies/leash-policy.cedar` forbids writes to `/workspace/saifac/` (and `.git`), so Leash blocks such attempts in real time.
 - **Patch filtering (belt-and-suspenders):** After the agent finishes, `extractPatch()` in `sandbox.ts` captures `git diff`. Any hunks touching `openspec/` are stripped before the patch is applied to the host. Dropped paths are logged. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
 
 ### 3. The Holdout Set (Hidden Tests)
@@ -116,7 +116,7 @@ We can leverage existing open-source evaluation infrastructure rather than build
 
 ```bash
 leash --no-interactive --image saifac-coder-node-pnpm-python:latest \
-  --volume /path/to/sandbox:/workspace --policy leash-policy.cedar \
+  --volume /path/to/sandbox:/workspace --policy policies/leash-policy.cedar \
   openhands --headless --always-approve -t "Implement plan.md"
 ```
 

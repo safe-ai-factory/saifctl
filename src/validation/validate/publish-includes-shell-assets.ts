@@ -1,13 +1,21 @@
 /**
- * Ensures every .sh asset under runtime-used trees is included in the npm publish
- * file list (via `npm pack --dry-run`, matching package.json "files").
+ * Ensures packaged runtime assets are listed in the npm publish file list (via
+ * `npm pack --dry-run`, matching package.json "files"):
+ * - every .sh under runtime-used trees
+ * - explicit Cedar policy files used by the CLI default / docs
  */
 
 import { spawnSync } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
+import { access, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { getSaifRoot } from '../../constants.js';
+
+/** Cedar policies that must ship with the package (keep in sync with package.json "files"). */
+const REQUIRED_CEDAR_PATHS = [
+  'src/orchestrator/policies/leash-policy.cedar',
+  'src/orchestrator/policies/leash-policy.deny-network.cedar',
+] as const;
 
 /** Directories (relative to package root) whose .sh files must ship in the tarball. */
 const SH_ASSET_ROOTS = [
@@ -67,17 +75,47 @@ function listNpmPackPaths(packageRoot: string): Set<string> {
 export default async function (): Promise<void> {
   const root = getSaifRoot();
   const packed = listNpmPackPaths(root);
-  const required: string[] = [];
+  const requiredSh: string[] = [];
   for (const sub of SH_ASSET_ROOTS) {
-    required.push(...(await collectShRelativePaths(root, sub)));
+    requiredSh.push(...(await collectShRelativePaths(root, sub)));
   }
 
-  const missing = required.filter((p) => !packed.has(p)).sort();
-  if (missing.length > 0) {
-    throw new Error(
+  const missingSh = requiredSh.filter((p) => !packed.has(p)).sort();
+
+  const missingCedar: string[] = [];
+  const missingCedarOnDisk: string[] = [];
+  for (const p of REQUIRED_CEDAR_PATHS) {
+    try {
+      await access(join(root, p));
+    } catch {
+      missingCedarOnDisk.push(p);
+      continue;
+    }
+    if (!packed.has(p)) missingCedar.push(p);
+  }
+
+  const parts: string[] = [];
+  if (missingSh.length > 0) {
+    parts.push(
       'These .sh files exist in the repo but are not in the npm pack output. ' +
         'Expand package.json "files" (or fix .npmignore) so they ship:\n' +
-        missing.map((p) => `  - ${p}`).join('\n'),
+        missingSh.map((p) => `  - ${p}`).join('\n'),
     );
+  }
+  if (missingCedarOnDisk.length > 0) {
+    parts.push(
+      'These Cedar policy paths are required by validation but missing on disk:\n' +
+        missingCedarOnDisk.map((p) => `  - ${p}`).join('\n'),
+    );
+  }
+  if (missingCedar.length > 0) {
+    parts.push(
+      'These Cedar policy files are not in the npm pack output. Add them to package.json "files":\n' +
+        missingCedar.map((p) => `  - ${p}`).join('\n'),
+    );
+  }
+
+  if (parts.length > 0) {
+    throw new Error(parts.join('\n\n'));
   }
 }

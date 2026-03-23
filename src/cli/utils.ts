@@ -690,7 +690,7 @@ export function parseCedarPolicyPath(args: FeatRunArgs, config?: SaifConfig): st
   if (typeof v === 'string' && v.trim()) return v.trim();
   return (
     config?.defaults?.cedarPolicyPath ??
-    join(getSaifRoot(), 'src', 'orchestrator', 'leash-policy.cedar')
+    join(getSaifRoot(), 'src', 'orchestrator', 'policies', 'leash-policy.cedar')
   );
 }
 

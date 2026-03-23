@@ -206,7 +206,7 @@ There is zero functional difference or configuration changes required — the fa
 
 See [Hatchet integration](hatchet.md) for the quick-start guide.
 
-## Access control with Cedar
+## Access control with Leash and Cedar
 
 The coding agents' have restricted filesystem and network access.
 
@@ -226,7 +226,7 @@ Override with `--cedar` to supply your own Cedar policy:
 saifac feat run --cedar ./my-policy.cedar
 ```
 
-[See the full default policy and customization guide here](./cedar-access-control.md).
+[See the full default policy and customization guide here](./leash-access-control.md).
 
 ## Configure spec generation
 
