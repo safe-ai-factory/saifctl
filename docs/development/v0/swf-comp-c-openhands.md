@@ -76,7 +76,7 @@ docker run -it --pull=always \
   python -m openhands.core.main -t "Implement plan.md"
 ```
 
-_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/leash-policy.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--dangerous-debug` to run OpenHands directly on the host.)_
+_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--dangerous-debug` to run OpenHands directly on the host.)_
 
 ---
 

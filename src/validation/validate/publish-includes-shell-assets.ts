@@ -13,8 +13,8 @@ import { getSaifRoot } from '../../constants.js';
 
 /** Cedar policies that must ship with the package (keep in sync with package.json "files"). */
 const REQUIRED_CEDAR_PATHS = [
-  'src/orchestrator/policies/leash-policy.cedar',
-  'src/orchestrator/policies/leash-policy.deny-network.cedar',
+  'src/orchestrator/policies/default.cedar',
+  'src/orchestrator/policies/deny-network.cedar',
 ] as const;
 
 /** Directories (relative to package root) whose .sh files must ship in the tarball. */

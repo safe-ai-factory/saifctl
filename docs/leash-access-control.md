@@ -11,7 +11,7 @@ An agent that can read and write the whole workspace and reach any host on the i
 Save as `saifac/policies/allowlist.cedar` (paths and hostnames are yours to tune):
 
 ```cedar
-// Filesystem: same as leash-policy.cedar
+// Filesystem: same as default.cedar
 permit (
     principal,
     action == Action::"ReadFile",
@@ -65,7 +65,7 @@ Omit `--cedar` to use the default policy:
 saifac feat run -n your-feature
 ```
 
-In this repository the bundled file is `src/orchestrator/policies/leash-policy.cedar` (published inside the npm package).
+In this repository the bundled file is `src/orchestrator/policies/default.cedar` (published inside the npm package).
 
 Default policy:
 

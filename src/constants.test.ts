@@ -10,8 +10,8 @@ describe('getSaifRoot', () => {
     const root = getSaifRoot();
     expect(root).toMatch(/^\/.+/); // absolute path
     expect(await pathExists(join(root, 'package.json'))).toBe(true);
-    expect(
-      await pathExists(join(root, 'src', 'orchestrator', 'policies', 'leash-policy.cedar')),
-    ).toBe(true);
+    expect(await pathExists(join(root, 'src', 'orchestrator', 'policies', 'default.cedar'))).toBe(
+      true,
+    );
   });
 });

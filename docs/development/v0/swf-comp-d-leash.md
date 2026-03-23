@@ -48,7 +48,7 @@ When Leash is enabled, the Orchestrator runs the **Leash CLI** (`@strongdm/leash
 leash --no-interactive --verbose
       --image saifac-coder-node-pnpm-python:latest
       --volume /tmp/saifac/sandboxes/<feat>-<runId>/code:/workspace
-      --policy policies/leash-policy.cedar
+      --policy policies/default.cedar
       --env LLM_MODEL=... --env LLM_API_KEY=... [--env LLM_PROVIDER=...] [--env LLM_BASE_URL=...] --env SAIFAC_WORKSPACE_BASE=/workspace
       /saifac/coder-start.sh
 ```
@@ -77,7 +77,7 @@ StrongDM's reference `public.ecr.aws/s5i7k8t3/strongdm/coder` image bundles seve
 
 ### Network enforcement
 
-Leash enforces outbound connectivity using its MITM proxy and Cedar `NetworkConnect` rules (see [Leash Cedar design](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md) — resources use `Host::"hostname"`). HTTPS clients inside the target container must trust the Leash CA (the harness configures this where needed so tools like `pnpm`/`curl` can reach allowed hosts). Tighten or relax allowlists by editing the active Cedar file (`--cedar`, default `src/orchestrator/policies/leash-policy.cedar`). For experiments, see `src/orchestrator/policies/leash-policy.deny-network.cedar`.
+Leash enforces outbound connectivity using its MITM proxy and Cedar `NetworkConnect` rules (see [Leash Cedar design](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md) — resources use `Host::"hostname"`). HTTPS clients inside the target container must trust the Leash CA (the harness configures this where needed so tools like `pnpm`/`curl` can reach allowed hosts). Tighten or relax allowlists by editing the active Cedar file (`--cedar`, default `src/orchestrator/policies/default.cedar`). For experiments, see `src/orchestrator/policies/deny-network.cedar`.
 
 ### What Leash Provides (Active)
 
@@ -91,14 +91,14 @@ Leash enforces outbound connectivity using its MITM proxy and Cedar `NetworkConn
 ### What We Rely On
 
 - **Pure file copy sandbox** — `rsync` copies the repo to `/tmp/saifac/sandboxes/.../code`; agent only sees that copy.
-- **Cedar policy** — `src/orchestrator/policies/leash-policy.cedar` permits read/write in `/workspace`, forbids writes to `/workspace/saifac/`, and (by default) permits outbound `NetworkConnect` broadly; use a stricter policy when you want hostname allowlists.
+- **Cedar policy** — `src/orchestrator/policies/default.cedar` permits read/write in `/workspace`, forbids writes to `/workspace/saifac/`, and (by default) permits outbound `NetworkConnect` broadly; use a stricter policy when you want hostname allowlists.
 - **Patch filtering** — any `saifac/` changes are dropped before the patch is applied to the host.
 
 ---
 
 ## Cedar Policy (Default)
 
-We ship default policies under `src/orchestrator/policies/` (`leash-policy.cedar`, `leash-policy.deny-network.cedar`):
+We ship default policies under `src/orchestrator/policies/` (`default.cedar`, `deny-network.cedar`):
 
 - **Read/write** — allowed anywhere in `/workspace`
 - **Forbid** — writes to `/workspace/saifac/`
@@ -113,7 +113,7 @@ Override with `--cedar <path>` when running `saifac feat run` or `saifac run res
 | Option                | Purpose                                                                                                  |
 | --------------------- | -------------------------------------------------------------------------------------------------------- |
 | `--dangerous-debug`   | Skip Leash; run OpenHands directly on the host (filesystem sandbox only). Use for debugging.             |
-| `--cedar <path>`      | Custom Cedar policy file (default: `src/orchestrator/policies/leash-policy.cedar`).                        |
+| `--cedar <path>`      | Custom Cedar policy file (default: `src/orchestrator/policies/default.cedar`).                        |
 | `--coder-image <tag>` | Custom target container image (default: from `--profile`, e.g. `saifac-coder-node-pnpm-python:latest`). |
 
 ---

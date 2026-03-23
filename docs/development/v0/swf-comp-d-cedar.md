@@ -65,7 +65,7 @@ Because they are plain text, **Cedar policies must be checked into Git** right a
   |- src/
       |- orchestrator/
           |- policies/
-          |   |- leash-policy.cedar
+          |   |- default.cedar
           |- run-factory.ts
   |- policies/
       |- agent-sandbox.cedar      <-- Source-controlled policy file

@@ -1,11 +1,11 @@
-// Test policy: same filesystem rules as leash-policy.cedar; outbound network is
+// Test policy: same filesystem rules as default.cedar; outbound network is
 // default-deny except registry.npmjs.org.
 // Everything else stays denied for NetworkConnect.
 //
 // Try with the debug agent (HTTP probe):
-//   saifac feat run ... --agent debug --cedar src/orchestrator/policies/leash-policy.deny-network.cedar
+//   saifac feat run ... --agent debug --cedar src/orchestrator/policies/deny-network.cedar
 
-// ── Filesystem (aligned with leash-policy.cedar) ────────────────────────────
+// ── Filesystem (aligned with default.cedar) ────────────────────────────
 
 permit (
     principal,

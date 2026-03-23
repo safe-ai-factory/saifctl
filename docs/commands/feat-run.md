@@ -45,7 +45,7 @@ saifac feature run [options]
 | `--test-retries`       | —     | string  | How many times to retry when tests fail (default: 1)                                                                                                                |
 | `--resolve-ambiguity`  | —     | string  | How to handle spec ambiguity on failures. `ai` \| `prompt` \| `off` (default: `ai`)                                                                                 |
 | `--dangerous-debug`    | —     | boolean | Skip Leash; run OpenHands directly on the host. Use only for development/debugging.                                                                                 |
-| `--cedar`              | —     | string  | Absolute path to Cedar policy file for Leash (default: `src/orchestrator/policies/leash-policy.cedar` in the package)                                                  |
+| `--cedar`              | —     | string  | Absolute path to Cedar policy file for Leash (default: `src/orchestrator/policies/default.cedar` in the package)                                                  |
 | `--coder-image`        | —     | string  | Docker image for the coder container (default: from `--profile`)                                                                                                    |
 | `--gate-retries`       | —     | string  | Max gate retries per run (default: 10)                                                                                                                              |
 | `--no-reviewer`        | —     | boolean | Disable the semantic AI reviewer. Use when Argus is unavailable or to speed up runs.                                                                                |
