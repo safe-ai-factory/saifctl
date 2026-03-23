@@ -183,7 +183,8 @@ export const featRunArgs = {
   },
   cedar: {
     type: 'string' as const,
-    description: 'Absolute path to Cedar policy file for Leash (default: leash-policy.cedar).',
+    description:
+      'Absolute path to Cedar policy file for Leash (default: src/orchestrator/policies/leash-policy.cedar).',
   },
   'coder-image': {
     type: 'string' as const,

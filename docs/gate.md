@@ -80,8 +80,23 @@ export default {
 
 ---
 
+## Installing dependencies
+
+The gate runs in the **coder container**, so anything your script invokes (linters, compilers, CLIs) must exist in that environment. If the container is missing a tool, you can add it in three ways:
+
+1. **Inline in `gate.sh`** 
+   - For a **small** addition, run the install steps at the top of your gate script (the file you pass to `--gate-script`, or edits you keep in-repo). Prefer **idempotent** commands, because the gate may be executed many times per run.
+2. **Override the agent install script** 
+   - For a **one-time** setup when the coding environment comes up, use [`--agent-install-script`](commands/feat-run.md). See [Agents](development/agents.md) for how `agent-install.sh` fits the loop.
+3. **Custom coder image** 
+   - Build a Docker image with everything baked in and pass [`--coder-image`](commands/feat-run.md) (or [`defaults.coderImage`](config.md)). Best when installs are large, slow, or you want a fixed, reproducible toolchain for the whole team.
+
+---
+
 ## See also
 
 - [Semantic Code Reviewer](reviewer.md) — reviewer step after the gate
 - [Sandbox profiles](sandbox-profiles.md) — `--profile` and overriding `gate-script`
-- [Configuration](config.md) — `defaults.gateScript` and `defaults.gateRetries`
+- [Configuration](config.md) — `defaults.gateScript`, `defaults.gateRetries`, `agentInstallScript`, `coderImage`
+- [`saifac feat run`](commands/feat-run.md) — `--gate-script`, `--agent-install-script`, `--coder-image`
+- [Agents](development/agents.md) — `agent-install.sh` and the agent loop

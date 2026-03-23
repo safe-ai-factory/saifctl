@@ -123,3 +123,11 @@ For example, NodeJS web apps should define a `start` script, because the profile
 | `rust-node`          | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |
 | `rust-node-python`   | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |
 | `rust-python`        | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |
+
+## Notes
+
+### Monorepos
+
+**Built-in profiles do not support monorepos.** They assume a single project root: one `package.json` / `pyproject.toml` / `go.mod` / `Cargo.toml` style layout, with startup, gate, and stage behavior tuned for that pattern.
+
+If your repo is a monorepo (workspaces, multiple packages, tools like Turborepo or Nx, mixed roots, etc.), pick a profile only for the **base image and toolchain**, then supply your own scripts.
