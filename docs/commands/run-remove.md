@@ -52,5 +52,5 @@ saifac run rm add-login-r1 --storage runs=file:///tmp/my-runs
 
 - [Runs](../runs.md) — Run storage, resumption, and overview
 - [`run list`](run-list.md) — List stored runs (get run IDs)
-- [`run inspect`](run-inspect.md) — View a run artifact
+- [`run info`](run-info.md) — View a saved run (summary JSON)
 - [`run clear`](run-clear.md) — Bulk delete runs

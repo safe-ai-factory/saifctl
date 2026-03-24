@@ -99,6 +99,6 @@ saifac run test add-login-r1 --storage runs=s3://my-bucket/runs
 - [Runs](../runs.md) — How saved runs and storage work
 - [`feat run`](feat-run.md) — Start a new implementation run
 - [`run list`](run-list.md) — List saved run ids
-- [`run inspect`](run-inspect.md) — View a saved run (summary JSON)
+- [`run info`](run-info.md) — View a saved run (summary JSON)
 - [`run resume`](run-resume.md) — Continue with the agent after a failure
 - [`run remove`](run-remove.md) — Delete a saved run

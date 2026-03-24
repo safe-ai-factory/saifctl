@@ -1,5 +1,5 @@
 /**
- * Integration tests for `saifac run inspect`.
+ * Integration tests for `saifac run info`.
  * `--no-pretty` is citty’s negation of the `pretty` boolean (default true).
  */
 
@@ -16,7 +16,7 @@ import runCommand from './run.js';
 const EXIT_SENTINEL = '__PROCESS_EXIT__';
 
 async function withTempProject(fn: (projectDir: string) => Promise<void>): Promise<void> {
-  const projectDir = await mkdtemp(join(tmpdir(), 'saifac-run-inspect-'));
+  const projectDir = await mkdtemp(join(tmpdir(), 'saifac-run-info-'));
   try {
     await fn(projectDir);
   } finally {
@@ -116,13 +116,13 @@ async function runRunSubcommand(rawArgs: string[]): Promise<RunCapture> {
   }
 }
 
-describe('saifac run inspect', () => {
+describe('saifac run info', () => {
   it('prints pretty JSON without diffs or script bodies; keeps script paths', async () => {
     await withTempProject(async (projectDir) => {
       await writeRunJson(projectDir, 'ins1');
 
       const { logs, errors, exitCode } = await runRunSubcommand([
-        'inspect',
+        'info',
         'ins1',
         '--project-dir',
         projectDir,
@@ -150,7 +150,7 @@ describe('saifac run inspect', () => {
       await writeRunJson(projectDir, 'ins2');
 
       const { logs, errors, exitCode } = await runRunSubcommand([
-        'inspect',
+        'info',
         'ins2',
         '--project-dir',
         projectDir,
@@ -170,7 +170,7 @@ describe('saifac run inspect', () => {
   it('errors when run not found', async () => {
     await withTempProject(async (projectDir) => {
       const { logs, errors, exitCode } = await runRunSubcommand([
-        'inspect',
+        'info',
         'missing',
         '--project-dir',
         projectDir,
@@ -187,7 +187,7 @@ describe('saifac run inspect', () => {
       await writeRunJson(projectDir, 'x');
 
       const { logs, errors, exitCode } = await runRunSubcommand([
-        'inspect',
+        'info',
         'x',
         '--project-dir',
         projectDir,

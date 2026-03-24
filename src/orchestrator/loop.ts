@@ -58,7 +58,7 @@ export interface IterativeLoopOpts {
   sandboxProfileId: SupportedSandboxProfileId;
   /**
    * Coding agent profile id (e.g. 'openhands', 'debug'). Persisted in run artifacts for accurate
-   * resume/inspect; scripts are resolved from this profile unless overridden via --agent-script.
+   * resume/info; scripts are resolved from this profile unless overridden via --agent-script.
    */
   agentProfileId: SupportedAgentProfileId;
   /** Resolved feature (name, absolutePath, relativePath). */

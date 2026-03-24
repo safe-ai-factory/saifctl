@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RunArtifact } from '../types.js';
-import { toRunInspectJson } from './run-inspect.js';
+import { toRunInfoJson } from './run-info.js';
 
 const minimalArtifact: RunArtifact = {
   runId: 'r1',
@@ -57,15 +57,15 @@ const minimalArtifact: RunArtifact = {
   updatedAt: '2026-01-02T00:00:00.000Z',
 };
 
-describe('toRunInspectJson', () => {
+describe('toRunInfoJson', () => {
   it('omits patch diff fields', () => {
-    const view = toRunInspectJson(minimalArtifact);
+    const view = toRunInfoJson(minimalArtifact);
     expect(view).not.toHaveProperty('basePatchDiff');
     expect(view).not.toHaveProperty('runPatchDiff');
   });
 
   it('omits script bodies but keeps *File paths', () => {
-    const view = toRunInspectJson(minimalArtifact);
+    const view = toRunInfoJson(minimalArtifact);
     const cfg = view.config as Record<string, unknown>;
     expect(cfg.startupScriptFile).toBe('path/startup.sh');
     expect(cfg.testScriptFile).toBe('path/test.sh');
@@ -78,7 +78,7 @@ describe('toRunInspectJson', () => {
   });
 
   it('preserves other top-level fields', () => {
-    const view = toRunInspectJson(minimalArtifact);
+    const view = toRunInfoJson(minimalArtifact);
     expect(view.runId).toBe('r1');
     expect(view.specRef).toBe('saifac/features/x');
     expect(view.lastFeedback).toBe('feedback line');
@@ -87,7 +87,7 @@ describe('toRunInspectJson', () => {
 
   it('does not mutate the source artifact', () => {
     const copy = structuredClone(minimalArtifact);
-    toRunInspectJson(minimalArtifact);
+    toRunInfoJson(minimalArtifact);
     expect(minimalArtifact).toEqual(copy);
   });
 });

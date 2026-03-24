@@ -104,6 +104,6 @@ Once the workspace is reconstructed, `run resume` follows the same flow as `feat
 - [Runs](../runs.md) — Storage backends, portability, resumption overview
 - [`feat run`](feat-run.md) — Full flag list and new-run behavior
 - [`run list`](run-list.md) — List stored run IDs
-- [`run inspect`](run-inspect.md) — Inspect a stored artifact
+- [`run info`](run-info.md) — View a saved run (summary JSON)
 - [`run test`](run-test.md) — Re-test a stored patch without the coding agent
 - [`run remove`](run-remove.md) — Delete a stored run

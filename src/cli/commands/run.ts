@@ -5,7 +5,7 @@
  * Usage: saifac run <subcommand> [options]
  *   ls, list      List stored runs
  *   rm, remove    Delete a run
- *   inspect       Print stored run as JSON
+ *   info          Print stored run as JSON
  *   clear         Clear stored runs (optionally filtered)
  *   resume        Resume a stored run from storage
  *   test          Re-test a stored run's patch (no coding agent)
@@ -22,7 +22,7 @@ import {
   type OrchestratorCliInput,
   parseModelOverridesCliDelta,
 } from '../../orchestrator/options.js';
-import { toRunInspectJson } from '../../runs/utils/run-inspect.js';
+import { toRunInfoJson } from '../../runs/utils/run-info.js';
 import { featResumeArgs, projectDirArg, runTestArgs, saifDirArg, storageArg } from '../args.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
@@ -162,16 +162,16 @@ const rmCommand = defineCommand({
   },
 });
 
-const inspectCommand = defineCommand({
+const infoCommand = defineCommand({
   meta: {
-    name: 'inspect',
+    name: 'info',
     description: 'Print a stored run as JSON (omits diffs; script paths only)',
   },
   args: {
     ...commonRunArgs,
     runId: {
       type: 'positional' as const,
-      description: 'Run ID to inspect',
+      description: 'Run ID to show',
       required: true,
     },
     pretty: {
@@ -197,7 +197,7 @@ const inspectCommand = defineCommand({
       process.exit(1);
     }
 
-    const view = toRunInspectJson(artifact);
+    const view = toRunInfoJson(artifact);
     const pretty = args.pretty !== false;
     outputCliData(JSON.stringify(view, null, pretty ? 2 : undefined));
   },
@@ -339,7 +339,7 @@ const runCommand = defineCommand({
     list: lsCommand,
     rm: rmCommand,
     remove: rmCommand,
-    inspect: inspectCommand,
+    info: infoCommand,
     clear: clearCommand,
     resume: resumeCommand,
     test: testCommand,

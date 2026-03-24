@@ -1,5 +1,5 @@
 /**
- * View model for `saifac run inspect` — JSON-safe snapshot without large blobs.
+ * View model for `saifac run info` — JSON-safe snapshot without large blobs.
  */
 
 import type { RunArtifact } from '../types.js';
@@ -18,7 +18,7 @@ const SCRIPT_BODY_KEYS = [
  * Clone of the stored run suitable for terminal JSON: omits patch diffs and script bodies;
  * keeps `*ScriptFile` / `testScriptFile` paths only.
  */
-export function toRunInspectJson(artifact: RunArtifact): Record<string, unknown> {
+export function toRunInfoJson(artifact: RunArtifact): Record<string, unknown> {
   const clone = structuredClone(artifact);
   delete clone.basePatchDiff;
   /** @ts-expect-error - runPatchDiff is not a property of RunArtifact */

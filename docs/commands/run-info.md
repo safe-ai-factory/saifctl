@@ -1,18 +1,18 @@
-# saifac run inspect
+# saifac run info
 
 Print a stored run artifact as JSON for debugging or piping to tools.
 
 ## Usage
 
 ```bash
-saifac run inspect <runId> [options]
+saifac run info <runId> [options]
 ```
 
 ## Arguments
 
 | Argument        | Alias | Type    | Description                                                                                   |
 | --------------- | ----- | ------- | --------------------------------------------------------------------------------------------- |
-| `runId`         | —     | string  | Run ID to inspect (positional, required)                                                    |
+| `runId`         | —     | string  | Run ID to show (positional, required)                                                         |
 | `--pretty`      | —     | boolean | Pretty-print JSON (default: true). Citty maps `--no-pretty` to `pretty: false` (single line). |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                      |
 | `--saifac-dir`  | —     | string  | Saifac config directory relative to project (default: `saifac`)                             |
@@ -27,13 +27,13 @@ If run storage is disabled (e.g. `--storage none` or `runs=none`), or the run ID
 Pretty-printed JSON (default):
 
 ```bash
-saifac run inspect abc12x
+saifac run info abc12x
 ```
 
 Compact JSON for piping:
 
 ```bash
-saifac run inspect abc12x --no-pretty | jq .config.featureName
+saifac run info abc12x --no-pretty | jq .config.featureName
 ```
 
 Example of the default **pretty-printed** output:

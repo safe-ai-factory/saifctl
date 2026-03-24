@@ -85,7 +85,7 @@
     "saifac:run:test": "tsx src/cli/commands/run.ts test",
     "saifac:run:remove": "tsx src/cli/commands/run.ts remove",
     "saifac:run:clear": "tsx src/cli/commands/run.ts clear",
-    "saifac:run:inspect": "tsx src/cli/commands/run.ts inspect",
+    "saifac:run:info": "tsx src/cli/commands/run.ts info",
     "saifac:doctor": "tsx src/cli/commands/doctor.ts",
     "docker": "tsx scripts/docker.ts",
     "docker:build:test": "pnpm docker build test",
