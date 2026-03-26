@@ -325,6 +325,8 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
   const { sandbox, runContext, opts, runStorage, saveRunOptions } = params;
   const runId = sandbox.runId;
 
+  const existingArtifact = await runStorage.getRun(runId);
+
   // Interrupt path: reuse commits the loop already flushed to disk so resume isn’t blind;
   // bad/missing JSON → empty array.
   const commitsPath = join(sandbox.sandboxBasePath, 'run-commits.json');
@@ -348,6 +350,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
     specRef: opts.feature.relativePath,
     lastFeedback: runContext.lastErrorFeedback,
     rules: runContext.rules,
+    roundSummaries: existingArtifact?.roundSummaries,
     status: 'failed',
     opts,
   });

@@ -26,7 +26,12 @@ import { createProvisioner } from '../provisioners/index.js';
 import { type CoderInspectSessionHandle } from '../provisioners/types.js';
 import { cloneRunRules, rulesForPrompt } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
-import { RunAlreadyRunningError, type RunCommit, StaleArtifactError } from '../runs/types.js';
+import {
+  type OuterAttemptSummary,
+  RunAlreadyRunningError,
+  type RunCommit,
+  StaleArtifactError,
+} from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
 import { resolveFeature } from '../specs/discover.js';
@@ -161,6 +166,8 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
      * If the revision is not the same as the one in storage, the save will fail.
      */
     artifactRevisionAtResume?: number;
+    /** Prior {@link RunArtifact#roundSummaries} when resuming a stored run */
+    seedRoundSummaries?: OuterAttemptSummary[];
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -543,6 +550,7 @@ async function runStartCore(
     runContext,
     initialErrorFeedback: opts.resume?.initialErrorFeedback ?? null,
     seedRunCommits: opts.resume?.seedRunCommits ?? [],
+    seedRoundSummaries: opts.resume?.seedRoundSummaries,
     registry,
   });
 }
@@ -628,6 +636,7 @@ async function runResumeCore(
     sandboxSourceDir: worktreePath,
     baseSnapshotPath,
     seedRunCommits: artifact.runCommits,
+    seedRoundSummaries: artifact.roundSummaries,
     runContext: {
       baseCommitSha: artifact.baseCommitSha,
       basePatchDiff: artifact.basePatchDiff,
@@ -870,6 +879,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
               specRef: feature.relativePath,
               lastFeedback: artifact.lastFeedback,
               rules: runContext.rules,
+              roundSummaries: artifact.roundSummaries,
               status: artifact.status,
               opts: artifactLoopOpts as BuildRunArtifactOpts,
             });

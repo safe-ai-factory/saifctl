@@ -48,8 +48,11 @@ export class RunStorage {
     readonly uri: string,
   ) {}
 
+  /**
+   * @returns The new {@link RunArtifact#artifactRevision} after the write.
+   */
   /* eslint-disable-next-line max-params */
-  async saveRun(runId: string, artifact: RunArtifact, options?: RunSaveOptions): Promise<void> {
+  async saveRun(runId: string, artifact: RunArtifact, options?: RunSaveOptions): Promise<number> {
     const existing = await this.storage.get(runId);
     const currentRev = existing?.artifactRevision ?? 0;
     if (options?.ifRevisionEquals !== undefined && currentRev !== options.ifRevisionEquals) {
@@ -70,6 +73,7 @@ export class RunStorage {
     };
 
     await this.storage.save(runId, merged);
+    return merged.artifactRevision!;
   }
 
   async setStatusRunning(runId: string, artifact: RunArtifact): Promise<number> {

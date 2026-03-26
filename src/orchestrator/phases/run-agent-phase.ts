@@ -28,6 +28,7 @@ import {
   type Sandbox,
 } from '../sandbox.js';
 import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
+import { prepareRoundsStatsFile } from '../stats.js';
 
 export interface RunAgentPhaseInput {
   sandbox: Sandbox;
@@ -114,6 +115,8 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       featureName: feature.name,
       projectDir,
     });
+
+    await prepareRoundsStatsFile(sandbox.sandboxBasePath);
 
     await codingProvisioner.runAgent({
       codePath: sandbox.codePath,

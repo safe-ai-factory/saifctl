@@ -40,6 +40,40 @@ export interface RunCommit {
   author?: string;
 }
 
+/** Outcome of one inner iteration in coder-start.sh (agent → gate → optional reviewer). */
+export type InnerRoundPhase =
+  | 'agent_failed'
+  | 'gate_passed'
+  | 'gate_failed'
+  | 'reviewer_passed'
+  | 'reviewer_failed';
+
+export interface InnerRoundSummary {
+  /** 1-based inner round index within this outer attempt */
+  round: number;
+  phase: InnerRoundPhase;
+  /** Agent/gate/reviewer output on failure; truncated in shell (~2k chars) */
+  gateOutput?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
+/** Outcome of one orchestrator outer attempt (one agent container + staging tests). */
+export type OuterAttemptPhase = 'no_changes' | 'tests_passed' | 'tests_failed' | 'aborted';
+
+export interface OuterAttemptSummary {
+  /** 1-based outer attempt index */
+  attempt: number;
+  phase: OuterAttemptPhase;
+  innerRoundCount: number;
+  innerRounds: InnerRoundSummary[];
+  commitCount: number;
+  patchBytes: number;
+  errorFeedback?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
 /** Options for {@link RunStorage.saveRun} optimistic locking updates. */
 export interface RunSaveOptions {
   /**
@@ -110,4 +144,10 @@ export interface RunArtifact {
   status: RunStatus;
   startedAt: string;
   updatedAt: string;
+
+  /**
+   * Per-attempt summaries (inner gate rounds + test outcome), appended after each outer attempt.
+   * Saved incrementally while status is `"running"` when run storage is enabled.
+   */
+  roundSummaries?: OuterAttemptSummary[];
 }

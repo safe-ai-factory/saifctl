@@ -54,8 +54,14 @@ import { applyPatchToHost } from '../../orchestrator/phases/apply-patch.js';
 import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
 import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
 import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
+import {
+  buildOuterAttemptSummary,
+  readInnerRounds,
+  roundsStatsPath,
+} from '../../orchestrator/stats.js';
 import { activeOnceRuleIds, markOnceRulesConsumed, rulesForPrompt } from '../../runs/rules.js';
 import {
+  type OuterAttemptSummary,
   RunAlreadyRunningError,
   type RunCommit,
   type RunRule,
@@ -123,6 +129,32 @@ const runRuleSchema = z.object({
   consumedAt: z.string().optional(),
 });
 
+const innerRoundSummarySchema = z.object({
+  round: z.number(),
+  phase: z.enum([
+    'agent_failed',
+    'gate_passed',
+    'gate_failed',
+    'reviewer_passed',
+    'reviewer_failed',
+  ]),
+  gateOutput: z.string().optional(),
+  startedAt: z.string(),
+  completedAt: z.string(),
+});
+
+const outerAttemptSummarySchema = z.object({
+  attempt: z.number(),
+  phase: z.enum(['no_changes', 'tests_passed', 'tests_failed', 'aborted']),
+  innerRoundCount: z.number(),
+  innerRounds: z.array(innerRoundSummarySchema),
+  commitCount: z.number(),
+  patchBytes: z.number(),
+  errorFeedback: z.string().optional(),
+  startedAt: z.string(),
+  completedAt: z.string(),
+});
+
 export const convergenceOutputSchema = z.object({
   success: z.boolean(),
   attempt: z.number(),
@@ -131,6 +163,7 @@ export const convergenceOutputSchema = z.object({
   lastPatchContent: z.string().optional(),
   lastErrorFeedback: z.string().optional(),
   rules: z.array(runRuleSchema),
+  roundSummaries: z.array(outerAttemptSummarySchema).optional(),
 });
 export type ConvergenceOutput = z.infer<typeof convergenceOutputSchema>;
 
@@ -362,6 +395,7 @@ export function createFeatRunWorkflow() {
             runCommits: opts.resume?.seedRunCommits ?? [],
             specRef: opts.feature.relativePath,
             rules: input.runContext.rules,
+            roundSummaries: opts.resume?.seedRoundSummaries,
             status: 'running',
             opts: loopOpts,
           });
@@ -392,6 +426,9 @@ export function createFeatRunWorkflow() {
 
       const rulesFromWire = (): RunRule[] => structuredClone(input.runContext.rules);
 
+      // Summaries not collected during test-only runs (since no agent is run).
+      const testRoundSummaries: OuterAttemptSummary[] = [];
+
       if (testOnly) {
         consola.log('[hatchet] test-only — skipping agent iterations; running verification tests.');
         const runCommitsAccum = [...(resume?.seedRunCommits ?? [])];
@@ -418,6 +455,7 @@ export function createFeatRunWorkflow() {
             patchPath: null,
             lastRunId: verify.lastRunId,
             rules: rulesFromWire(),
+            roundSummaries: testRoundSummaries,
           };
         }
         if (verify.kind === 'aborted') {
@@ -428,6 +466,7 @@ export function createFeatRunWorkflow() {
             lastRunId: `${sandboxRaw.runId}-1-1`,
             lastErrorFeedback: 'Test run was cancelled.',
             rules: rulesFromWire(),
+            roundSummaries: testRoundSummaries,
           };
         }
         const base = 'An external service attempted to use this project and failed. ';
@@ -441,6 +480,7 @@ export function createFeatRunWorkflow() {
           lastRunId: `${sandboxRaw.runId}-1-1`,
           lastErrorFeedback: base + hint,
           rules: rulesFromWire(),
+          roundSummaries: testRoundSummaries,
         };
       }
 
@@ -451,9 +491,11 @@ export function createFeatRunWorkflow() {
       let lastErrorFeedback = '';
       let lastRunId = '';
       let runCommitsAccum: RunCommit[] = [...(resume?.seedRunCommits ?? [])];
+      const roundSummaries: OuterAttemptSummary[] = [];
 
       for (let attempt = 1; attempt <= maxRuns; attempt++) {
         consola.log(`\n[hatchet] ===== ATTEMPT ${attempt}/${maxRuns} =====`);
+        const attemptStartedAt = new Date().toISOString();
 
         // Some rules are marked as "once" and should be consumed after the coding round.
         // Thus these rules are included in the task prompt only on the first round.
@@ -489,6 +531,8 @@ export function createFeatRunWorkflow() {
           'vague-specs-check': vagueOut,
         } = iterResult;
 
+        const innerRounds = await readInnerRounds(roundsStatsPath(sandboxRaw.sandboxBasePath));
+
         // Mark once rules as consumed if they were used this round.
         if (onceIdsThisRound.length > 0) {
           markOnceRulesConsumed(rulesState, onceIdsThisRound);
@@ -500,6 +544,17 @@ export function createFeatRunWorkflow() {
             'No changes were made. Please implement the feature as described in the plan.';
           lastErrorFeedback = errorFeedback;
           lastPatchContent = '';
+          roundSummaries.push(
+            buildOuterAttemptSummary({
+              attempt,
+              phase: 'no_changes',
+              innerRounds,
+              commitCount: 0,
+              patchBytes: 0,
+              errorFeedback,
+              startedAt: attemptStartedAt,
+            }),
+          );
           continue;
         }
 
@@ -513,12 +568,23 @@ export function createFeatRunWorkflow() {
         lastRunId = testOut.testRunId;
 
         if (testOut.status === 'passed') {
+          roundSummaries.push(
+            buildOuterAttemptSummary({
+              attempt,
+              phase: 'tests_passed',
+              innerRounds,
+              commitCount: agentOut.commits.length,
+              patchBytes: agentOut.patchContent.length,
+              startedAt: attemptStartedAt,
+            }),
+          );
           return {
             success: true,
             attempt,
             patchPath: agentOut.patchPath,
             lastRunId,
             rules: rulesState,
+            roundSummaries,
           };
         }
 
@@ -531,6 +597,16 @@ export function createFeatRunWorkflow() {
             join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
             JSON.stringify(runCommitsAccum),
           );
+          roundSummaries.push(
+            buildOuterAttemptSummary({
+              attempt,
+              phase: 'aborted',
+              innerRounds,
+              commitCount: agentOut.commits.length,
+              patchBytes: agentOut.patchContent.length,
+              startedAt: attemptStartedAt,
+            }),
+          );
           return {
             success: false,
             attempt,
@@ -539,6 +615,7 @@ export function createFeatRunWorkflow() {
             lastPatchContent: agentOut.patchContent,
             lastErrorFeedback: 'Test run was cancelled.',
             rules: rulesState,
+            roundSummaries,
           };
         }
 
@@ -550,6 +627,18 @@ export function createFeatRunWorkflow() {
         lastErrorFeedback = errorFeedback;
 
         consola.log(`\n[hatchet] Attempt ${attempt} FAILED.`);
+
+        roundSummaries.push(
+          buildOuterAttemptSummary({
+            attempt,
+            phase: 'tests_failed',
+            innerRounds,
+            commitCount: agentOut.commits.length,
+            patchBytes: agentOut.patchContent.length,
+            errorFeedback,
+            startedAt: attemptStartedAt,
+          }),
+        );
 
         if (agentOut.commits.length > 0) {
           runCommitsAccum = runCommitsAccum.slice(0, -agentOut.commits.length);
@@ -572,6 +661,7 @@ export function createFeatRunWorkflow() {
         lastPatchContent,
         lastErrorFeedback,
         rules: rulesState,
+        roundSummaries,
       };
     },
   });
@@ -630,6 +720,7 @@ export function createFeatRunWorkflow() {
             specRef: opts.feature.relativePath,
             status: 'completed',
             rules: loopResult.rules,
+            roundSummaries: loopResult.roundSummaries,
             opts: loopOpts,
           });
           const expectedArtifactRevision =
@@ -701,6 +792,7 @@ export function createFeatRunWorkflow() {
             lastFeedback: lastFeedback || undefined,
             status: 'failed',
             rules: loopResult?.rules ?? input.runContext.rules,
+            roundSummaries: loopResult?.roundSummaries,
             opts: loopOpts,
           });
           const expectedArtifactRevision =

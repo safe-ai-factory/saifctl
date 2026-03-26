@@ -27,7 +27,13 @@ import {
   type TestsResult,
 } from '../provisioners/types.js';
 import { activeOnceRuleIds, markOnceRulesConsumed, rulesForPrompt } from '../runs/rules.js';
-import { type RunCommit, type RunRule, StaleArtifactError } from '../runs/types.js';
+import {
+  type InnerRoundSummary,
+  type OuterAttemptSummary,
+  type RunCommit,
+  type RunRule,
+  StaleArtifactError,
+} from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
@@ -46,6 +52,12 @@ import {
   type Sandbox,
 } from './sandbox.js';
 import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
+import {
+  buildOuterAttemptSummary,
+  prepareRoundsStatsFile,
+  readInnerRounds,
+  roundsStatsPath,
+} from './stats.js';
 
 /**
  * Builds `extractPatch` exclude rules: fixed guardrails plus optional caller rules.
@@ -289,6 +301,10 @@ export interface IterativeLoopOpts {
    */
   seedRunCommits?: RunCommit[];
   /**
+   * When resuming, seed {@link RunArtifact#roundSummaries} so new outer attempts append after prior history.
+   */
+  seedRoundSummaries?: OuterAttemptSummary[];
+  /**
    * When true, skip the coding agent and run only staging + tests (+ optional apply to host on pass).
    * Used by `saifac run test` (stored run re-verification).
    */
@@ -501,6 +517,7 @@ export async function runIterativeLoop(
   /** Accumulated run commits (seeded from resume + each successful coding round). */
   let runCommitsAccum: RunCommit[] = [...(opts.seedRunCommits ?? [])];
   let lastErrorFeedback = '';
+  let roundSummaries: OuterAttemptSummary[] = [...(opts.seedRoundSummaries ?? [])];
 
   // Resolve the coder agent's LLM config once per loop.
   // The resolved config is injected into the Leash container as LLM_* env vars.
@@ -520,6 +537,45 @@ export async function runIterativeLoop(
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
   });
+
+  /** Saves the current round progress to storage. */
+  const saveRoundProgress = async () => {
+    if (!runStorage || !runContext) return;
+    try {
+      const {
+        registry: _reg,
+        runStorage: _rs,
+        runContext: _rc,
+        resume: _resume,
+        ...loopOpts
+      } = opts;
+      const artifact = buildRunArtifact({
+        runId,
+        baseCommitSha: runContext.baseCommitSha,
+        basePatchDiff: runContext.basePatchDiff,
+        runCommits: runCommitsAccum,
+        specRef: feature.relativePath,
+        lastFeedback: lastErrorFeedback || undefined,
+        rules: runContext.rules,
+        roundSummaries,
+        status: 'running',
+        opts: loopOpts as BuildRunArtifactOpts,
+      });
+      const expectedRev = runContext.expectedArtifactRevision;
+      const newRev = await runStorage.saveRun(
+        runId,
+        artifact,
+        expectedRev !== undefined ? { ifRevisionEquals: expectedRev } : undefined,
+      );
+      runContext.expectedArtifactRevision = newRev;
+    } catch (err) {
+      if (err instanceof StaleArtifactError) {
+        consola.warn(`[orchestrator] ${err.message}`);
+      } else {
+        consola.warn('[orchestrator] Failed to save round progress:', err);
+      }
+    }
+  };
 
   const cleanupAndSaveRun = async (input: { didSucceed: boolean }) => {
     const { didSucceed } = input;
@@ -543,6 +599,7 @@ export async function runIterativeLoop(
           specRef: feature.relativePath,
           lastFeedback: didSucceed ? undefined : lastErrorFeedback || undefined,
           rules: runContext.rules,
+          roundSummaries,
           status: didSucceed ? 'completed' : 'failed',
           opts: loopOpts as BuildRunArtifactOpts,
         });
@@ -667,6 +724,8 @@ export async function runIterativeLoop(
       attempts++;
       consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} =====`);
 
+      const attemptStartedAt = new Date().toISOString();
+
       const preRoundHead = (
         await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
       ).trim();
@@ -687,6 +746,7 @@ export async function runIterativeLoop(
       const codingProvisioner = createProvisioner(codingEnvironment);
       registry?.registerProvisioner(codingProvisioner, codingRunId);
 
+      let innerRounds: InnerRoundSummary[] = [];
       try {
         await codingProvisioner.setup({
           runId: codingRunId,
@@ -694,6 +754,8 @@ export async function runIterativeLoop(
           featureName: feature.name,
           projectDir,
         });
+
+        await prepareRoundsStatsFile(sandbox.sandboxBasePath);
 
         await codingProvisioner.runAgent({
           codePath: sandbox.codePath,
@@ -715,6 +777,8 @@ export async function runIterativeLoop(
           agentLogFormat,
           reviewer,
         });
+
+        innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
       } finally {
         registry?.deregisterProvisioner(codingProvisioner);
         await codingProvisioner.teardown({ runId: codingRunId });
@@ -748,7 +812,23 @@ export async function runIterativeLoop(
         errorFeedback =
           'No changes were made. Please implement the feature as described in the plan.';
         lastErrorFeedback = errorFeedback;
-        if (runContext) runContext.lastErrorFeedback = errorFeedback;
+        if (runContext) {
+          runContext.lastErrorFeedback = errorFeedback;
+        }
+
+        roundSummaries = [
+          ...roundSummaries,
+          buildOuterAttemptSummary({
+            attempt: attempts,
+            phase: 'no_changes',
+            innerRounds,
+            commitCount: 0,
+            patchBytes: 0,
+            errorFeedback,
+            startedAt: attemptStartedAt,
+          }),
+        ];
+        await saveRoundProgress();
         continue;
       }
 
@@ -797,6 +877,19 @@ export async function runIterativeLoop(
       });
 
       if (verify.kind === 'passed') {
+        roundSummaries = [
+          ...roundSummaries,
+          buildOuterAttemptSummary({
+            attempt: attempts,
+            phase: 'tests_passed',
+            innerRounds,
+            commitCount: roundCommits.length,
+            patchBytes: patchContent.length,
+            startedAt: attemptStartedAt,
+          }),
+        ];
+        await saveRoundProgress();
+
         // 4. Success path
         consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
         await applyPatchToHost({
@@ -826,6 +919,19 @@ export async function runIterativeLoop(
       }
 
       if (verify.kind === 'aborted') {
+        roundSummaries = [
+          ...roundSummaries,
+          buildOuterAttemptSummary({
+            attempt: attempts,
+            phase: 'aborted',
+            innerRounds,
+            commitCount: roundCommits.length,
+            patchBytes: patchContent.length,
+            startedAt: attemptStartedAt,
+          }),
+        ];
+        await saveRoundProgress();
+
         consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
         if (roundCommitCount > 0) {
           runCommitsAccum = runCommitsAccum.slice(0, -roundCommitCount);
@@ -858,6 +964,20 @@ export async function runIterativeLoop(
 
       lastErrorFeedback = errorFeedback;
       if (runContext) runContext.lastErrorFeedback = errorFeedback;
+
+      roundSummaries = [
+        ...roundSummaries,
+        buildOuterAttemptSummary({
+          attempt: attempts,
+          phase: 'tests_failed',
+          innerRounds,
+          commitCount: roundCommits.length,
+          patchBytes: patchContent.length,
+          errorFeedback,
+          startedAt: attemptStartedAt,
+        }),
+      ];
+      await saveRoundProgress();
 
       consola.log(
         `\n[orchestrator] Attempt ${attempts} FAILED (tests failed after ${verify.testAttempts} run(s)).`,

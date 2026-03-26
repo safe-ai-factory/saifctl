@@ -93,7 +93,16 @@ export function serializeArtifactConfig(
   opts: IterativeLoopOpts & PersistedScriptBundle,
 ): SerializedLoopOpts {
   // Ephemeral CLI mode — never persist (resume must run the full agent loop).
-  const { feature, gitProvider, testProfile, patchExclude, testOnly: _testOnly, ...rest } = opts;
+  const {
+    feature,
+    gitProvider,
+    testProfile,
+    patchExclude,
+    testOnly: _testOnly,
+    seedRunCommits: _seedRunCommits,
+    seedRoundSummaries: _seedRoundSummaries,
+    ...rest
+  } = opts;
   return {
     ...rest,
     featureName: feature.name,

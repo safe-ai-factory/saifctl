@@ -7,8 +7,8 @@
 #
 # Runs the agent script, then calls /saifac/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
-# If the gate fails, the failure output is appended to the task prompt and
-# the agent is re-invoked, up to SAIFAC_GATE_RETRIES times.
+# If the agent script or the gate (or reviewer) fails, the failure output is appended
+# to the task prompt and the agent is re-invoked, up to SAIFAC_GATE_RETRIES times.
 #
 # Environment variables:
 #   SAIFAC_INITIAL_TASK        — the full task prompt (required)
@@ -31,6 +31,8 @@
 #   SAIFAC_REVIEWER_SCRIPT     — (optional) path to semantic reviewer script. When set and
 #                                 present, runs after the gate passes. If it fails, the round
 #                                 is treated as a gate failure and the agent retries.
+#   SAIFAC_ROUNDS_STATS_PATH     — (optional) JSONL path for inner-round summaries (default:
+#                                 `${SAIFAC_TASK_PATH}/stats.jsonl`).
 
 set -euo pipefail
 
@@ -48,6 +50,7 @@ GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/saifac/gate.sh}"
 AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/saifac/agent.sh}"
 GATE_RETRIES="${SAIFAC_GATE_RETRIES:-5}"
 TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.saifac/task.md}"
+ROUNDS_STATS_PATH="${SAIFAC_ROUNDS_STATS_PATH:-$(dirname "$TASK_PATH")/stats.jsonl}"
 
 if [ -z "${SAIFAC_INITIAL_TASK:-}" ]; then
   echo "[coder-start] ERROR: SAIFAC_INITIAL_TASK is not set." >&2
@@ -83,88 +86,177 @@ if [ -n "${SAIFAC_AGENT_INSTALL_SCRIPT:-}" ]; then
   echo "[coder-start] Agent install script completed."
 fi
 
-INITIAL_TASK="$SAIFAC_INITIAL_TASK"
-round=0
-current_task="$INITIAL_TASK"
-
-while [ "$round" -lt "$GATE_RETRIES" ]; do
-  round=$((round + 1))
-  echo "[coder-start] ===== Round $round/$GATE_RETRIES ====="
-
-  # Write the current task to SAIFAC_TASK_PATH so the agent script can read it.
-  # Agent scripts must consume the task from this file (not from env var or CLI args).
-  export SAIFAC_TASK_PATH="$TASK_PATH"
-  mkdir -p "$(dirname "$TASK_PATH")"
-  printf '%s' "$current_task" > "$TASK_PATH"
-
-  # This is where we call the actual agent, e.g. OpenHands, Aider, Claude, Codex, etc.
-  # Instead of calling openhands directly, we call the agent script - a bash script
-  # that can contain anything. This way we can use any agent, not just OpenHands.
-  echo "[coder-start] Running agent: $AGENT_SCRIPT"
-  bash "$AGENT_SCRIPT"
-  echo "[coder-start] Agent completed."
-
-  if [ -f "$GATE_SCRIPT" ]; then
-    echo "[coder-start] Running gate: $GATE_SCRIPT"
-    # Use explicit bash: bind-mounted scripts may lack +x (e.g. from the host filesystem).
-    # Capture stdout+stderr; preserve exit code without triggering set -e.
-    gate_output=$(bash "$GATE_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+# Print one JSON string token for the entire file contents, or "" if no encoder.
+# Strips a single trailing newline from encoders that print one (jq, python print, console.log).
+# Order: jq when installed (single binary); else python3 / node; else perl (Debian base); else omit body.
+json_string_from_file() {
+  local path="$1"
+  local out
+  if command -v jq >/dev/null 2>&1; then
+    out="$(jq -Rs '.' < "$path")"
+  elif command -v python3 >/dev/null 2>&1; then
+    out="$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1],encoding="utf-8",errors="replace").read()))' "$path")"
+  elif command -v node >/dev/null 2>&1; then
+    out="$(node -e "const fs=require('fs');console.log(JSON.stringify(fs.readFileSync(process.argv[1],'utf8')))" "$path")"
+  elif command -v perl >/dev/null 2>&1; then
+    # Manually escape the string using Perl.
+    out="$(perl -0777 -e '
+      my $s = <>;
+      $s =~ s/\\/\\\\/g;
+      $s =~ s/"/\\"/g;
+      $s =~ s/\n/\\n/g;
+      $s =~ s/\r/\\r/g;
+      $s =~ s/\t/\\t/g;
+      $s =~ s/([\x00-\x08\x0B\x0C\x0E-\x1F])/sprintf("\\u%04x", ord($1))/ge;
+      print "\"", $s, "\"";
+    ' < "$path")"
   else
-    # If no gate scripts, still set gate_exit to 0 so we proceed to the reviewer.
-    echo "[coder-start] No gate script at $GATE_SCRIPT — skipping static checks."
-    gate_output=""
-    gate_exit=0
+    out='""'
+  fi
+  printf '%s' "${out%$'\n'}"
+}
+
+# Capture round stats and append to the JSONL file.
+log_inner_round_summary() {
+  local phase="$1" # agent_failed | gate_passed | gate_failed | reviewer_passed | reviewer_failed
+  local out="${2-}" # raw stderr+stdout from agent, gate, or reviewer on failure (may be huge / multiline)
+  local completed_at
+  completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  mkdir -p "$(dirname "$ROUNDS_STATS_PATH")"
+
+  # Cap log size and avoid hand-escaping arbitrary bytes for JSON.
+  local truncated
+  truncated="$(printf '%s' "$out" | head -c 2000)"
+  local gate_output_json
+  if [ -n "$truncated" ]; then
+    # Truncate and escape the output.
+    local tmp
+    tmp="$(mktemp)"
+    printf '%s' "$truncated" > "$tmp"
+    gate_output_json="$(json_string_from_file "$tmp")"
+    rm -f "$tmp"
+  else
+    # No output: set "gateOutput": null
+    gate_output_json=null
   fi
 
-  # Print captured output from gate.sh if not empty.
-  if [ -n "${gate_output:-}" ]; then
-    printf '%s\n' "$gate_output"
-  fi
+  # Format the JSON line.
+  local line
+  line="$(printf '{"type":"inner_round","round":%s,"phase":"%s","startedAt":"%s","completedAt":"%s","gateOutput":%s}' \
+    "$round" "$phase" "$round_started_at" "$completed_at" "$gate_output_json")"
+  printf '%s\n' "$line" >> "$ROUNDS_STATS_PATH"
+}
 
-  # User-supplied gate script succeeded, now let's run the semantic reviewer (argus-ai) if enabled.
-  if [ "$gate_exit" -eq 0 ]; then
-    # Success branch: No reviewer configured.
-    if [ -z "${SAIFAC_REVIEWER_SCRIPT:-}" ] || [ ! -f "${SAIFAC_REVIEWER_SCRIPT}" ]; then
-      echo "[coder-start] Gate PASSED."
-      exit 0
+main() {
+  local INITIAL_TASK="$SAIFAC_INITIAL_TASK"
+  local round=0
+  local current_task="$INITIAL_TASK"
+  local gate_output gate_exit round_started_at
+  local agent_output agent_exit
+
+  while [ "$round" -lt "$GATE_RETRIES" ]; do
+    round=$((round + 1))
+    round_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "[coder-start] ===== Round $round/$GATE_RETRIES ====="
+
+    # Write the current task to SAIFAC_TASK_PATH so the agent script can read it.
+    # Agent scripts must consume the task from this file (not from env var or CLI args).
+    export SAIFAC_TASK_PATH="$TASK_PATH"
+    mkdir -p "$(dirname "$TASK_PATH")"
+    printf '%s' "$current_task" > "$TASK_PATH"
+
+    # This is where we call the actual agent, e.g. OpenHands, Aider, Claude, Codex, etc.
+    # Instead of calling openhands directly, we call the agent script - a bash script
+    # that can contain anything. This way we can use any agent, not just OpenHands.
+    # Capture stdout+stderr like the gate; non-zero exit is a retryable failure (not set -e abort).
+    echo "[coder-start] Running agent: $AGENT_SCRIPT"
+    agent_output=$(bash "$AGENT_SCRIPT" 2>&1) && agent_exit=0 || agent_exit=$?
+    if [ -n "${agent_output:-}" ]; then
+      printf '%s\n' "$agent_output"
     fi
 
-    # Run the reviewer
-    # Use explicit sh: reviewer.sh is mounted read-only from the repo and may not be +x.
-    echo "[coder-start] Running semantic reviewer: $SAIFAC_REVIEWER_SCRIPT"
-    gate_output=$(sh "$SAIFAC_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+    # Agent script failed, log and retry.
+    if [ "$agent_exit" -ne 0 ]; then
+      echo "[coder-start] Agent FAILED (round $round/$GATE_RETRIES, exit $agent_exit):"
+      log_inner_round_summary agent_failed "$agent_output"
+      if [ "$round" -ge "$GATE_RETRIES" ]; then
+        break
+      fi
+      current_task="$(printf '%s\n\n## Agent Script Failed (exit %s)\n\n```\n%s\n```\n\nFix the above issues.' \
+        "$INITIAL_TASK" "$agent_exit" "$agent_output")"
+      continue
+    fi
 
-    # Print captured output from reviewer.sh if not empty.
+    echo "[coder-start] Agent completed."
+
+    if [ -f "$GATE_SCRIPT" ]; then
+      echo "[coder-start] Running gate: $GATE_SCRIPT"
+      # Use explicit bash: bind-mounted scripts may lack +x (e.g. from the host filesystem).
+      # Capture stdout+stderr; preserve exit code without triggering set -e.
+      gate_output=$(bash "$GATE_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+    else
+      # If no gate scripts, still set gate_exit to 0 so we proceed to the reviewer.
+      echo "[coder-start] No gate script at $GATE_SCRIPT — skipping static checks."
+      gate_output=""
+      gate_exit=0
+    fi
+
+    # Print captured output from gate.sh if not empty.
     if [ -n "${gate_output:-}" ]; then
       printf '%s\n' "$gate_output"
     fi
 
-    # Success branch: both gate and reviewer passed.
+    # User-supplied gate script succeeded, now let's run the semantic reviewer (argus-ai) if enabled.
     if [ "$gate_exit" -eq 0 ]; then
-      echo "[coder-start] Gate PASSED (static checks + reviewer)."
-      exit 0
+      # Success branch: No reviewer configured.
+      if [ -z "${SAIFAC_REVIEWER_SCRIPT:-}" ] || [ ! -f "${SAIFAC_REVIEWER_SCRIPT}" ]; then
+        log_inner_round_summary gate_passed ""
+        echo "[coder-start] Gate PASSED."
+        exit 0
+      fi
+
+      # Run the reviewer
+      # Use explicit sh: reviewer.sh is mounted read-only from the repo and may not be +x.
+      echo "[coder-start] Running semantic reviewer: $SAIFAC_REVIEWER_SCRIPT"
+      gate_output=$(sh "$SAIFAC_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+
+      # Print captured output from reviewer.sh if not empty.
+      if [ -n "${gate_output:-}" ]; then
+        printf '%s\n' "$gate_output"
+      fi
+
+      # Success branch: both gate and reviewer passed.
+      if [ "$gate_exit" -eq 0 ]; then
+        log_inner_round_summary reviewer_passed ""
+        echo "[coder-start] Gate PASSED (static checks + reviewer)."
+        exit 0
+      else
+        # Log and proceed to error branch.
+        echo "[coder-start] Reviewer FAILED (round $round/$GATE_RETRIES):"
+        log_inner_round_summary reviewer_failed "$gate_output"
+      fi
     else
       # Log and proceed to error branch.
-      echo "[coder-start] Reviewer FAILED (round $round/$GATE_RETRIES):"
+      echo "[coder-start] Gate FAILED (round $round/$GATE_RETRIES):"
+      log_inner_round_summary gate_failed "$gate_output"
     fi
-  else
-    # Log and proceed to error branch.
-    echo "[coder-start] Gate FAILED (round $round/$GATE_RETRIES):"
-  fi
 
-  ######################
-  # Failure branch: append the output to the task prompt and retry.
-  ######################
+    ######################
+    # Failure branch: append the output to the task prompt and retry.
+    ######################
 
-  # If we've reached the max number of retries, exit with failure.
-  if [ "$round" -ge "$GATE_RETRIES" ]; then
-    break
-  fi
+    # If we've reached the max number of retries, exit with failure.
+    if [ "$round" -ge "$GATE_RETRIES" ]; then
+      break
+    fi
 
-  # Rebuild prompt: original task + failure feedback.
-  current_task="$(printf '%s\n\n## Validation Failed — Fix Before Finishing\n\n```\n%s\n```\n\nFix the above issues.' \
-    "$INITIAL_TASK" "$gate_output")"
-done
+    # Rebuild prompt: original task + failure feedback.
+    current_task="$(printf '%s\n\n## Validation Failed — Fix Before Finishing\n\n```\n%s\n```\n\nFix the above issues.' \
+      "$INITIAL_TASK" "$gate_output")"
+  done
 
-echo "[coder-start] Exhausted $GATE_RETRIES inner round(s) without gate passing."
-exit 1
+  echo "[coder-start] Exhausted $GATE_RETRIES inner round(s) without success."
+  exit 1
+}
+
+main "$@"

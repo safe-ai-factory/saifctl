@@ -63,6 +63,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
     specRef: feature.relativePath,
     lastFeedback: source.lastFeedback,
     rules: cloneRunRules(source.rules),
+    roundSummaries: source.roundSummaries,
     status: 'failed',
     opts: artifactLoopOpts as BuildRunArtifactOpts,
   });

@@ -14,7 +14,7 @@ import { getGitProvider } from '../../git/index.js';
 import type { OrchestratorOpts } from '../../orchestrator/modes.js';
 import type { PatchExcludeRule } from '../../orchestrator/sandbox.js';
 import { createRunStorage } from '../../runs/storage.js';
-import type { RunCommit, RunRule } from '../../runs/types.js';
+import type { OuterAttemptSummary, RunCommit, RunRule } from '../../runs/types.js';
 import type { SerializedPatchExcludeRule } from '../../runs/utils/serialize.js';
 import { resolveTestProfile } from '../../test-profiles/index.js';
 
@@ -66,6 +66,7 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
     sandboxSourceDir: string;
     baseSnapshotPath?: string;
     seedRunCommits?: RunCommit[];
+    seedRoundSummaries?: OuterAttemptSummary[];
     initialErrorFeedback?: string;
     persistedRunId?: string;
     artifactRevisionAtResume?: number;
@@ -110,6 +111,7 @@ export function serializeOrchestratorOpts(opts: OrchestratorOpts): SerializedOrc
           sandboxSourceDir: resume.sandboxSourceDir,
           baseSnapshotPath: resume.baseSnapshotPath,
           seedRunCommits: resume.seedRunCommits,
+          seedRoundSummaries: resume.seedRoundSummaries,
           initialErrorFeedback: resume.initialErrorFeedback,
           persistedRunId: resume.persistedRunId,
           artifactRevisionAtResume: resume.artifactRevisionAtResume,
@@ -189,6 +191,7 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
           sandboxSourceDir: s.resume.sandboxSourceDir,
           baseSnapshotPath: s.resume.baseSnapshotPath,
           seedRunCommits: s.resume.seedRunCommits ?? [],
+          seedRoundSummaries: s.resume.seedRoundSummaries,
           initialErrorFeedback: s.resume.initialErrorFeedback,
           persistedRunId: s.resume.persistedRunId,
           artifactRevisionAtResume: s.resume.artifactRevisionAtResume,
