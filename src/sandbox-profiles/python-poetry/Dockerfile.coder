@@ -5,7 +5,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-poetry/Dockerfile.coder \
-#                -t saifac-coder-python-poetry:latest .
+#                -t saifctl-coder-python-poetry:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-poetry

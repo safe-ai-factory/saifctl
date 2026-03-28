@@ -12,7 +12,7 @@
 
 import { join } from 'node:path';
 
-import { getSaifRoot } from '../constants.js';
+import { getSaifctlRoot } from '../constants.js';
 import { gotestProfile } from './go-gotest/profile.js';
 import { goPlaywrightProfile } from './go-playwright/profile.js';
 import { nodePlaywrightProfile } from './node-playwright/profile.js';
@@ -39,11 +39,11 @@ export const SUPPORTED_PROFILES = {
 /** Returns the default profile (node-vitest). */
 export const DEFAULT_TEST_PROFILE: TestProfile = SUPPORTED_PROFILES['node-vitest'];
 
-const _profilesDir = join(getSaifRoot(), 'src', 'test-profiles');
+const _profilesDir = join(getSaifctlRoot(), 'src', 'test-profiles');
 
 /**
  * Returns the absolute path to the test.sh script for the given profile id.
- * Used by the saifac CLI (`loadTestScriptFromPick`) as the default `--test-script` when no override is provided.
+ * Used by the saifctl CLI (`loadTestScriptFromPick`) as the default `--test-script` when no override is provided.
  */
 export function resolveTestScriptPath(profileId: SupportedProfileId): string {
   return join(_profilesDir, profileId, 'test.sh');

@@ -10,7 +10,7 @@ import type { RunStorage } from './storage.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from './utils/artifact.js';
 import { deserializeArtifactConfig } from './utils/serialize.js';
 
-/** Same inputs as `run start` / {@link FromArtifactOpts}; used by `saifac run fork`. */
+/** Same inputs as `run start` / {@link FromArtifactOpts}; used by `saifctl run fork`. */
 export type ForkStoredRunOpts = FromArtifactOpts;
 
 async function allocateUnusedRunId(runStorage: RunStorage): Promise<string> {
@@ -25,7 +25,7 @@ async function allocateUnusedRunId(runStorage: RunStorage): Promise<string> {
  * Clones a stored run to a new run ID: same base commit, base patch, and run commits as the source;
  * config is merged from the source artifact and CLI the same way as `run start` (defaults → artifact → CLI).
  *
- * Does not create a worktree, sandbox, or agent loop — use `saifac run start <newId>` next.
+ * Does not create a worktree, sandbox, or agent loop — use `saifctl run start <newId>` next.
  */
 export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId: string }> {
   const {
@@ -41,7 +41,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
 
   const source = await runStorage.getRun(sourceRunId);
   if (!source) {
-    throw new Error(`Run not found: ${sourceRunId}. List runs with: saifac run ls`);
+    throw new Error(`Run not found: ${sourceRunId}. List runs with: saifctl run ls`);
   }
 
   const deserialized = deserializeArtifactConfig(source.config);

@@ -10,11 +10,11 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { getSaifRoot } from '../../constants.js';
+import { getSaifctlRoot } from '../../constants.js';
 import { consola } from '../../logger.js';
 
 /** Package-root based: works when this module is bundled into dist/chunks. */
-const __dirname = join(getSaifRoot(), 'src', 'validation', 'validate');
+const __dirname = join(getSaifctlRoot(), 'src', 'validation', 'validate');
 
 /**
  * Run all validation scripts in this directory.

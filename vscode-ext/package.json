@@ -1,11 +1,11 @@
 {
-  "name": "safe-ai-factory",
-  "displayName": "Safe AI Factory",
+  "name": "saifctl",
+  "displayName": "SaifCTL",
   "description": "Containerized coding agent workflow orchestrator.",
   "version": "0.0.1",
   "publisher": "JuroOravec",
   "license": "MIT",
-  "icon": "resources/saifac-icon-green.png",
+  "icon": "resources/saifctl-icon-green.svg",
   "repository": {
     "type": "git",
     "url": "https://github.com/JuroOravec/safe-ai-factory.git",
@@ -20,6 +20,7 @@
     "agents",
     "coding",
     "containerized",
+    "saifctl",
     "safe-ai-factory",
     "spec-driven"
   ],
@@ -48,7 +49,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip --exclude types",
-    "test": "node ./out/test/runTest.js",
+    "test": "node ./out/vscode-ext/src/test/runTest.js",
     "test:unit": "vitest run",
     "coverage": "vitest run --coverage"
   },
@@ -81,206 +82,206 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "saifac-explorer",
-          "title": "Safe AI Factory",
-          "icon": "resources/saifac-icon-mono.svg"
+          "id": "saifctl-explorer",
+          "title": "SaifCTL",
+          "icon": "resources/saifctl-icon-mono.svg"
         }
       ]
     },
     "views": {
-      "saifac-explorer": [
+      "saifctl-explorer": [
         {
-          "id": "saifac-features",
+          "id": "saifctl-features",
           "name": "Features"
         },
         {
-          "id": "saifac-runs",
+          "id": "saifctl-runs",
           "name": "Runs"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "saifac-features",
-        "contents": "The SAIFAC CLI is not installed or not in your PATH. You need it to run containerized swarms.\n\n[Install SAIFAC](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifac.recheckInstall)",
-        "when": "!saifac.isCliInstalled"
+        "view": "saifctl-features",
+        "contents": "The SaifCTL CLI (`saifctl`) is not installed or not in your PATH.\n\n[Install SaifCTL](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "when": "!saifctl.isCliInstalled"
       },
       {
-        "view": "saifac-runs",
-        "contents": "No CLI detected. Install SAIFAC to view and manage your agent runs.\n\n[Install SAIFAC](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifac.recheckInstall)",
-        "when": "!saifac.isCliInstalled"
+        "view": "saifctl-runs",
+        "contents": "No CLI detected. Install SaifCTL to view and manage your agent runs.\n\n[Install SaifCTL](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "when": "!saifctl.isCliInstalled"
       },
       {
-        "view": "saifac-runs",
+        "view": "saifctl-runs",
         "contents": "No runs found.\n\nRight-click a feature in **Features** and select **Run** to start your swarm.",
-        "when": "saifac.isCliInstalled"
+        "when": "saifctl.isCliInstalled"
       }
     ],
     "commands": [
       {
-        "command": "saifac.recheckInstall",
-        "title": "Recheck SAIFAC Installation"
+        "command": "saifctl.recheckInstall",
+        "title": "Recheck SaifCTL installation"
       },
       {
-        "command": "saifac.createFeature",
+        "command": "saifctl.createFeature",
         "title": "Create Feature",
         "icon": "$(plus)"
       },
       {
-        "command": "saifac.createDir",
+        "command": "saifctl.createDir",
         "title": "Create Folder",
         "icon": "$(new-folder)"
       },
       {
-        "command": "saifac.createFile",
+        "command": "saifctl.createFile",
         "title": "Create File",
         "icon": "$(new-file)"
       },
       {
-        "command": "saifac.refreshFeatures",
+        "command": "saifctl.refreshFeatures",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "saifac.runFeature",
+        "command": "saifctl.runFeature",
         "title": "Run",
         "icon": "$(play)"
       },
       {
-        "command": "saifac.designFeature",
+        "command": "saifctl.designFeature",
         "title": "Design",
         "icon": "$(edit)"
       },
       {
-        "command": "saifac.refreshRuns",
+        "command": "saifctl.refreshRuns",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "saifac.fromArtifact",
+        "command": "saifctl.fromArtifact",
         "title": "Start from artifact",
         "icon": "$(play)"
       },
       {
-        "command": "saifac.removeRun",
+        "command": "saifctl.removeRun",
         "title": "Remove",
         "icon": "$(trash)"
       },
       {
-        "command": "saifac.clearAllRuns",
+        "command": "saifctl.clearAllRuns",
         "title": "Clear All",
         "icon": "$(clear-all)"
       },
       {
-        "command": "saifac.revealRunInFinder",
+        "command": "saifctl.revealRunInFinder",
         "title": "Reveal in Explorer"
       },
       {
-        "command": "saifac.copyRunId",
+        "command": "saifctl.copyRunId",
         "title": "Copy Run ID"
       },
       {
-        "command": "saifac.copyRunName",
+        "command": "saifctl.copyRunName",
         "title": "Copy Name"
       },
       {
-        "command": "saifac.showLogs",
-        "title": "Show SAIFAC Logs",
+        "command": "saifctl.showLogs",
+        "title": "Show SaifCTL logs",
         "icon": "$(output)"
       }
     ],
     "configuration": {
-      "title": "Safe AI Factory",
+      "title": "SaifCTL",
       "properties": {
-        "saifac.verbose": {
+        "saifctl.verbose": {
           "type": "boolean",
           "default": false,
-          "description": "Enable verbose logging for the Safe AI Factory extension. When enabled, debug-level messages appear in the SAIFAC output panel."
+          "description": "Enable verbose logging for the SaifCTL extension. When enabled, debug-level messages appear in the SaifCTL output panel."
         }
       }
     },
     "menus": {
       "view/title": [
         {
-          "command": "saifac.createFeature",
-          "when": "view == saifac-features",
+          "command": "saifctl.createFeature",
+          "when": "view == saifctl-features",
           "group": "navigation@1"
         },
         {
-          "command": "saifac.createDir",
-          "when": "view == saifac-features",
+          "command": "saifctl.createDir",
+          "when": "view == saifctl-features",
           "group": "navigation@2"
         },
         {
-          "command": "saifac.createFile",
-          "when": "view == saifac-features",
+          "command": "saifctl.createFile",
+          "when": "view == saifctl-features",
           "group": "navigation@3"
         },
         {
-          "command": "saifac.refreshFeatures",
-          "when": "view == saifac-features",
+          "command": "saifctl.refreshFeatures",
+          "when": "view == saifctl-features",
           "group": "navigation@4"
         },
         {
-          "command": "saifac.showLogs",
-          "when": "view == saifac-features",
+          "command": "saifctl.showLogs",
+          "when": "view == saifctl-features",
           "group": "navigation@5"
         },
         {
-          "command": "saifac.refreshRuns",
-          "when": "view == saifac-runs",
+          "command": "saifctl.refreshRuns",
+          "when": "view == saifctl-runs",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "saifac.runFeature",
+          "command": "saifctl.runFeature",
           "when": "viewItem == feature",
           "group": "inline@1"
         },
         {
-          "command": "saifac.designFeature",
+          "command": "saifctl.designFeature",
           "when": "viewItem == feature",
           "group": "inline@2"
         },
         {
-          "command": "saifac.fromArtifact",
+          "command": "saifctl.fromArtifact",
           "when": "viewItem == run_failed",
           "group": "inline@1"
         },
         {
-          "command": "saifac.removeRun",
+          "command": "saifctl.removeRun",
           "when": "viewItem =~ /^run_/",
           "group": "inline@2"
         },
         {
-          "command": "saifac.clearAllRuns",
+          "command": "saifctl.clearAllRuns",
           "when": "viewItem == runProject",
           "group": "inline"
         },
         {
-          "command": "saifac.revealRunInFinder",
+          "command": "saifctl.revealRunInFinder",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@1"
         },
         {
-          "command": "saifac.copyRunId",
+          "command": "saifctl.copyRunId",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@2"
         },
         {
-          "command": "saifac.copyRunName",
+          "command": "saifctl.copyRunName",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@3"
         },
         {
-          "command": "saifac.createFile",
-          "when": "view == saifac-features && (viewItem == feature || viewItem == dir)",
+          "command": "saifctl.createFile",
+          "when": "view == saifctl-features && (viewItem == feature || viewItem == dir)",
           "group": "2_workspace@1"
         },
         {
-          "command": "saifac.createDir",
-          "when": "view == saifac-features && (viewItem == feature || viewItem == dir)",
+          "command": "saifctl.createDir",
+          "when": "view == saifctl-features && (viewItem == feature || viewItem == dir)",
           "group": "2_workspace@2"
         }
       ]

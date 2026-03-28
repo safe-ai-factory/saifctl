@@ -36,7 +36,7 @@ export interface RunRule {
 export interface RunCommit {
   message: string;
   diff: string;
-  /** Git author line, e.g. `Name <email>`. Defaults to saifac when omitted on apply. */
+  /** Git author line, e.g. `Name <email>`. Defaults to saifctl when omitted on apply. */
   author?: string;
 }
 
@@ -108,7 +108,7 @@ export class RunAlreadyRunningError extends Error {
     super(
       `Run "${runId}" already has status "running". ` +
         `If the process died without saving a final status, manually edit or delete the run artifact ` +
-        `(e.g. .saifac/runs/${runId}.json) to clear the stale "running" status.`,
+        `(e.g. .saifctl/runs/${runId}.json) to clear the stale "running" status.`,
     );
   }
 }
@@ -130,12 +130,12 @@ export interface RunArtifact {
   /** Commits from coding rounds / inspect sessions (apply in order; each diff is one replayed commit; one outer round may add several). */
   runCommits: RunCommit[];
 
-  /** Feature path, e.g. saifac/features/feat-stripe-webhooks */
+  /** Feature path, e.g. saifctl/features/feat-stripe-webhooks */
   specRef: string;
   /** Sanitized test failure summary for Ralph Wiggum feedback */
   lastFeedback?: string;
 
-  /** User rules appended via `saifac run rules create` and merged into the agent task. */
+  /** User rules appended via `saifctl run rules create` and merged into the agent task. */
   rules: RunRule[];
 
   /** Serialized CLI config used for this run */

@@ -1,26 +1,26 @@
 #!/bin/sh
 # reviewer.sh — semantic AI code review via Argus.
-# Mounted read-only at /saifac/reviewer.sh inside the coder container.
-# Invoked as `sh /saifac/reviewer.sh` from coder-start.sh so it runs without +x on the mount.
+# Mounted read-only at /saifctl/reviewer.sh inside the coder container.
+# Invoked as `sh /saifctl/reviewer.sh` from coder-start.sh so it runs without +x on the mount.
 #
 # Environment:
 #   REVIEWER_LLM_PROVIDER   — e.g. anthropic, openai, gemini
 #   REVIEWER_LLM_MODEL      — e.g. gpt-4o, anthropic/claude-3-5-sonnet for OpenRouter
 #   REVIEWER_LLM_API_KEY    — API key for the provider
 #   REVIEWER_LLM_BASE_URL   — optional; for OpenAI-compatible custom endpoints
-#   SAIFAC_TASK_PATH       — path to the task file (contains user prompt for verification)
-#   SAIFAC_WORKSPACE_BASE  — /workspace (coder container)
+#   SAIFCTL_TASK_PATH       — path to the task file (contains user prompt for verification)
+#   SAIFCTL_WORKSPACE_BASE  — /workspace (coder container)
 #
-# Invoked by gate.sh after static checks pass when SAIFAC_REVIEWER_SCRIPT is set.
+# Invoked by gate.sh after static checks pass when SAIFCTL_REVIEWER_SCRIPT is set.
 
 set -e
 
-WORKSPACE="${SAIFAC_WORKSPACE_BASE:-/workspace}"
-TASK_PATH="${SAIFAC_TASK_PATH:-${WORKSPACE}/.saifac/task.md}"
+WORKSPACE="${SAIFCTL_WORKSPACE_BASE:-/workspace}"
+TASK_PATH="${SAIFCTL_TASK_PATH:-${WORKSPACE}/.saifctl/task.md}"
 # Argus accepts `--config <path>` (default would be repo-root `.argus.toml`);
-# Instead we put it in .saifac/argus.toml. Files in .saifac/ are excluded from the diff.
-ARGUS_CONFIG="${WORKSPACE}/.saifac/argus.toml"
-REVIEW_OUTPUT_JSON="${WORKSPACE}/.saifac/review_output.json"
+# Instead we put it in .saifctl/argus.toml. Files in .saifctl/ are excluded from the diff.
+ARGUS_CONFIG="${WORKSPACE}/.saifctl/argus.toml"
+REVIEW_OUTPUT_JSON="${WORKSPACE}/.saifctl/review_output.json"
 
 # Read the task for the rule prompt (first 2000 chars to avoid huge prompts)
 if [ -f "$TASK_PATH" ]; then
@@ -56,8 +56,8 @@ esac
 
 echo "[reviewer] provider: $ARGUS_PROVIDER"
 
-mkdir -p "${WORKSPACE}/.saifac"
-# Write Argus TOML to `{workspace}/.saifac/argus.toml` (path passed via `argus --config`).
+mkdir -p "${WORKSPACE}/.saifctl"
+# Write Argus TOML to `{workspace}/.saifctl/argus.toml` (path passed via `argus --config`).
 cat <<EOF > "$ARGUS_CONFIG"
 [llm]
 provider = "${ARGUS_PROVIDER}"
@@ -107,16 +107,16 @@ echo "[reviewer] --- end git state ---"
 
 echo "[reviewer] Staging changes..."
 git -C "$WORKSPACE" add .
-# Do not commit `.saifac/` (factory-internal; same idea as extractPatch on the host).
-git -C "$WORKSPACE" reset HEAD -- .saifac 2>/dev/null || true
+# Do not commit `.saifctl/` (factory-internal; same idea as extractPatch on the host).
+git -C "$WORKSPACE" reset HEAD -- .saifctl 2>/dev/null || true
 # Only commit if there's actually something staged
 if ! git -C "$WORKSPACE" diff --cached --quiet; then
   echo "[reviewer] Committing changes..."
-  # Coder containers often have no git user.* config; match sandbox.ts / extractPatch (GIT_* saifac@safeaifactory.com).
+  # Coder containers often have no git user.* config; match sandbox.ts / extractPatch (GIT_* saifctl@safeaifactory.com).
   git -C "$WORKSPACE" \
-    -c user.name=saifac \
-    -c user.email=saifac@safeaifactory.com \
-    commit -m "saifac: capture uncommitted changes"
+    -c user.name=saifctl \
+    -c user.email=saifctl@safeaifactory.com \
+    commit -m "saifctl: capture uncommitted changes"
 fi
 
 # Diff from the factory's initial "Base state" commit (always the root commit,

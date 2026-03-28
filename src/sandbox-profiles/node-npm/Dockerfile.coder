@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-npm/Dockerfile.coder \
-#                -t saifac-coder-node-npm:latest .
+#                -t saifctl-coder-node-npm:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-npm

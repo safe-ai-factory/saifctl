@@ -12,7 +12,7 @@ import { mkdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { resolveAgentProfile } from '../agent-profiles/index.js';
-import type { SaifacConfig } from '../config/schema.js';
+import type { SaifctlConfig } from '../config/schema.js';
 import { createEngine } from '../engines/index.js';
 import { defaultEngineLog } from '../engines/logs.js';
 import {
@@ -67,7 +67,7 @@ import {
   createSandbox,
   destroySandbox,
   extractIncrementalRoundPatch,
-  SAIFAC_TEMP_ROOT,
+  SAIFCTL_TEMP_ROOT,
 } from './sandbox.js';
 import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 import {
@@ -84,7 +84,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   sandboxBaseDir: string;
   /**
    * Content of the gate script to run after each OpenHands round. In leash mode the script is
-   * written to sandboxBasePath/gate.sh and mounted read-only at /saifac/gate.sh inside the
+   * written to sandboxBasePath/gate.sh and mounted read-only at /saifctl/gate.sh inside the
    * container. In `--engine local` it runs on the host via bash.
    *
    * It must exit 0 to pass; non-zero causes the inner loop to retry with the output as feedback.
@@ -94,7 +94,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   gateScript: string;
   /**
    * Content of the startup script to run once before the agent loop begins.
-   * Written to sandboxBasePath/startup.sh and mounted read-only at /saifac/startup.sh
+   * Written to sandboxBasePath/startup.sh and mounted read-only at /saifctl/startup.sh
    * inside the coder container (or on the host with `--engine local`).
    *
    * Use for workspace setup that requires the workspace to be mounted first:
@@ -106,7 +106,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   startupScript: string;
   /**
    * Content of the agent setup script to write into the sandbox as `agent-install.sh`.
-   * Mounted read-only at `/saifac/agent-install.sh` inside the coder container and executed
+   * Mounted read-only at `/saifctl/agent-install.sh` inside the coder container and executed
    * once by `coder-start.sh` after the startup script, before the agent loop begins.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
@@ -116,16 +116,16 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   agentInstallScript: string;
   /**
    * Content of the agent script to write into the sandbox as `agent.sh`.
-   * Mounted read-only at `/saifac/agent.sh` inside the coder container and invoked
+   * Mounted read-only at `/saifctl/agent.sh` inside the coder container and invoked
    * by `coder-start.sh` once per inner round. The script must read the task from
-   * `$SAIFAC_TASK_PATH`.
+   * `$SAIFCTL_TASK_PATH`.
    *
    * Resolved by the CLI: defaults to the agent profile's agent.sh (OpenHands) when
    * --agent and --agent-script are not set.
    */
   agentScript: string;
   /**
-   * Content of the staging script mounted read-only in the staging container at /saifac/stage.sh.
+   * Content of the staging script mounted read-only in the staging container at /saifctl/stage.sh.
    * Invoked by staging-start.sh after the installation script and the sidecar have run.
    *
    * Resolved by the CLI: set via --profile or --stage-script. When neither is provided,
@@ -144,7 +144,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   agentScriptFile: string;
   /**
    * Run storage for persisting failed runs. Resolved by CLI via readStorageStringFromCli + resolveRunStorage.
-   * Default: local (.saifac/runs/) when --storage is omitted. Set to null for --storage runs=none.
+   * Default: local (.saifctl/runs/) when --storage is omitted. Set to null for --storage runs=none.
    */
   runStorage: RunStorage | null;
   /**
@@ -162,7 +162,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
     seedRunCommits?: RunCommit[];
     /**
      * When starting from run storage, the run id to reuse for the sandbox and persisted artifact
-     * (same as the key passed to `saifac run start <id>`).
+     * (same as the key passed to `saifctl run start <id>`).
      */
     persistedRunId?: string;
     /**
@@ -338,7 +338,7 @@ async function runFail2PassCore(
       stagingEnvironment,
       feature,
       projectName,
-      saifacPath: sandbox.saifacPath,
+      saifctlPath: sandbox.saifctlPath,
       onLog: defaultEngineLog,
     });
 
@@ -423,7 +423,7 @@ async function runStartCore(
   if (opts.includeDirty) {
     consola.warn(
       '[orchestrator] --include-dirty: sandbox includes uncommitted/untracked files. ' +
-        'Prefer `saifac run export <runId>` over `run apply` so untracked files are not baked into the branch.',
+        'Prefer `saifctl run export <runId>` over `run apply` so untracked files are not baked into the branch.',
     );
   }
 
@@ -433,7 +433,7 @@ async function runStartCore(
   // Capture all the relevant state so that we can start again from the artifact later.
   // Thus, if `runIterativeLoop` throws or user aborts with CTRL+C, the loop
   // will persist an artifact with all the relevant state so the user can
-  // start again with `saifac run start <runId>`.
+  // start again with `saifctl run start <runId>`.
   let runContext: RunStorageContext;
   if (opts.fromArtifact) {
     // Resume: use the context from the stored artifact
@@ -460,8 +460,8 @@ async function runStartCore(
     const featRunWorkflow = createFeatRunWorkflow();
 
     // Start an inline worker for this request. In production a persistent
-    // worker process (`saifac worker start`) is preferred.
-    const worker = await hatchet.worker('saifac-worker', { workflows: [featRunWorkflow] });
+    // worker process (`saifctl worker start`) is preferred.
+    const worker = await hatchet.worker('saifctl-worker', { workflows: [featRunWorkflow] });
     await worker.start();
 
     try {
@@ -573,7 +573,7 @@ export interface FromArtifactOpts {
   runId: string;
   projectDir: string;
   saifDir: string;
-  config: SaifacConfig;
+  config: SaifctlConfig;
   runStorage: RunStorage;
   cli: OrchestratorCliInput;
   cliModelDelta: ModelOverrides | undefined;
@@ -605,12 +605,12 @@ async function fromArtifactCore(
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
-    throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
   if (artifact.status === 'running') {
     throw new Error(
       `Run "${runId}" is already running (status: "running"). ` +
-        `If the process died, manually edit or delete the run artifact (e.g. .saifac/runs/${runId}.json).`,
+        `If the process died, manually edit or delete the run artifact (e.g. .saifctl/runs/${runId}.json).`,
     );
   }
 
@@ -661,7 +661,7 @@ async function fromArtifactCore(
   };
 
   try {
-    // Finally, run the same flow as when we run `saifac feat start <featureName>`
+    // Finally, run the same flow as when we run `saifctl feat start <featureName>`
     // (runStartCore logs MODE + settings after createSandbox, including Run ID.)
     return await runStartCore(mergedOpts, registry);
   } finally {
@@ -712,12 +712,12 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
-    throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
   if (artifact.status === 'running') {
     throw new Error(
       `Run "${runId}" is already running (status: "running"). ` +
-        `If the process died, manually edit or delete the run artifact (e.g. .saifac/runs/${runId}.json).`,
+        `If the process died, manually edit or delete the run artifact (e.g. .saifctl/runs/${runId}.json).`,
     );
   }
 
@@ -867,7 +867,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           coderImage: mergedOpts.coderImage,
           dangerousNoLeash: inspectDangerousNoLeash,
           cedarPolicyPath: mergedOpts.cedarPolicyPath,
-          saifacPath: sandbox.saifacPath,
+          saifctlPath: sandbox.saifctlPath,
           onAgentStdout,
           onAgentStdoutEnd,
           onLog: defaultEngineLog,
@@ -907,7 +907,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           const { commits: inspectCommits } = await extractIncrementalRoundPatch(sandbox.codePath, {
             preRoundHeadSha: preInspectHead,
             attempt: 1,
-            message: 'saifac: inspect session',
+            message: 'saifctl: inspect session',
             exclude: patchExclude,
           });
           const nextCommits =
@@ -937,7 +937,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
             } catch (e) {
               if (e instanceof StaleArtifactError) {
                 consola.warn(`[inspect] ${e.message}`);
-                const fallback = join(projectDir, `.saifac-inspect-stale-${runId}.json`);
+                const fallback = join(projectDir, `.saifctl-inspect-stale-${runId}.json`);
                 await writeUtf8(fallback, nextJson);
                 consola.warn(
                   `[inspect] Wrote working tree commits to ${fallback} — merge manually after reloading the run.`,
@@ -985,7 +985,7 @@ async function runApplyCore(
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
-    throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
 
   const commits = artifact.runCommits;
@@ -1038,14 +1038,14 @@ async function runApplyCore(
 
   const gitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@safeaifactory.com',
-    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@safeaifactory.com',
+    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifctl',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifctl@safeaifactory.com',
+    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifctl',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifctl@safeaifactory.com',
   };
 
-  const patchFile = join(SAIFAC_TEMP_ROOT, `saifac-apply-pr-${runId}.diff`);
-  await mkdir(SAIFAC_TEMP_ROOT, { recursive: true });
+  const patchFile = join(SAIFCTL_TEMP_ROOT, `saifctl-apply-pr-${runId}.diff`);
+  await mkdir(SAIFCTL_TEMP_ROOT, { recursive: true });
   const patchContent = commits.map((c) => c.diff).join('\n');
   await writeUtf8(patchFile, patchContent.endsWith('\n') ? patchContent : `${patchContent}\n`);
 
@@ -1087,8 +1087,8 @@ export interface RunExportOpts {
   /** Repo root (for HEAD vs baseCommitSha warning). */
   projectDir: string;
   /**
-   * Output path (default: ./saifac-<featureName>-<runId>-<diffHash>.patch in cwd;
-   * basename matches the default target branch `saifac/<feature>-<runId>-<hash>`.
+   * Output path (default: ./saifctl-<featureName>-<runId>-<diffHash>.patch in cwd;
+   * basename matches the default target branch `saifctl/<feature>-<runId>-<hash>`.
    */
   output?: string;
 }
@@ -1104,7 +1104,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
       success: false,
       attempts: 0,
       runId,
-      message: `Run not found: ${runId}. List runs with: saifac run ls`,
+      message: `Run not found: ${runId}. List runs with: saifctl run ls`,
     };
   }
 
@@ -1130,7 +1130,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
       ? artifact.config.featureName.trim()
       : 'unknown';
   const diffHash = computeRunCommitsDiffHash(commits);
-  const defaultPatchBasename = `saifac-${featureName}-${runId}-${diffHash}.patch`;
+  const defaultPatchBasename = `saifctl-${featureName}-${runId}-${diffHash}.patch`;
   const outPath = outTrim
     ? resolve(process.cwd(), outTrim)
     : join(process.cwd(), defaultPatchBasename);

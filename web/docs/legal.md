@@ -1,6 +1,6 @@
 # Legal Compliance Architecture
 
-This document outlines the legal compliance strategy for the SAIFAC landing page and waitlist, specifically focusing on EU (GDPR) and Czech Republic requirements.
+This document outlines the legal compliance strategy for the SaifCTL landing page and waitlist, specifically focusing on EU (GDPR) and Czech Republic requirements.
 
 ## 1. What We Added
 
@@ -26,7 +26,7 @@ This document outlines the legal compliance strategy for the SAIFAC landing page
 **What it is:** The UI flow for joining the waitlist.
 **Why we designed it this way:**
 
-- It clearly states the purpose: "We'll only email you about SAIFAC updates and launch/alpha announcements."
+- It clearly states the purpose: "We'll only email you about SaifCTL updates and launch/alpha announcements."
 - It includes a direct link to the Privacy Policy right next to the submit button.
 - It uses a two-step flow (Email -> GitHub Star) to capture the high-value email first while staying compliant, before asking for the GitHub star.
 
@@ -40,7 +40,7 @@ This document outlines the legal compliance strategy for the SAIFAC landing page
 ### Terms and Conditions (VOP - Všeobecné obchodní podmínky)
 
 **What it is:** A legal contract between the service provider and the user regarding the use of a product or service.
-**Why we didn't add it:** We are not currently selling a product, offering a SaaS platform, or processing payments. The website is purely an informational landing page collecting emails for a waitlist. Until users can create accounts and use the SAIFAC software, formal T&Cs are not required.
+**Why we didn't add it:** We are not currently selling a product, offering a SaaS platform, or processing payments. The website is purely an informational landing page collecting emails for a waitlist. Until users can create accounts and use the SaifCTL software, formal T&Cs are not required.
 
 ## 3. Future Considerations
 
@@ -48,4 +48,4 @@ If the scope of the website expands, these items will need to be revisited:
 
 - **Adding YouTube/Vimeo embeds:** Use their privacy-enhanced modes (`youtube-nocookie.com`), otherwise a cookie banner will be required.
 - **Adding Google Fonts:** The current setup uses Next.js `next/font` which self-hosts the fonts. If a CDN link to Google Fonts is ever added, it could theoretically violate GDPR by exposing visitor IPs to Google.
-- **Product Launch:** When SAIFAC is officially launched and users can sign up for the platform, full Terms of Service (VOP) will need to be drafted and added.
+- **Product Launch:** When SaifCTL is officially launched and users can sign up for the platform, full Terms of Service (VOP) will need to be drafted and added.

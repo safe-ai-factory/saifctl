@@ -59,23 +59,23 @@ describe('discover-features', () => {
 
   describe('discoverFeatures', () => {
     it('finds flat features', async () => {
-      await mkdir(join(TEST_BASE, 'saifac'), { recursive: true });
-      await createDir('saifac/features/my-feat');
-      await createDir('saifac/features/add-login');
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/my-feat');
+      await createDir('saifctl/features/add-login');
 
-      const map = await discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
       expect(map.size).toBe(2);
       expect(map.get('my-feat')).toContain('my-feat');
       expect(map.get('add-login')).toContain('add-login');
     });
 
     it('finds features inside groups with path-based IDs', async () => {
-      await mkdir(join(TEST_BASE, 'saifac'), { recursive: true });
-      await createDir('saifac/features/(auth)/login');
-      await createDir('saifac/features/(auth)/logout');
-      await createDir('saifac/features/(core)/profile');
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/(auth)/login');
+      await createDir('saifctl/features/(auth)/logout');
+      await createDir('saifctl/features/(core)/profile');
 
-      const map = await discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
       expect(map.size).toBe(3);
       expect(map.get('(auth)/login')).toContain('login');
       expect(map.get('(auth)/logout')).toContain('logout');
@@ -83,32 +83,32 @@ describe('discover-features', () => {
     });
 
     it('treats same leaf name in different groups as distinct features', async () => {
-      await mkdir(join(TEST_BASE, 'saifac'), { recursive: true });
-      await createDir('saifac/features/(auth)/router');
-      await createDir('saifac/features/(user)/router');
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/(auth)/router');
+      await createDir('saifctl/features/(user)/router');
 
-      const map = await discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
       expect(map.size).toBe(2);
       expect(map.get('(auth)/router')).toBeDefined();
       expect(map.get('(user)/router')).toBeDefined();
     });
 
     it('includes all non-group dirs (path-based)', async () => {
-      await mkdir(join(TEST_BASE, 'saifac'), { recursive: true });
-      await createDir('saifac/features/valid-feat');
-      await mkdir(join(TEST_BASE, 'saifac', 'features', 'no-spec'), { recursive: true });
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/valid-feat');
+      await mkdir(join(TEST_BASE, 'saifctl', 'features', 'no-spec'), { recursive: true });
 
-      const map = await discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
       expect(map.size).toBe(2);
       expect(map.has('valid-feat')).toBe(true);
       expect(map.has('no-spec')).toBe(true);
     });
 
-    it('scans saifac/features', async () => {
-      await mkdir(join(TEST_BASE, 'saifac'), { recursive: true });
-      await createDir('saifac/features/feat-a');
+    it('scans saifctl/features', async () => {
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/feat-a');
 
-      const map = await discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
       expect(map.size).toBe(1);
       expect(map.get('feat-a')).toContain('feat-a');
     });

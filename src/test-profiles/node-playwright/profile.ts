@@ -22,9 +22,9 @@ async function tsPlaywrightOnDone(opts: OnDoneOpts): Promise<void> {
 
 export default defineConfig({
   testDir: '.',
-  reporter: [['junit', { outputFile: process.env.SAIFAC_OUTPUT_FILE || 'results.xml' }]],
+  reporter: [['junit', { outputFile: process.env.SAIFCTL_OUTPUT_FILE || 'results.xml' }]],
   use: {
-    baseURL: process.env.SAIFAC_TARGET_URL || 'http://staging:3000',
+    baseURL: process.env.SAIFCTL_TARGET_URL || 'http://staging:3000',
   },
 });
 `;

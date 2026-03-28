@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SAIFAC: Safe AI Factory',
+  title: 'SaifCTL',
   description: 'Zero-trust orchestrator for containerized AI swarms.',
   icons: {
-    icon: '/saifac-icon-green.svg',
+    icon: '/saifctl-icon-green.svg',
   },
 };
 

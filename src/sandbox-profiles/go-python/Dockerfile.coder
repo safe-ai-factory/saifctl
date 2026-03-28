@@ -5,7 +5,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-python/Dockerfile.coder \
-#                -t saifac-coder-go-python:latest .
+#                -t saifctl-coder-go-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile go-python

@@ -1,6 +1,6 @@
-# SAIFAC Web
+# SaifCTL Web
 
-This is the web app for SAIFAC. It is built with Next.js and Tailwind CSS.
+This is the web app for SaifCTL. It is built with Next.js and Tailwind CSS.
 
 ## Development
 

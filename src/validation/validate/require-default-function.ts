@@ -7,9 +7,9 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { getSaifRoot } from '../../constants.js';
+import { getSaifctlRoot } from '../../constants.js';
 
-const __dirname = join(getSaifRoot(), 'src', 'validation', 'validate');
+const __dirname = join(getSaifctlRoot(), 'src', 'validation', 'validate');
 
 export default async function (): Promise<void> {
   const files = await readdir(__dirname);

@@ -14,11 +14,11 @@ import type { RunRule, RunRuleScope } from './types.js';
 
 /**
  * Host path for human feedback queued by the orchestrator between inner rounds.
- * Same `.saifac/` directory as the inner-round stats file (`stats.jsonl`) under the workspace
+ * Same `.saifctl/` directory as the inner-round stats file (`stats.jsonl`) under the workspace
  * — consumed by `coder-start.sh`.
  */
 export function pendingRulesPath(sandboxBasePath: string): string {
-  return join(sandboxBasePath, 'code', '.saifac', 'pending-rules.md');
+  return join(sandboxBasePath, 'code', '.saifctl', 'pending-rules.md');
 }
 
 /** Clears the pending-rules file before each outer coding attempt. */

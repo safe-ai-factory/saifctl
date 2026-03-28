@@ -22,7 +22,7 @@ These events directly measure whether the landing page converts visitors into le
 | ------------------- | ------------------------------------------------------------ | --------------------------------- |
 | `waitlist_open`     | Any "Book a Demo" / "Request Early Access" button is clicked | Measures CTA click-through intent |
 | `waitlist_submit`   | Email is successfully saved to Supabase                      | Measures actual conversion        |
-| `github_star_click` | "Star SAIFAC on GitHub" is clicked in the post-submit step   | Measures double-CTA effectiveness |
+| `github_star_click` | "Star SaifCTL on GitHub" is clicked in the post-submit step   | Measures double-CTA effectiveness |
 
 **Key ratio:** `waitlist_submit / waitlist_open` = form conversion rate.  
 Low ratio → investigate form friction (copy, trust, load time).  

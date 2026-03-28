@@ -4,7 +4,7 @@ import { readUtf8, spawnCapture } from '../../utils/io.js';
 export default async function validateDescriptiveTests() {
   const output = await spawnCapture({
     command: 'git',
-    args: ['ls-files', 'src/**/*.test.ts', 'saifac/**/*.test.ts'],
+    args: ['ls-files', 'src/**/*.test.ts', 'saifctl/**/*.test.ts'],
     cwd: process.cwd(),
   });
   const files = output.split('\n').filter((f) => f.trim() !== '');

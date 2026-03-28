@@ -3,6 +3,6 @@
   "ignoreFiles": [
     "src/test-profiles/templates/**",
     "src/orchestrator/sidecars/cli-over-http/**",
-    "saifac/**"
+    "saifctl/**"
   ]
 }

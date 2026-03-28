@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { buildOrchestratorCliInputFromFeatArgs, type FeatRunArgs } from '../cli/utils.js';
-import { loadSaifacConfig } from '../config/load.js';
+import { loadSaifctlConfig } from '../config/load.js';
 import { forkStoredRun } from './fork.js';
 import { createRunStorage } from './storage.js';
 import type { RunArtifact } from './types.js';
@@ -20,7 +20,7 @@ function makeSourceArtifact(runId: string): RunArtifact {
     baseCommitSha: 'abc123dead',
     basePatchDiff: 'diff --git a/x b/x\n',
     runCommits: [{ message: 'step1', diff: 'patch hunk\n' }],
-    specRef: 'saifac/features/my-feat',
+    specRef: 'saifctl/features/my-feat',
     rules: [],
     lastFeedback: 'try again',
     config: {
@@ -32,7 +32,7 @@ function makeSourceArtifact(runId: string): RunArtifact {
       projectDir: '/ignored-on-merge',
       maxRuns: 5,
       overrides: {},
-      saifDir: 'saifac',
+      saifDir: 'saifctl',
       projectName: 'proj',
       testImage: 'test:latest',
       resolveAmbiguity: 'ai',
@@ -75,26 +75,26 @@ function makeSourceArtifact(runId: string): RunArtifact {
 
 describe('forkStoredRun', () => {
   it('writes a new run id, copies git/patch state, and merges CLI into stored config', async () => {
-    const projectDir = await mkdtemp(join(tmpdir(), 'saifac-fork-'));
+    const projectDir = await mkdtemp(join(tmpdir(), 'saifctl-fork-'));
     try {
       await writeFile(join(projectDir, 'package.json'), JSON.stringify({ name: 'proj' }), 'utf8');
-      await mkdir(join(projectDir, 'saifac', 'features', 'my-feat'), { recursive: true });
+      await mkdir(join(projectDir, 'saifctl', 'features', 'my-feat'), { recursive: true });
 
       const storage = createRunStorage('local', projectDir)!;
       const source = makeSourceArtifact('srcrun9');
       await storage.saveRun('srcrun9', source);
 
-      const config = await loadSaifacConfig('saifac', projectDir);
+      const config = await loadSaifctlConfig('saifctl', projectDir);
       const cli = await buildOrchestratorCliInputFromFeatArgs({ 'max-runs': '17' } as FeatRunArgs, {
         projectDir,
-        saifDir: 'saifac',
+        saifDir: 'saifctl',
         config,
       });
 
       const { newRunId } = await forkStoredRun({
         runId: 'srcrun9',
         projectDir,
-        saifDir: 'saifac',
+        saifDir: 'saifctl',
         config,
         runStorage: storage,
         cli,

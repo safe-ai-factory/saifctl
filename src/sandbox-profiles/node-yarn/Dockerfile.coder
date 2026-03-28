@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-yarn/Dockerfile.coder \
-#                -t saifac-coder-node-yarn:latest .
+#                -t saifctl-coder-node-yarn:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-yarn

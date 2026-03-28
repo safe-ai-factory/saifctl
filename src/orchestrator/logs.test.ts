@@ -9,8 +9,8 @@ import {
   createAgentRunnerStdoutMux,
   createAgentStdoutPipe,
   createDefaultAgentLog,
-  SAIFAC_AGENT_LOG_END,
-  SAIFAC_AGENT_LOG_START,
+  SAIFCTL_AGENT_LOG_END,
+  SAIFCTL_AGENT_LOG_START,
 } from './logs.js';
 
 describe('createAgentRunnerStdoutMux', () => {
@@ -33,13 +33,13 @@ describe('createAgentRunnerStdoutMux', () => {
       onAgentLog: createDefaultAgentLog({ linePrefix: 'agent', stdoutStrategy: null }),
       stdoutStrategy: null,
     });
-    parser.push(`boot\n${SAIFAC_AGENT_LOG_START}\nagent line\n${SAIFAC_AGENT_LOG_END}\n`);
+    parser.push(`boot\n${SAIFCTL_AGENT_LOG_START}\nagent line\n${SAIFCTL_AGENT_LOG_END}\n`);
     parser.flush();
     const out = writes.join('');
     expect(out).toContain('[agent] boot');
     expect(out).toContain('[agent] agent line');
-    expect(out).not.toContain(SAIFAC_AGENT_LOG_START);
-    expect(out).not.toContain(SAIFAC_AGENT_LOG_END);
+    expect(out).not.toContain(SAIFCTL_AGENT_LOG_START);
+    expect(out).not.toContain(SAIFCTL_AGENT_LOG_END);
   });
 
   it('openhands strategy parses JSON only between delimiters', () => {
@@ -51,12 +51,12 @@ describe('createAgentRunnerStdoutMux', () => {
       stdoutStrategy: openhandsStdoutStrategy,
     });
     parser.push('pnpm ok\n');
-    parser.push(`${SAIFAC_AGENT_LOG_START}\n`);
+    parser.push(`${SAIFCTL_AGENT_LOG_START}\n`);
     parser.push('plain agent\n');
     parser.push(
       `--JSON Event--\n{"kind":"ActionEvent","thought":[],"action":{"kind":"X","summary":"y"}}\n`,
     );
-    parser.push(`${SAIFAC_AGENT_LOG_END}\n`);
+    parser.push(`${SAIFCTL_AGENT_LOG_END}\n`);
     parser.push('gate done\n');
     parser.flush();
     const out = writes.join('');
@@ -74,7 +74,7 @@ describe('createAgentRunnerStdoutMux', () => {
       },
       stdoutStrategy: null,
     });
-    parser.push(`boot\n${SAIFAC_AGENT_LOG_START}\nagent line\n${SAIFAC_AGENT_LOG_END}\n`);
+    parser.push(`boot\n${SAIFCTL_AGENT_LOG_START}\nagent line\n${SAIFCTL_AGENT_LOG_END}\n`);
     parser.flush();
     expect(events.some((e) => e.phase === 'infra' && e.raw === 'boot')).toBe(true);
     expect(events.some((e) => e.phase === 'agent' && e.raw === 'agent line')).toBe(true);
@@ -86,7 +86,7 @@ describe('createAgentRunnerStdoutMux', () => {
       onAgentLog: (e) => events.push({ phase: e.phase, raw: e.raw }),
       stdoutStrategy: null,
     });
-    pipe.onAgentStdout(`x\n${SAIFAC_AGENT_LOG_START}\ny\n`);
+    pipe.onAgentStdout(`x\n${SAIFCTL_AGENT_LOG_START}\ny\n`);
     pipe.onAgentStdoutEnd();
     expect(events.some((e) => e.phase === 'infra' && e.raw === 'x')).toBe(true);
     expect(events.some((e) => e.phase === 'agent' && e.raw === 'y')).toBe(true);

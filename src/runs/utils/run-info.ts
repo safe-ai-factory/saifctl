@@ -1,5 +1,5 @@
 /**
- * View model for `saifac run info` — JSON-safe snapshot without large blobs.
+ * View model for `saifctl run info` — JSON-safe snapshot without large blobs.
  */
 
 import type { RunArtifact, RunCommit } from '../types.js';

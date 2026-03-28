@@ -15,6 +15,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "scripts", "saifac", "tsup.config.ts", "eslint.config.js", "vitest.config.ts"],
+  "include": ["src", "scripts", "saifctl", "tsup.config.ts", "eslint.config.js", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

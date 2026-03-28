@@ -8,7 +8,7 @@ const minimalArtifact: RunArtifact = {
   baseCommitSha: 'abc',
   basePatchDiff: 'base-diff-content',
   runCommits: [{ message: 'm', diff: 'run-diff-content' }],
-  specRef: 'saifac/features/x',
+  specRef: 'saifctl/features/x',
   rules: [],
   lastFeedback: 'feedback line',
   config: {
@@ -20,7 +20,7 @@ const minimalArtifact: RunArtifact = {
     projectDir: '/p',
     maxRuns: 3,
     overrides: {},
-    saifDir: 'saifac',
+    saifDir: 'saifctl',
     projectName: 'proj',
     testImage: 'img',
     resolveAmbiguity: 'ai',
@@ -100,7 +100,7 @@ describe('toRunInfoJson', () => {
   it('preserves other top-level fields', () => {
     const view = toRunInfoJson(minimalArtifact);
     expect(view.runId).toBe('r1');
-    expect(view.specRef).toBe('saifac/features/x');
+    expect(view.specRef).toBe('saifctl/features/x');
     expect(view.lastFeedback).toBe('feedback line');
     expect(view.status).toBe('failed');
   });

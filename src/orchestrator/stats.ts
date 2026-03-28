@@ -36,7 +36,7 @@ const VALID_PHASES = new Set<InnerRoundPhase>([
  * (`sandboxBasePath/code` on disk, `/workspace` in the Leash coder container).
  */
 export function roundsStatsPath(sandboxBasePath: string): string {
-  return join(sandboxBasePath, 'code', '.saifac', 'stats.jsonl');
+  return join(sandboxBasePath, 'code', '.saifctl', 'stats.jsonl');
 }
 
 /** Clears the log before each outer coding attempt so inner `round` indices stay unambiguous. */

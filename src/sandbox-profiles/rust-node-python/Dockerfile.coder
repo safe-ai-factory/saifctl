@@ -5,7 +5,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust-node-python/Dockerfile.coder \
-#                -t saifac-coder-rust-node-python:latest .
+#                -t saifctl-coder-rust-node-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile rust-node-python

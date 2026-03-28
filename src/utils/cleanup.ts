@@ -24,7 +24,7 @@ export class CleanupRegistry {
   /**
    * Sandbox dir to remove on SIGINT/SIGTERM. The iterative loop normally destroys the sandbox in
    * its own `finally`, but the signal handler calls `process.exit` before that runs — without this,
-   * Disposable sandbox dirs under the sandbox base (e.g. `/tmp/saifac/sandboxes/...`) accumulate after every interrupted run.
+   * Disposable sandbox dirs under the sandbox base (e.g. `/tmp/saifctl/sandboxes/...`) accumulate after every interrupted run.
    */
   private emergencySandboxPath?: string;
 

@@ -6,7 +6,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-bun-python/Dockerfile.coder \
-#                -t saifac-coder-node-bun-python:latest .
+#                -t saifctl-coder-node-bun-python:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-bun-python

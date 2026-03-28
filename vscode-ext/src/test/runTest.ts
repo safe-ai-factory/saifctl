@@ -2,7 +2,7 @@ import * as path from 'node:path';
 
 import { runTests } from '@vscode/test-electron';
 
-import { consola } from '../saifac-logger.js';
+import { consola } from '../saifctl-logger.js';
 
 /**
  * Entry point for VS Code extension tests. Runs outside VS Code in Node.
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     const extensionTestsPath = path.resolve(__dirname, './suite/index.js');
 
     // Open a specific workspace when the test window launches (for deterministic tests)
-    const launchArgs = [path.resolve(extensionDevelopmentPath, 'saifac-test-workspace')];
+    const launchArgs = [path.resolve(extensionDevelopmentPath, 'saifctl-test-workspace')];
 
     await runTests({
       extensionDevelopmentPath,

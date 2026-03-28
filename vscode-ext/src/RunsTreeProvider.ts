@@ -9,9 +9,9 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { type SaifCliService } from './cliService';
+import { type SaifctlCliService } from './cliService';
 
-/** Raw artifact shape from .saifac/runs/*.json (subset of full RunArtifact) */
+/** Raw artifact shape from .saifctl/runs/*.json (subset of full RunArtifact) */
 interface RunArtifactRaw {
   runId: string;
   status: 'failed' | 'completed' | 'running';
@@ -40,7 +40,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
 
   constructor(
     private readonly workspaceRoot: string,
-    private readonly cliService: SaifCliService,
+    private readonly cliService: SaifctlCliService,
   ) {}
 
   refresh(): void {

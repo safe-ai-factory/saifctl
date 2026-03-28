@@ -18,7 +18,7 @@ describe('stats', () => {
   });
 
   it('readInnerRounds parses valid JSONL', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-rounds-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-rounds-'));
     try {
       const logPath = roundsStatsPath(dir);
       await prepareRoundsStatsFile(dir);
@@ -40,7 +40,7 @@ describe('stats', () => {
   });
 
   it('readInnerRounds accepts agent_failed phase', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-rounds-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-rounds-'));
     try {
       const logPath = roundsStatsPath(dir);
       await prepareRoundsStatsFile(dir);
@@ -56,14 +56,14 @@ describe('stats', () => {
     }
   });
 
-  it('pendingRulesPath lives beside roundsStatsPath under .saifac', () => {
+  it('pendingRulesPath lives beside roundsStatsPath under .saifctl', () => {
     const base = '/tmp/sbx';
     expect(dirname(pendingRulesPath(base))).toBe(dirname(roundsStatsPath(base)));
     expect(pendingRulesPath(base)).toMatch(/pending-rules\.md$/);
   });
 
   it('preparePendingRulesFile creates an empty file', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-pending-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-pending-'));
     try {
       const p = pendingRulesPath(dir);
       await preparePendingRulesFile(dir);
@@ -74,7 +74,7 @@ describe('stats', () => {
   });
 
   it('readInnerRounds skips junk lines', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-rounds-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-rounds-'));
     try {
       const logPath = roundsStatsPath(dir);
       await prepareRoundsStatsFile(dir);

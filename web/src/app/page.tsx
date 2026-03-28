@@ -10,7 +10,6 @@ import {
   Network,
   RefreshCcw,
   ShieldCheck,
-  Terminal,
   Zap,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -21,11 +20,9 @@ import { track } from '../lib/analytics';
 import { type SectionId } from '../lib/analytics/types';
 
 // URLs
-const GITHUB_REPO_TRY_IT = `${GITHUB_REPO}#try-it-out-now`;
 const GITHUB_AUTHOR = 'https://github.com/JuroOravec';
 const GITHUB_CHANGELOG_URL = `${GITHUB_REPO}/releases`;
 const GITHUB_DOCS_USAGE = `${GITHUB_REPO}/blob/main/docs/usage.md`;
-const GITHUB_DOCS_PROVE = `${GITHUB_REPO}/blob/main/docs/commands/prove.md`;
 const GITHUB_DOCS_SECURITY = `${GITHUB_REPO}/blob/main/docs/security.md`;
 const LEASH_URL = 'https://github.com/strongdm/leash';
 const CEDAR_POLICY_URL = 'https://www.cedarpolicy.com/';
@@ -139,8 +136,8 @@ export default function Home() {
             }}
             className="flex items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer"
           >
-            <img src="/saifac-icon-green.svg" alt="SAIFAC" className="w-6 h-6 shrink-0" />
-            <span className="font-mono font-bold tracking-tight text-white">SAIFAC</span>
+            <img src="/saifctl-icon-green.svg" alt="SaifCTL" className="w-6 h-6 shrink-0" />
+            <span className="font-mono font-bold tracking-tight text-white">SaifCTL</span>
           </a>
           <div className="hidden md:flex items-center gap-6 text-sm">
             <a href="#gauntlet" className="text-gray-400 hover:text-white transition-colors">
@@ -213,7 +210,7 @@ export default function Home() {
                 until it passes your checks and tests.
               </p>
               <p className="text-base">
-                Safe AI Factory (SAIFAC) is a spec-driven software factory.
+                SaifCTL is a spec-driven software factory.
                 <br />
                 Language-agnostic. Use with any agentic CLI. Safe by design.
               </p>
@@ -252,7 +249,7 @@ export default function Home() {
               again. <strong className="text-white">You are the quality gate.</strong>
               <br />
               <br />
-              SAIFAC replaces that loop with a deterministic, multi-stage pipeline. The AI iterates
+              SaifCTL replaces that loop with a deterministic, multi-stage pipeline. The AI iterates
               inside a locked-down sandbox, getting rejected by{' '}
               <span className="font-bold text-white">your own rules</span> - linters, type-checkers,
               adversarial reviewer, and hidden tests - until the code actually works. You only see a
@@ -351,7 +348,7 @@ export default function Home() {
           <div className="max-w-4xl mx-auto px-6 text-center">
             <SectionLabel label="The Guarantee" green />
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-16">
-              Three things SAIFAC guarantees. <span className="text-[#00FF66]">Mechanically.</span>
+              Three things SaifCTL guarantees. <span className="text-[#00FF66]">Mechanically.</span>
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               {GUARANTEES.map((g, i) => (
@@ -392,7 +389,7 @@ export default function Home() {
                 <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
                 <span className="w-3 h-3 rounded-full bg-green-500/70" />
                 <span className="ml-2 font-mono text-xs text-gray-500">
-                  saifac feat run -n rate-limiting
+                  saifctl feat run -n rate-limiting
                 </span>
               </div>
               <div className="p-6 font-mono text-sm space-y-3">
@@ -400,7 +397,7 @@ export default function Home() {
                   delay={0.5}
                   prefix="ℹ"
                   prefixColor="text-blue-400"
-                  text="Starting SAIFAC run · feature: rate-limiting · agent: claude-code"
+                  text="Starting SaifCTL run · feature: rate-limiting · agent: claude-code"
                 />
                 <TerminalLine
                   delay={0.9}
@@ -445,14 +442,14 @@ export default function Home() {
                   delay={3.6}
                   prefix="→"
                   prefixColor="text-[#00FF66]"
-                  text="Opening PR · agent: saifac-agent[run-a1b2c3] · cost: $1.42 · 43 min"
+                  text="Opening PR · agent: saifctl-agent[run-a1b2c3] · cost: $1.42 · 43 min"
                   color="text-gray-300"
                 />
               </div>
             </motion.div>
           </div>
 
-          {/* saifac prove CTA */}
+          {/* saifctl prove CTA */}
           <ProveItCTA />
         </section>
 
@@ -463,7 +460,7 @@ export default function Home() {
             Built for every layer of your engineering org
           </h2>
           <p className="text-gray-400 max-w-2xl mb-12 leading-relaxed">
-            SAIFAC isn't just a tool for one person. It's infrastructure for the whole team - the
+            SaifCTL isn't just a tool for one person. It's infrastructure for the whole team - the
             engineer who uses it daily, the manager who relies on it for predictable delivery, the
             CTO who needs to know it's secure, and the security team that has to sign off on it.
           </p>
@@ -540,7 +537,7 @@ export default function Home() {
               Where you need it. How you need it.
             </h2>
             <p className="text-gray-400 max-w-2xl mb-12 leading-relaxed">
-              SAIFAC is designed to start on your laptop and scale to your entire org. Adopt one
+              SaifCTL is designed to start on your laptop and scale to your entire org. Adopt one
               ticket at a time, or deploy a full fleet. The factory runs anywhere your Docker daemon
               does.
             </p>
@@ -592,7 +589,7 @@ export default function Home() {
         <section id="security" className="max-w-6xl mx-auto px-6 mb-32">
           <SectionLabel label="Security" />
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            SAIFAC treats every AI agent as an insider threat.{' '}
+            SaifCTL treats every AI agent as an insider threat.{' '}
             <span className="text-gray-400">So should you.</span>
           </h2>
           <p className="text-gray-400 max-w-2xl mb-4 leading-relaxed">
@@ -604,11 +601,11 @@ export default function Home() {
             The industry has responded with vibes. <em>"We sandboxed it. We trust the model."</em>{' '}
             <br />
             <br />
-            SAIFAC responded with architecture. Every security property below is enforced in code.
+            SaifCTL responded with architecture. Every security property below is enforced in code.
           </p>
           <SecurityTable rows={SECURITY_ROWS} />
           <p className="mt-8 text-sm text-gray-500">
-            SAIFAC is fully open source. Read the Dockerfiles, audit the Cedar policies, inspect
+            SaifCTL is fully open source. Read the Dockerfiles, audit the Cedar policies, inspect
             every data flow, and verify these properties before deploying a single agent.{' '}
             <a
               href={GITHUB_DOCS_SECURITY}
@@ -631,11 +628,11 @@ export default function Home() {
             </h2>
             <p className="text-gray-400 max-w-2xl mb-12 leading-relaxed">
               Security keeps the attacker out. Reliability means an agent stuck in a loop won't burn
-              through your budget. SAIFAC takes care of both.
+              through your budget. SaifCTL takes care of both.
             </p>
             <SecurityTable
               rows={RELIABILITY_ROWS}
-              colHeaders={['The Operational Risk', 'How SAIFAC Handles It']}
+              colHeaders={['The Operational Risk', 'How SaifCTL Handles It']}
             />
           </div>
         </section>
@@ -647,9 +644,9 @@ export default function Home() {
             Your entire AI factory, without leaving your editor.
           </h2>
           <p className="text-gray-400 max-w-2xl mb-12 leading-relaxed">
-            The SAIFAC CLI is powerful. But you live in your IDE. Context-switching to a terminal to
-            check on a running agent, triage a failed run, or kick off a debug session breaks your
-            flow. The SAIFAC VSCode Extension brings the entire factory into your sidebar. No
+            The SaifCTL CLI is powerful. But you live in your IDE. Context-switching to a terminal
+            to check on a running agent, triage a failed run, or kick off a debug session breaks
+            your flow. The SaifCTL VSCode Extension brings the entire factory into your sidebar. No
             terminal required.
           </p>
 
@@ -676,7 +673,7 @@ export default function Home() {
               {/* Sidebar */}
               <div className="w-64 bg-[#161616] border-r border-[#333] p-4 font-mono text-xs">
                 <div className="text-gray-500 uppercase text-[10px] tracking-widest mb-3">
-                  SAIFAC — Features
+                  SaifCTL — Features
                 </div>
                 <div className="space-y-2">
                   {['rate-limiting', 'auth-refresh', 'webhook-retry'].map((feat, i) => (
@@ -759,7 +756,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-6">
             <SectionLabel label="Transparency" />
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-              SAIFAC shows its work. <span className="text-gray-400">That's the point.</span>
+              SaifCTL shows its work. <span className="text-gray-400">That's the point.</span>
             </h2>
             <p className="text-gray-400 max-w-2xl mb-4 leading-relaxed">
               Engineers don't trust AI tools that work perfectly on the first try. Neither do we.
@@ -768,7 +765,7 @@ export default function Home() {
               What you actually want from an AI agent isn't magic — it's{' '}
               <strong className="text-white">evidence</strong>. You want to know what it tried, why
               it failed, how it corrected itself, and what exactly it proved before opening a PR.
-              SAIFAC attaches a full run log to every PR it opens. To prove it did the work.
+              SaifCTL attaches a full run log to every PR it opens. To prove it did the work.
             </p>
 
             {/* PR Mockup */}
@@ -784,7 +781,7 @@ export default function Home() {
                     <p className="text-[#8b949e] text-xs mt-1">
                       opened by{' '}
                       <code className="text-[#00ccff] bg-[#00ccff]/10 px-1 rounded">
-                        saifac-agent[run-a1b2c3]
+                        saifctl-agent[run-a1b2c3]
                       </code>{' '}
                       · 3 commits · 14 tests added
                     </p>
@@ -818,17 +815,17 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="border-t border-[#30363d] pt-4 text-[#8b949e]">
-                  Agent Identity: <code className="text-[#00ccff]">saifac-agent[run-a1b2c3]</code> ·
-                  Runtime: 43 min · API cost: $1.42 · Full log:{' '}
-                  <code className="text-[#00FF66]">saifac-run-log.md</code>
+                  Agent Identity: <code className="text-[#00ccff]">saifctl-agent[run-a1b2c3]</code>{' '}
+                  · Runtime: 43 min · API cost: $1.42 · Full log:{' '}
+                  <code className="text-[#00FF66]">saifctl-run-log.md</code>
                 </div>
               </div>
             </div>
 
             <p className="text-gray-400 max-w-2xl mb-12 leading-relaxed">
-              Yes, SAIFAC took 43 minutes and failed twice before getting it right. That's not a bug
-              — that's the system doing its job. It found a race condition and a memory leak before
-              they reached your PR queue.{' '}
+              Yes, SaifCTL took 43 minutes and failed twice before getting it right. That's not a
+              bug — that's the system doing its job. It found a race condition and a memory leak
+              before they reached your PR queue.{' '}
               <strong className="text-white">
                 That's what deterministic verification looks like.
               </strong>{' '}
@@ -849,7 +846,7 @@ export default function Home() {
             too late.
             <br />
             <br />
-            SAIFAC enforces rigor before the PR exists.
+            SaifCTL enforces rigor before the PR exists.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
             <button
@@ -868,7 +865,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* saifac prove CTA */}
+          {/* saifctl prove CTA */}
           <ProveItCTA />
         </section>
       </main>
@@ -879,12 +876,12 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src="/saifac-icon-green.svg" alt="SAIFAC" className="w-6 h-6 shrink-0" />
-                <span className="font-mono font-bold text-white">SAIFAC</span>
+                <img src="/saifctl-icon-green.svg" alt="SaifCTL" className="w-6 h-6 shrink-0" />
+                <span className="font-mono font-bold text-white">SaifCTL</span>
               </div>
               <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                Safe AI Factory (SAIFAC) is a spec-driven software factory. Open source.
-                Language-agnostic. Use with any agentic CLI. Safe by design.
+                SaifCTL is a spec-driven software factory. Open source. Language-agnostic. Use with
+                any agentic CLI. Safe by design.
               </p>
               <a
                 href={GITHUB_REPO}
@@ -1006,7 +1003,7 @@ function TerminalLine({
 
 function SecurityTable({
   rows,
-  colHeaders = ['The Attack Vector', 'How SAIFAC Physically Prevents It'],
+  colHeaders = ['The Attack Vector', 'How SaifCTL Physically Prevents It'],
 }: {
   rows: { threat: ReactNode; defense: ReactNode }[];
   colHeaders?: [string, string];
@@ -1066,7 +1063,7 @@ const PIPELINE_NODES = [
       </>
     ),
     detail:
-      'Start with your raw intent - a GitHub issue, a Jira ticket, or just a loose description of the problem. SAIFAC reads it, then hands it to the Spec Agent. You can edit or override the proposal before the next step runs.',
+      'Start with your raw intent - a GitHub issue, a Jira ticket, or just a loose description of the problem. SaifCTL reads it, then hands it to the Spec Agent. You can edit or override the proposal before the next step runs.',
   },
   {
     icon: '🔍',
@@ -1189,7 +1186,7 @@ const PIPELINE_NODES = [
         <br />
         <br />
         Commits are signed with a dedicated Agent Identity (
-        <code className="text-[#00FF66]">saifac-agent[run-id]</code>).
+        <code className="text-[#00FF66]">saifctl-agent[run-id]</code>).
         <br />
         <br />
         The full run log (attempts, failures, feedback loops) is attached to the PR description so
@@ -1208,7 +1205,7 @@ const GUARANTEES = [
   {
     icon: '🛡️',
     title: "The AI can't break previously-built features.",
-    body: 'All features built with SAIFAC are protected by tests the AI cannot modify. Regressions are impossible.',
+    body: 'All features built with SaifCTL are protected by tests the AI cannot modify. Regressions are impossible.',
   },
   {
     icon: '🔒',
@@ -1239,12 +1236,12 @@ const FEATURE_CARDS = [
             you have to manually untangle.
             <br />
             <br />
-            SAIFAC does the opposite: when an agent hits its limit, it saves the exact state - the
+            SaifCTL does the opposite: when an agent hits its limit, it saves the exact state - the
             partial diff, the last error, the stack trace.
           </>
         ),
       },
-      { type: 'code' as const, content: ['saifac run debug <run-id>'] },
+      { type: 'code' as const, content: ['saifctl run debug <run-id>'] },
       {
         type: 'text' as const,
         content: (
@@ -1267,7 +1264,7 @@ const FEATURE_CARDS = [
             Unknown API spend. Rogue loops burning budget over the weekend while nobody's watching.
             <br />
             <br />
-            The solution: SAIFAC's centralized orchestration plane.
+            The solution: SaifCTL's centralized orchestration plane.
           </>
         ),
       },
@@ -1288,18 +1285,18 @@ const FEATURE_CARDS = [
       {
         type: 'text' as const,
         content:
-          "A new AI tool arrives every month. When a better one drops, you're either locked in, or you're rebuilding your workflow from scratch.\n\nSAIFAC is a verification engine, not a coding agent. Swap agents and models with ease:",
+          "A new AI tool arrives every month. When a better one drops, you're either locked in, or you're rebuilding your workflow from scratch.\n\nSaifCTL is a verification engine, not a coding agent. Swap agents and models with ease:",
       },
       {
         type: 'code' as const,
-        content: ['saifac run --agent=claude-code', 'saifac run --model=claude-sonnet-4-6'],
+        content: ['saifctl run --agent=claude-code', 'saifctl run --model=claude-sonnet-4-6'],
       },
       {
         type: 'text' as const,
         content: (
           <>
-            SAIFAC is language-agnostic. Reuse SAIFAC across projects or teams without changing your
-            AI workflow.
+            SaifCTL is language-agnostic. Reuse SaifCTL across projects or teams without changing
+            your AI workflow.
           </>
         ),
       },
@@ -1320,7 +1317,7 @@ const FEATURE_CARDS = [
             And these tools ask you to trust them...
             <br />
             <br />
-            SAIFAC assumes you won't. And it's built accordingly.
+            SaifCTL assumes you won't. And it's built accordingly.
           </>
         ),
       },
@@ -1335,7 +1332,7 @@ const FEATURE_CARDS = [
       {
         type: 'text' as const,
         content:
-          'SAIFAC is open source. Audit the Dockerfiles, review the Cedar policies, inspect the data flow.',
+          'SaifCTL is open source. Audit the Dockerfiles, review the Cedar policies, inspect the data flow.',
       },
     ],
   },
@@ -1355,7 +1352,7 @@ const DEPLOY_TIERS = [
     icon: '🏢',
     name: 'Self-Hosted VPC',
     subtitle: 'Full control inside your own infrastructure',
-    body: 'Deploy the SAIFAC Control Server inside your own infrastructure via Kubernetes (Helm). Your codebase never leaves your network. Full identity-aware cost attribution, RBAC, org-wide budget caps, and a centralized fleet dashboard.',
+    body: 'Deploy the SaifCTL Control Server inside your own infrastructure via Kubernetes (Helm). Your codebase never leaves your network. Full identity-aware cost attribution, RBAC, org-wide budget caps, and a centralized fleet dashboard.',
     cta: 'Join Design Partner Waitlist',
     href: undefined,
     openWaitlist: true,
@@ -1414,11 +1411,11 @@ const SECURITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
   },
   {
     threat:
-      "Agent uses prompt injection to manipulate SAIFAC's own AI components into approving the code",
+      "Agent uses prompt injection to manipulate SaifCTL's own AI components into approving the code",
     defense: (
       <>
-        The agent never controls any input that reaches SAIFAC's internal AI agents. Neither code
-        changes nor test failures are forwarded to SAIFAC's AI agents. The coding agent cannot
+        The agent never controls any input that reaches SaifCTL's internal AI agents. Neither code
+        changes nor test failures are forwarded to SaifCTL's AI agents. The coding agent cannot
         inject instructions into any part of the pipeline it doesn't own.
         <br />
         <br />
@@ -1432,7 +1429,7 @@ const SECURITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
     threat: 'Agent modifies or deletes test files to force a passing build (reward hacking)',
     defense: (
       <>
-        Every SAIFAC feature has two test sets:
+        Every SaifCTL feature has two test sets:
         <ol className="list-inside list-disc">
           <li>Public - The agent can see public tests but cannot modify them.</li>
           <li>Hidden - The agent never sees the hidden tests.</li>
@@ -1485,7 +1482,7 @@ const SECURITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
             policies blocking outbound traffic to public registries.
           </li>
           <li>
-            (3) Add a SAIFAC Gate script (<code className={codeCls}>--gate-script</code>) that runs
+            (3) Add a SaifCTL Gate script (<code className={codeCls}>--gate-script</code>) that runs
             a dependency audit.
           </li>
         </ol>
@@ -1503,8 +1500,8 @@ const RELIABILITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
         <br />
         <br />
         Instead of a real database, define ephemeral mock services in{' '}
-        <code className={codeCls}>docker-compose.yml</code>. If an ephemeral service crashes, SAIFAC
-        detects it via health checks and halts the run immediately.
+        <code className={codeCls}>docker-compose.yml</code>. If an ephemeral service crashes,
+        SaifCTL detects it via health checks and halts the run immediately.
       </>
     ),
   },
@@ -1513,7 +1510,7 @@ const RELIABILITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
       "An agent gets stuck in a retry loop Friday evening and burns through the team's API budget by Saturday morning",
     defense: (
       <>
-        Configure max attempts as a hard circuit breaker. When the limit is reached, SAIFAC halts
+        Configure max attempts as a hard circuit breaker. When the limit is reached, SaifCTL halts
         execution, saves the state, and sends an alert.
         <br />
         <br />
@@ -1525,15 +1522,15 @@ const RELIABILITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
     threat:
       "Your team is running agents on their laptops and nobody has any idea what's happening, what it's costing, or whether any of it is working",
     defense:
-      'SAIFAC has a centralized dashboard (self-hosted or managed cloud). Every run flows through it, regardless of where it was launched. Live terminal logs, API spend per team or per feature, health metrics, and a real-time map of the entire swarm. No shadow compute. No surprise bills.',
+      'SaifCTL has a centralized dashboard (self-hosted or managed cloud). Every run flows through it, regardless of where it was launched. Live terminal logs, API spend per team or per feature, health metrics, and a real-time map of the entire swarm. No shadow compute. No surprise bills.',
   },
   {
     threat:
       "AI-generated code is merged under a developer's identity, making it impossible to distinguish human from AI work in audit logs",
     defense: (
       <>
-        Every SAIFAC commit is signed with a dedicated, verifiable Agent Identity (
-        <code className={codeCls}>saifac-agent[run-id]</code>). It never inherits your developer's
+        Every SaifCTL commit is signed with a dedicated, verifiable Agent Identity (
+        <code className={codeCls}>saifctl-agent[run-id]</code>). It never inherits your developer's
         gitconfig. Human commits and AI commits are always distinguishable in your Git history.
       </>
     ),
@@ -1554,6 +1551,6 @@ const VSCODE_FEATURES = [
   {
     icon: '📁',
     title: 'Manage your feature backlog',
-    body: 'Create features, write proposals. Directly from the sidebar tree view. Your SAIFAC feature backlog lives alongside your code, versioned in Git.',
+    body: 'Create features, write proposals. Directly from the sidebar tree view. Your SaifCTL feature backlog lives alongside your code, versioned in Git.',
   },
 ];

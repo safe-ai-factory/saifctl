@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: true,
-    include: ['src/**/*.test.ts', 'saifac/**/tests/**/*.spec.ts'],
+    include: ['src/**/*.test.ts', 'saifctl/**/tests/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'scripts/**/*.ts'],

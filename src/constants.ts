@@ -7,26 +7,26 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Absolute path to the SAIFAC repository root.
+ * Absolute path to the SaifCTL tool repository root.
  *
- * Resolved from this file's location (src/constants.ts → one level up = SAIFAC root).
+ * Resolved from this file's location (src/constants.ts → one level up = SaifCTL repo root).
  * Use this instead of computing the root from import.meta.url in other modules —
  * that pattern breaks when files live at different depths (e.g. scripts/ vs src/).
  */
-export function getSaifRoot(): string {
+export function getSaifctlRoot(): string {
   const thisFile = fileURLToPath(import.meta.url);
   return resolve(dirname(thisFile), '..');
 }
 
 /**
  * Workspace-relative path to the per-round agent task file (markdown).
- * Written by coder-start.sh before each inner gate round; read via `$SAIFAC_TASK_PATH`.
+ * Written by coder-start.sh before each inner gate round; read via `$SAIFCTL_TASK_PATH`.
  */
-export const SAIFAC_TASK_FILE_RELATIVE = '.saifac/task.md';
+export const SAIFCTL_TASK_FILE_RELATIVE = '.saifctl/task.md';
 
 /** Absolute path to the task file under a workspace root (sandbox `code/` or `/workspace` in-container). */
-export function saifacTaskFilePath(workspaceRoot: string): string {
-  return join(workspaceRoot, '.saifac', 'task.md');
+export function saifctlTaskFilePath(workspaceRoot: string): string {
+  return join(workspaceRoot, '.saifctl', 'task.md');
 }
 
 /** Environment variable names for LLM API keys. At least one must be set for init and agent workflows. */
@@ -62,5 +62,5 @@ export const DEFAULT_REVIEWER_ENABLED = true;
 
 /** Bundled Cedar policy when not set via CLI or config. */
 export function defaultCedarPolicyPath(): string {
-  return join(getSaifRoot(), 'src', 'orchestrator', 'policies', 'default.cedar');
+  return join(getSaifctlRoot(), 'src', 'orchestrator', 'policies', 'default.cedar');
 }

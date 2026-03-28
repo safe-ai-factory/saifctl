@@ -3,7 +3,7 @@
 // Security model:
 //   - Agent can read all files in the container.
 //   - Writes are restricted to `/workspace/` (mounted sandbox copy) and `/tmp/` (tool state).
-//   - Writes to `/workspace/saifac/` are explicitly DENIED (reward-hacking prevention).
+//   - Writes to `/workspace/saifctl/` are explicitly DENIED (reward-hacking prevention).
 //   - Network is unrestricted. The agent needs to reach LLM APIs, npm/PyPI
 //     registries, GitHub, and arbitrary CDNs during normal operation. The
 //     real isolation boundary is the filesystem, not the network.
@@ -43,7 +43,7 @@ forbid (
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/saifac/" ]
+    resource in [ Dir::"/workspace/saifctl/" ]
 };
 
 // Disallow write to .git (sandbox-escape prevention).

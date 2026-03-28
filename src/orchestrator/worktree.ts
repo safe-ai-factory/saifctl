@@ -28,8 +28,8 @@ import { type RunStorageContext } from './loop.js';
 import { applyRunCommitInRepo } from './patch.js';
 import { diffUntrackedFilesVersusDevNull, type Sandbox } from './sandbox.js';
 
-/** Ephemeral artifact worktrees (not under the repo’s `.saifac/`). */
-const SAIFAC_ARTIFACT_WORKTREES_ROOT = join('/tmp', 'worktrees');
+/** Ephemeral artifact worktrees (not under the repo’s `.saifctl/`). */
+const SAIFCTL_ARTIFACT_WORKTREES_ROOT = join('/tmp', 'worktrees');
 
 // ---------------------------------------------------------------------------
 // Base git state capture (for run storage on start)
@@ -89,8 +89,8 @@ export interface CreateArtifactRunWorktreeParams {
   basePatchDiff: string | undefined;
   runCommits: RunCommit[];
   /**
-   * Git branch for the worktree. Defaults to `saifac-run-${runId}` (ephemeral from-artifact/test).
-   * For `run apply` we set this to `saifac/<feature>-<runId>-<hash>`.
+   * Git branch for the worktree. Defaults to `saifctl-run-${runId}` (ephemeral from-artifact/test).
+   * For `run apply` we set this to `saifctl/<feature>-<runId>-<hash>`.
    */
   outputBranchName?: string;
 }
@@ -113,12 +113,12 @@ async function gitWorktreeListForDebug(cwd: string): Promise<string> {
 /**
  * Materializes a **fresh** git worktree from the stored run artifact (always from scratch).
  * The worktree lives under `/tmp/worktrees/` so it is ephemeral like sandboxes — not under
- * `.saifac/worktrees/` inside the repo (linked worktrees there often break or confuse git).
+ * `.saifctl/worktrees/` inside the repo (linked worktrees there often break or confuse git).
  * `runStartCore` then builds a new rsync sandbox from this path.
  *
  * Layers applied on top of `baseCommitSha`:
  * - Base patch diff — uncommitted host changes at run start (optional).
- * - Dedicated **saifac: base patch** commit (always, including empty when there was no base patch).
+ * - Dedicated **saifctl: base patch** commit (always, including empty when there was no base patch).
  * - Each {@link RunCommit} applied and committed in order.
  *
  * Also writes {@link CreateArtifactRunWorktreeResult#baseSnapshotPath}: a copy of the tree after the
@@ -139,17 +139,17 @@ export async function createArtifactRunWorktree(
 
   const gitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@safeaifactory.com',
-    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@safeaifactory.com',
+    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifctl',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifctl@safeaifactory.com',
+    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifctl',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifctl@safeaifactory.com',
   };
 
-  await mkdir(SAIFAC_ARTIFACT_WORKTREES_ROOT, { recursive: true });
+  await mkdir(SAIFCTL_ARTIFACT_WORKTREES_ROOT, { recursive: true });
   const dirKey = createHash('sha256').update(projectDir).digest('hex').slice(0, 16);
-  const worktreePath = join(SAIFAC_ARTIFACT_WORKTREES_ROOT, `${dirKey}-${runId}`);
-  const baseSnapshotPath = join(SAIFAC_ARTIFACT_WORKTREES_ROOT, `${dirKey}-${runId}-base`);
-  const branchName = outputBranchName ?? `saifac-run-${runId}`;
+  const worktreePath = join(SAIFCTL_ARTIFACT_WORKTREES_ROOT, `${dirKey}-${runId}`);
+  const baseSnapshotPath = join(SAIFCTL_ARTIFACT_WORKTREES_ROOT, `${dirKey}-${runId}-base`);
+  const branchName = outputBranchName ?? `saifctl-run-${runId}`;
 
   // Same runId may have left a broken worktree dir / branch from a prior attempt; git would
   // otherwise leave us with no usable path and Node reports spawn ENOENT when cwd is missing.
@@ -189,7 +189,7 @@ export async function createArtifactRunWorktree(
   }
 
   const applyPatchFromString = async (diff: string) => {
-    const tmpPath = join(worktreePath, '.saifac-apply.patch');
+    const tmpPath = join(worktreePath, '.saifctl-apply.patch');
     // Ensure the patch string ends with a newline, otherwise git apply will fail with "corrupt patch".
     // Needed because older runs may have saved trimmed diffs into the JSON artifact.
     const safeDiff = diff.endsWith('\n') ? diff : diff + '\n';
@@ -207,7 +207,7 @@ export async function createArtifactRunWorktree(
       await gitCommit({
         cwd: worktreePath,
         env: gitEnv,
-        message: 'saifac: base patch',
+        message: 'saifctl: base patch',
         verbose: false,
         stdio: 'inherit',
       });
@@ -215,7 +215,7 @@ export async function createArtifactRunWorktree(
       await git({
         cwd: worktreePath,
         env: gitEnv,
-        args: ['commit', '--allow-empty', '-q', '-m', 'saifac: base patch'],
+        args: ['commit', '--allow-empty', '-q', '-m', 'saifctl: base patch'],
       });
     }
 
@@ -360,7 +360,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
   try {
     await runStorage.saveRun(runId, artifact, saveRunOptions);
     consola.log(
-      `[orchestrator] Run artifact saved (interrupted). Start again with: saifac run start ${runId}`,
+      `[orchestrator] Run artifact saved (interrupted). Start again with: saifctl run start ${runId}`,
     );
   } catch (err) {
     if (err instanceof StaleArtifactError) {

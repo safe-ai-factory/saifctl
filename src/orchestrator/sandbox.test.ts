@@ -31,10 +31,10 @@ index abc1234..def5678 100644
 @@ -1,3 +1,4 @@
  export const greet = () => 'hello';
 +export const farewell = () => 'bye';
-diff --git a/saifac/features/foo/tests/tests.json b/saifac/features/foo/tests/tests.json
+diff --git a/saifctl/features/foo/tests/tests.json b/saifctl/features/foo/tests/tests.json
 index 111aaaa..222bbbb 100644
---- a/saifac/features/foo/tests/tests.json
-+++ b/saifac/features/foo/tests/tests.json
+--- a/saifctl/features/foo/tests/tests.json
++++ b/saifctl/features/foo/tests/tests.json
 @@ -1 +1 @@
 -{}
 +{"testCases":[]}
@@ -49,7 +49,7 @@ describe('listFilePathsInUnifiedDiff', () => {
   it('lists paths from standard diff --git headers', () => {
     expect(listFilePathsInUnifiedDiff(PATCH_TWO_FILES)).toEqual([
       'src/index.ts',
-      'saifac/features/foo/tests/tests.json',
+      'saifctl/features/foo/tests/tests.json',
     ]);
   });
 
@@ -84,9 +84,9 @@ describe('filterPatchHunks', () => {
   });
 
   it('strips sections matching a glob exclude rule', () => {
-    const result = filterPatchHunks(PATCH_TWO_FILES, [{ type: 'glob', pattern: 'saifac/**' }]);
+    const result = filterPatchHunks(PATCH_TWO_FILES, [{ type: 'glob', pattern: 'saifctl/**' }]);
     expect(result).toContain('src/index.ts');
-    expect(result).not.toContain('saifac/features/foo/tests/tests.json');
+    expect(result).not.toContain('saifctl/features/foo/tests/tests.json');
   });
 
   it('strips sections matching a regex exclude rule', () => {
@@ -104,16 +104,16 @@ describe('filterPatchHunks', () => {
     expect(filterPatchHunks('', [{ type: 'glob', pattern: '**' }])).toBe('');
   });
 
-  it('strips .saifac/** (factory task file) when excluded', () => {
-    const patchWithTask = `${PATCH_TWO_FILES}diff --git a/.saifac/task.md b/.saifac/task.md
+  it('strips .saifctl/** (factory task file) when excluded', () => {
+    const patchWithTask = `${PATCH_TWO_FILES}diff --git a/.saifctl/task.md b/.saifctl/task.md
 index 0000000..1111111 100644
 --- /dev/null
-+++ b/.saifac/task.md
++++ b/.saifctl/task.md
 @@ -0,0 +1 @@
 +task body
 `;
-    const result = filterPatchHunks(patchWithTask, [{ type: 'glob', pattern: '.saifac/**' }]);
-    expect(result).not.toContain('.saifac/task.md');
+    const result = filterPatchHunks(patchWithTask, [{ type: 'glob', pattern: '.saifctl/**' }]);
+    expect(result).not.toContain('.saifctl/task.md');
     expect(result).toContain('src/index.ts');
   });
 });
@@ -234,7 +234,7 @@ describe('extractIncrementalRoundPatch', () => {
         attempt: 1,
       });
       expect(commits).toHaveLength(1);
-      expect(commits[0].message).toBe('saifac: coding attempt 1');
+      expect(commits[0].message).toBe('saifctl: coding attempt 1');
       expect(patch).toContain('wip.txt');
       const headAfter = (await git({ cwd: codePath, args: ['rev-parse', 'HEAD'] })).trim();
       expect(headAfter).not.toBe(preRound);
@@ -317,7 +317,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
   const TEST_CATALOG = {
     version: '1.0',
     featureName: 'my-feature',
-    featureDir: 'saifac/features/my-feature',
+    featureDir: 'saifctl/features/my-feature',
     containers: {
       staging: { sidecarPort: 8080, sidecarPath: '/exec' },
       additional: [],
@@ -354,7 +354,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
     const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
     const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
-      // 1. Build dummy codebase: .git, .gitignore, saifac/features with public + hidden tests
+      // 1. Build dummy codebase: .git, .gitignore, saifctl/features with public + hidden tests
       await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
       await gitInit({ cwd: projectDir });
       await writeUtf8(join(projectDir, 'README.md'), 'dummy');
@@ -371,7 +371,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifac';
+      const saifDir = 'saifctl';
       const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
       await mkdir(join(featureTests, 'public'), { recursive: true });
       await mkdir(join(featureTests, 'hidden'), { recursive: true });
@@ -409,14 +409,14 @@ describe('createSandbox + destroySandbox (integration)', () => {
       await gitAdd({ cwd: projectDir });
       await gitCommit({
         cwd: projectDir,
-        message: 'Add saifac feature fixtures',
+        message: 'Add saifctl feature fixtures',
         env: gitTestEnv,
       });
 
       const feature = await resolveFeature({
         input: 'my-feature',
         projectDir,
-        saifDir: 'saifac',
+        saifDir: 'saifctl',
       });
       const paths = await createSandbox({
         feature,
@@ -466,8 +466,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
       // 6. Assert .git from source was NOT copied (fresh init), and code has .git
       expect(await pathExists(join(codePath, '.git'))).toBe(true);
 
-      // 7. Assert saifac/ bundle scripts exist with correct content and are executable
-      const saif = paths.saifacPath;
+      // 7. Assert saifctl/ bundle scripts exist with correct content and are executable
+      const saif = paths.saifctlPath;
       const scripts: [string, string][] = [
         [join(saif, 'gate.sh'), GATE_SCRIPT],
         [join(saif, 'startup.sh'), STARTUP_SCRIPT],
@@ -518,7 +518,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifac';
+      const saifDir = 'saifctl';
       const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
       await mkdir(join(featureTests, 'public'), { recursive: true });
       await mkdir(join(featureTests, 'hidden'), { recursive: true });
@@ -542,14 +542,14 @@ describe('createSandbox + destroySandbox (integration)', () => {
       await gitAdd({ cwd: projectDir });
       await gitCommit({
         cwd: projectDir,
-        message: 'Add saifac feature fixtures',
+        message: 'Add saifctl feature fixtures',
         env: gitTestEnv,
       });
 
       const feature = await resolveFeature({
         input: 'my-feature',
         projectDir,
-        saifDir: 'saifac',
+        saifDir: 'saifctl',
       });
 
       const baseOpts = {
@@ -585,7 +585,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
     const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
     const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
-      // 1. Build dummy codebase with nested feature saifac/features/(auth)/login
+      // 1. Build dummy codebase with nested feature saifctl/features/(auth)/login
       await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
       await gitInit({ cwd: projectDir });
       await writeUtf8(join(projectDir, 'README.md'), 'dummy');
@@ -602,11 +602,11 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifac';
+      const saifDir = 'saifctl';
       const NESTED_CATALOG = {
         ...TEST_CATALOG,
         featureName: '(auth)/login',
-        featureDir: 'saifac/features/(auth)/login',
+        featureDir: 'saifctl/features/(auth)/login',
         testCases: [
           {
             id: 'tc-public-001',
@@ -665,7 +665,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       await gitAdd({ cwd: projectDir });
       await gitCommit({
         cwd: projectDir,
-        message: 'Add nested saifac feature fixtures',
+        message: 'Add nested saifctl feature fixtures',
         env: gitTestEnv,
       });
 
@@ -744,39 +744,39 @@ describe('createSandbox + destroySandbox (integration)', () => {
  * if the format changes, both places must be updated in sync (intentional coupling).
  *
  * Format (from docker.ts):
- *   container:  saifac-stage-{projectName}-{featureName}-{runId}
- *   image:      saifac-stage-{projectName}-{featureName}-img-{runId}
- *   test runner: saifac-test-{projectName}-{runId}
+ *   container:  saifctl-stage-{projectName}-{featureName}-{runId}
+ *   image:      saifctl-stage-{projectName}-{featureName}-img-{runId}
+ *   test runner: saifctl-test-{projectName}-{runId}
  *
  * featureName is the canonical slug from getFeatNameOrPrompt (safe for filesystem/Docker).
  *
  * The `docker clear` command:
- *   --all    → matches prefix "saifac-stage-" and "saifac-test-"
- *   default  → matches prefix "saifac-stage-{projectName}-" and "saifac-test-{projectName}-"
+ *   --all    → matches prefix "saifctl-stage-" and "saifctl-test-"
+ *   default  → matches prefix "saifctl-stage-{projectName}-" and "saifctl-test-{projectName}-"
  */
 describe('container/image naming convention (documentation)', () => {
   const buildContainerName = (projectName: string, featureName: string, runId: string) =>
-    `saifac-stage-${projectName}-${featureName}-${runId}`;
+    `saifctl-stage-${projectName}-${featureName}-${runId}`;
 
   const buildImageTag = (projectName: string, featureName: string, runId: string) =>
-    `saifac-stage-${projectName}-${featureName}-img-${runId}`;
+    `saifctl-stage-${projectName}-${featureName}-img-${runId}`;
 
-  it('container name starts with saifac-stage-', () => {
-    expect(buildContainerName('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifac-stage-/);
+  it('container name starts with saifctl-stage-', () => {
+    expect(buildContainerName('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifctl-stage-/);
   });
 
-  it('image tag starts with saifac-stage-', () => {
-    expect(buildImageTag('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifac-stage-/);
+  it('image tag starts with saifctl-stage-', () => {
+    expect(buildImageTag('my-project', 'greet-cmd', 'abc1234')).toMatch(/^saifctl-stage-/);
   });
 
   it('container name is scoped by project name', () => {
     const name = buildContainerName('crawlee-one', 'greet-cmd', 'abc1234');
-    expect(name.startsWith('saifac-stage-crawlee-one-')).toBe(true);
+    expect(name.startsWith('saifctl-stage-crawlee-one-')).toBe(true);
   });
 
   it('image tag is scoped by project name', () => {
     const tag = buildImageTag('crawlee-one', 'greet-cmd', 'abc1234');
-    expect(tag.startsWith('saifac-stage-crawlee-one-')).toBe(true);
+    expect(tag.startsWith('saifctl-stage-crawlee-one-')).toBe(true);
   });
 
   it('container name includes the feature name (canonical slug)', () => {
@@ -787,7 +787,7 @@ describe('container/image naming convention (documentation)', () => {
   it('nested features use slug in container names (auth-login from (auth)/login)', () => {
     const name = buildContainerName('my-project', 'auth-login', 'abc1234');
     expect(name).not.toMatch(/[()/]/);
-    expect(name).toBe('saifac-stage-my-project-auth-login-abc1234');
+    expect(name).toBe('saifctl-stage-my-project-auth-login-abc1234');
   });
 
   it('image tag includes -img- segment to distinguish from containers', () => {
@@ -800,16 +800,16 @@ describe('container/image naming convention (documentation)', () => {
     const proj2 = buildContainerName('project-ab', 'feat', 'id1');
     // project-a- should NOT match project-ab-
     expect(proj1).not.toBeUndefined(); // keep proj1 used
-    expect(proj2.startsWith(`saifac-stage-project-a-`)).toBe(false);
+    expect(proj2.startsWith(`saifctl-stage-project-a-`)).toBe(false);
   });
 
   it('test runner container name is scoped by project name', () => {
     const buildTestRunnerName = (projectName: string, runId: string) =>
-      `saifac-test-${projectName}-${runId}`;
+      `saifctl-test-${projectName}-${runId}`;
 
     const name = buildTestRunnerName('crawlee-one', 'abc1234');
-    expect(name.startsWith('saifac-test-crawlee-one-')).toBe(true);
-    // test runner containers are scoped: docker clear (no --all) uses saifac-test-{proj}-
-    expect(name).not.toContain('saifac-test-other-project');
+    expect(name.startsWith('saifctl-test-crawlee-one-')).toBe(true);
+    // test runner containers are scoped: docker clear (no --all) uses saifctl-test-{proj}-
+    expect(name).not.toContain('saifctl-test-other-project');
   });
 });

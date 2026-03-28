@@ -81,7 +81,7 @@ import {
  * - `{saifDir}/**` — reward-hacking prevention (agent must not modify its own test specs).
  * - `.git/hooks/**` — prevents a malicious patch from installing hooks that execute on the host
  *   when the orchestrator runs `git commit` in applyPatchToHost.
- * - `.saifac/**` — factory-internal workspace state (e.g. per-round task file), not product code.
+ * - `.saifctl/**` — factory-internal workspace state (e.g. per-round task file), not product code.
  */
 export function buildPatchExcludeRules(
   saifDir: string,
@@ -90,7 +90,7 @@ export function buildPatchExcludeRules(
   return [
     { type: 'glob', pattern: `${saifDir}/**` },
     { type: 'glob', pattern: '.git/hooks/**' },
-    { type: 'glob', pattern: '.saifac/**' },
+    { type: 'glob', pattern: '.saifctl/**' },
     ...(patchExclude ?? []),
   ];
 }
@@ -154,7 +154,7 @@ export interface IterativeLoopOpts {
    */
   overrides: ModelOverrides;
   /**
-   * Saifac directory name relative to repo root (e.g. 'saifac').
+   * Saifctl directory name relative to repo root (e.g. 'saifctl').
    * Resolved by caller (e.g. readSaifDirFromCli + resolveSaifDirRelative).
    */
   saifDir: string;
@@ -164,7 +164,7 @@ export interface IterativeLoopOpts {
    */
   projectName: string;
   /**
-   * Test Docker image tag (default: 'saifac-test-<profileId>:latest').
+   * Test Docker image tag (default: 'saifctl-test-<profileId>:latest').
    *
    * Override via --test-image CLI flag.
    */
@@ -223,7 +223,7 @@ export interface IterativeLoopOpts {
   gitProvider: GitProvider;
   /**
    * Maximum number of gate retries (agent → gate → feedback) per run.
-   * Forwarded as SAIFAC_GATE_RETRIES to coder-start.sh.
+   * Forwarded as SAIFCTL_GATE_RETRIES to coder-start.sh.
    *
    * Resolved by the CLI: defaults to 10 when --gate-retries is not set.
    */
@@ -232,7 +232,7 @@ export interface IterativeLoopOpts {
    * Extra environment variables to forward into the agent container (Leash / docker run)
    *
    * Parsed from --agent-env KEY=VALUE flags and --agent-env-file <path> by the CLI.
-   * Reserved factory variables (SAIFAC_*, LLM_*, REVIEWER_LLM_*) are stripped in
+   * Reserved factory variables (SAIFCTL_*, LLM_*, REVIEWER_LLM_*) are stripped in
    * {@link buildCoderContainerEnv} when building the process env (this map may still list them for logging).
    */
   agentEnv: Record<string, string>;
@@ -316,7 +316,7 @@ export interface IterativeLoopOpts {
   seedRoundSummaries?: OuterAttemptSummary[];
   /**
    * When true, skip the coding agent and run only staging + tests (+ optional apply to host on pass).
-   * Used by `saifac run test` (stored run re-verification).
+   * Used by `saifctl run test` (stored run re-verification).
    */
   testOnly?: boolean;
 }
@@ -324,7 +324,7 @@ export interface IterativeLoopOpts {
 export interface OrchestratorResult {
   success: boolean;
   attempts: number;
-  /** Run ID for starting again when run storage is enabled (artifact under .saifac/runs/) */
+  /** Run ID for starting again when run storage is enabled (artifact under .saifctl/runs/) */
   runId?: string;
   /** Path to the winning patch.diff if success=true */
   patchPath?: string;
@@ -399,7 +399,7 @@ export async function runStagingTestVerification(params: {
           stagingEnvironment,
           feature,
           projectName,
-          saifacPath: sandbox.saifacPath,
+          saifctlPath: sandbox.saifctlPath,
           onLog: defaultEngineLog,
         });
 
@@ -635,7 +635,7 @@ export async function runIterativeLoop(
           consola.log(`[orchestrator] Run artifact saved (completed). Run ID: ${runId}`);
         } else {
           consola.log(
-            `[orchestrator] Run artifact saved (failed). Start again with: saifac run start ${runId}`,
+            `[orchestrator] Run artifact saved (failed). Start again with: saifctl run start ${runId}`,
           );
         }
       } catch (err) {
@@ -842,7 +842,7 @@ export async function runIterativeLoop(
 
         const containerEnv = await buildCoderContainerEnv({
           mode: codingIsLocal
-            ? { kind: 'host', codePath: sandbox.codePath, saifacPath: sandbox.saifacPath }
+            ? { kind: 'host', codePath: sandbox.codePath, saifctlPath: sandbox.saifctlPath }
             : { kind: 'container' },
           llmConfig: coderLlmConfig,
           reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
@@ -862,7 +862,7 @@ export async function runIterativeLoop(
           dangerousNoLeash,
           cedarPolicyPath,
           coderImage,
-          saifacPath: sandbox.saifacPath,
+          saifctlPath: sandbox.saifctlPath,
           onAgentStdout,
           onAgentStdoutEnd,
           onLog: defaultEngineLog,
@@ -1310,7 +1310,7 @@ export async function loadCatalog(opts: LoadCatalogOpts) {
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
   if (!(await pathExists(testsJsonPath))) {
     throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saifac feat design -n ${feature.name}' first.`,
+      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
     );
   }
   const raw = JSON.parse(await readUtf8(testsJsonPath)) as unknown;
@@ -1342,7 +1342,7 @@ interface PrepareTestRunnerOptsArgs {
  * so that `runTests` can find results.xml at `{sandboxRoot}/results.xml`), and
  * `testScriptPath` (always set — written from DEFAULT_TEST_SCRIPT or a custom override).
  *
- * Spec files are expected to already exist — generated by `saifac feat design`.
+ * Spec files are expected to already exist — generated by `saifctl feat design`.
  */
 export async function prepareTestRunnerOpts({
   feature,

@@ -1,6 +1,6 @@
 /**
  * Ensures the Argus binary for Linux (amd64/arm64) is present.
- * Downloads from the fork release on first use; caches under `/tmp/saifac/bin/` (sibling of `sandboxes/`).
+ * Downloads from the fork release on first use; caches under `/tmp/saifctl/bin/` (sibling of `sandboxes/`).
  *
  * We use **musl** builds so the binary has no GLIBC dependency and runs inside any Linux
  * container regardless of libc version. The coder containers are based on Debian Bookworm
@@ -8,8 +8,8 @@
  *
  * Cache filenames include the pinned semver so bumping `ARGUS_VERSION` fetches a new
  * build without manual cache cleanup, e.g.:
- *   /tmp/saifac/bin/argus-linux-amd64-musl-v0.5.6
- *   /tmp/saifac/bin/argus-linux-arm64-musl-v0.5.6
+ *   /tmp/saifctl/bin/argus-linux-amd64-musl-v0.5.6
+ *   /tmp/saifctl/bin/argus-linux-arm64-musl-v0.5.6
  *
  * Upstream: https://github.com/Meru143/argus (argus-ai npm package)
  * Fork (managed releases): https://github.com/JuroOravec/argus
@@ -23,10 +23,11 @@ import { join } from 'node:path';
 
 import { consola } from '../../../logger.js';
 import { pathExists, spawnAsync } from '../../../utils/io.js';
-import { SAIFAC_TEMP_ROOT } from '../../sandbox.js';
+import { SAIFCTL_TEMP_ROOT } from '../../sandbox.js';
 
 /** Host cache dir (not under the repo). Override with `SAIF_REVIEWER_BIN_DIR`. */
-const REVIEWER_BIN_DIR = process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join(SAIFAC_TEMP_ROOT, 'bin');
+const REVIEWER_BIN_DIR =
+  process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join(SAIFCTL_TEMP_ROOT, 'bin');
 
 /** Fork release version — bump this when cutting a new fork release. */
 const ARGUS_VERSION = '0.5.6';

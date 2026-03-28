@@ -5,8 +5,8 @@
 
 import { join, resolve } from 'node:path';
 
-import type { SaifacConfig } from '../config/schema.js';
-import { LLM_API_KEYS, saifacTaskFilePath } from '../constants.js';
+import type { SaifctlConfig } from '../config/schema.js';
+import { LLM_API_KEYS, saifctlTaskFilePath } from '../constants.js';
 import type { ContainerEnv } from '../engines/types.js';
 import type { LlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
@@ -17,16 +17,16 @@ import { pathExists, readUtf8 } from '../utils/io.js';
 // is trying to override the coder container's environment variables,
 // which is not allowed.
 const RESERVED_ENV_KEYS = new Set([
-  'SAIFAC_INITIAL_TASK',
-  'SAIFAC_GATE_RETRIES',
-  'SAIFAC_GATE_SCRIPT',
-  'SAIFAC_REVIEWER_ENABLED',
-  'SAIFAC_STARTUP_SCRIPT',
-  'SAIFAC_AGENT_INSTALL_SCRIPT',
-  'SAIFAC_AGENT_SCRIPT',
-  'SAIFAC_TASK_PATH',
-  'SAIFAC_WORKSPACE_BASE',
-  'SAIFAC_RUN_ID',
+  'SAIFCTL_INITIAL_TASK',
+  'SAIFCTL_GATE_RETRIES',
+  'SAIFCTL_GATE_SCRIPT',
+  'SAIFCTL_REVIEWER_ENABLED',
+  'SAIFCTL_STARTUP_SCRIPT',
+  'SAIFCTL_AGENT_INSTALL_SCRIPT',
+  'SAIFCTL_AGENT_SCRIPT',
+  'SAIFCTL_TASK_PATH',
+  'SAIFCTL_WORKSPACE_BASE',
+  'SAIFCTL_RUN_ID',
   'LLM_API_KEY',
   'LLM_MODEL',
   'LLM_PROVIDER',
@@ -44,7 +44,7 @@ const RESERVED_ENV_KEYS = new Set([
 export function filterAgentEnv(agentEnv: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, val] of Object.entries(agentEnv)) {
-    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
+    if (key.startsWith('SAIFCTL_') || RESERVED_ENV_KEYS.has(key)) {
       consola.warn(
         `[agent-runner] WARNING: --agent-env ${key} is a reserved factory variable and will be ignored.`,
       );
@@ -72,7 +72,7 @@ export function filterAgentSecretKeyNames(keys: string[]): string[] {
       );
       continue;
     }
-    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
+    if (key.startsWith('SAIFCTL_') || RESERVED_ENV_KEYS.has(key)) {
       consola.warn(
         `[agent-runner] WARNING: --agent-secret ${key} is a reserved factory variable and will be ignored.`,
       );
@@ -110,7 +110,7 @@ function dedupeAgentSecretKeyNamesLastWins(keys: string[]): string[] {
  * File-based secrets are loaded inside {@link buildCoderContainerEnv}.
  */
 export async function mergeAgentSecretKeysFromReads(opts: {
-  config?: SaifacConfig;
+  config?: SaifctlConfig;
   extraSecretKeys: string[];
 }): Promise<string[]> {
   const { config, extraSecretKeys } = opts;
@@ -141,7 +141,7 @@ export async function mergeAgentSecretKeysFromReads(opts: {
 export function filterAgentSecretPairs(pairs: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, val] of Object.entries(pairs)) {
-    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
+    if (key.startsWith('SAIFCTL_') || RESERVED_ENV_KEYS.has(key)) {
       consola.warn(
         `[agent-runner] WARNING: --agent-secret-file ${key} is a reserved factory variable and will be ignored.`,
       );
@@ -220,7 +220,7 @@ const CONTAINER_WORKSPACE = '/workspace';
 export type CoderContainerEnvMode =
   | { kind: 'container' }
   /** Host-side agent spawn (`--engine local`): workspace paths are host directories, not `/workspace`. */
-  | { kind: 'host'; codePath: string; saifacPath: string };
+  | { kind: 'host'; codePath: string; saifctlPath: string };
 
 /**
  * Builds the full coder container environment for {@link RunAgentOpts.containerEnv} /
@@ -275,13 +275,13 @@ export async function buildCoderContainerEnv(opts: {
 
   const env: Record<string, string> = {
     ...safeAgentEnv,
-    SAIFAC_INITIAL_TASK: taskPrompt,
-    SAIFAC_GATE_RETRIES: String(gateRetries),
-    SAIFAC_RUN_ID: runId,
+    SAIFCTL_INITIAL_TASK: taskPrompt,
+    SAIFCTL_GATE_RETRIES: String(gateRetries),
+    SAIFCTL_RUN_ID: runId,
     LLM_MODEL: llmConfig.fullModelString,
     ...(llmConfig.provider ? { LLM_PROVIDER: llmConfig.provider } : {}),
     ...(llmConfig.baseURL ? { LLM_BASE_URL: llmConfig.baseURL } : {}),
-    ...(reviewer ? { SAIFAC_REVIEWER_ENABLED: '1' } : {}),
+    ...(reviewer ? { SAIFCTL_REVIEWER_ENABLED: '1' } : {}),
     ...(reviewer ? { REVIEWER_LLM_MODEL: reviewer.llmConfig.modelId } : {}),
     ...(reviewer?.llmConfig.provider ? { REVIEWER_LLM_PROVIDER: reviewer.llmConfig.provider } : {}),
     ...(reviewer?.llmConfig.baseURL ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL } : {}),
@@ -289,20 +289,20 @@ export async function buildCoderContainerEnv(opts: {
 
   if (mode.kind === 'container') {
     Object.assign(env, {
-      SAIFAC_WORKSPACE_BASE: CONTAINER_WORKSPACE,
-      SAIFAC_STARTUP_SCRIPT: '/saifac/startup.sh',
-      SAIFAC_AGENT_INSTALL_SCRIPT: '/saifac/agent-install.sh',
-      SAIFAC_AGENT_SCRIPT: '/saifac/agent.sh',
+      SAIFCTL_WORKSPACE_BASE: CONTAINER_WORKSPACE,
+      SAIFCTL_STARTUP_SCRIPT: '/saifctl/startup.sh',
+      SAIFCTL_AGENT_INSTALL_SCRIPT: '/saifctl/agent-install.sh',
+      SAIFCTL_AGENT_SCRIPT: '/saifctl/agent.sh',
     });
   } else {
-    const { codePath, saifacPath } = mode;
+    const { codePath, saifctlPath } = mode;
     Object.assign(env, {
-      SAIFAC_WORKSPACE_BASE: codePath,
-      SAIFAC_STARTUP_SCRIPT: join(saifacPath, 'startup.sh'),
-      SAIFAC_AGENT_INSTALL_SCRIPT: join(saifacPath, 'agent-install.sh'),
-      SAIFAC_GATE_SCRIPT: join(saifacPath, 'gate.sh'),
-      SAIFAC_AGENT_SCRIPT: join(saifacPath, 'agent.sh'),
-      SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
+      SAIFCTL_WORKSPACE_BASE: codePath,
+      SAIFCTL_STARTUP_SCRIPT: join(saifctlPath, 'startup.sh'),
+      SAIFCTL_AGENT_INSTALL_SCRIPT: join(saifctlPath, 'agent-install.sh'),
+      SAIFCTL_GATE_SCRIPT: join(saifctlPath, 'gate.sh'),
+      SAIFCTL_AGENT_SCRIPT: join(saifctlPath, 'agent.sh'),
+      SAIFCTL_TASK_PATH: saifctlTaskFilePath(codePath),
     });
   }
 

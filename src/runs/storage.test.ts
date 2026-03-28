@@ -11,7 +11,7 @@ const dummyArtifact: RunArtifact = {
   runId: 'test-1',
   baseCommitSha: 'abc123',
   runCommits: [{ message: 'm', diff: 'diff' }],
-  specRef: 'saifac/features/x',
+  specRef: 'saifctl/features/x',
   rules: [],
   config: {
     featureName: 'x',
@@ -22,7 +22,7 @@ const dummyArtifact: RunArtifact = {
     projectDir: '/tmp',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifac',
+    saifDir: 'saifctl',
     projectName: 'test',
     testImage: 'test:latest',
     resolveAmbiguity: 'ai',
@@ -66,7 +66,7 @@ const dummyArtifact: RunArtifact = {
 
 describe('createRunStorage', () => {
   it('returns null for none', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       expect(createRunStorage('none', tmp)).toBeNull();
     } finally {
@@ -75,7 +75,7 @@ describe('createRunStorage', () => {
   });
 
   it('returns RunStorage for local', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp);
       expect(storage).not.toBeNull();
@@ -89,7 +89,7 @@ describe('createRunStorage', () => {
   });
 
   it('increments artifactRevision on each save and preserves startedAt', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       const t0 = '2026-01-01T12:00:00.000Z';
@@ -121,7 +121,7 @@ describe('createRunStorage', () => {
   });
 
   it('saveRun with ifRevisionEquals succeeds when revision matches', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
@@ -139,7 +139,7 @@ describe('createRunStorage', () => {
   });
 
   it('setStatusRunning writes running status and returns new revision', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       const t0 = '2026-01-01T12:00:00.000Z';
@@ -160,7 +160,7 @@ describe('createRunStorage', () => {
   });
 
   it('setStatusRunning throws RunAlreadyRunningError when stored status is already running', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       await storage.setStatusRunning('run-1', {
@@ -181,7 +181,7 @@ describe('createRunStorage', () => {
   });
 
   it('setStatusRunning after failed increments revision and preserves startedAt', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       const t0 = '2026-01-01T12:00:00.000Z';
@@ -209,7 +209,7 @@ describe('createRunStorage', () => {
   });
 
   it('saveRun with ifRevisionEquals throws StaleArtifactError on mismatch', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
@@ -227,7 +227,7 @@ describe('createRunStorage', () => {
   });
 
   it('returns RunStorage for file URI with custom base path', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     const customBase = join(tmp, 'custom-base');
     try {
       const storage = createRunStorage(`file://${customBase}`, tmp);
@@ -241,7 +241,7 @@ describe('createRunStorage', () => {
   });
 
   it('listRuns and clearRuns respect filters', async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
       const storage = createRunStorage('local', tmp)!;
       await storage.saveRun('run-1', {

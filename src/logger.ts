@@ -14,14 +14,14 @@
  *
  * CLI `--verbose` hooks into {@link setVerboseLogging}.
  *
- * VS Code extension: duplicate defaults live in `vscode-ext/src/saifac-logger.ts`.
+ * VS Code extension: duplicate defaults live in `vscode-ext/src/saifctl-logger.ts`.
  */
 
 import { type ConsolaInstance, createConsola, LogLevels } from 'consola';
 
 export const logger: ConsolaInstance = createConsola({
   defaults: {
-    tag: 'saifac',
+    tag: 'saifctl',
   },
 });
 
@@ -33,7 +33,7 @@ const baselineLogLevel = logger.level;
 
 /**
  * Turns verbose logging on or off for the shared `logger` instance.
- * Call from CLI after parsing flags (e.g. `saifac feat run --verbose`).
+ * Call from CLI after parsing flags (e.g. `saifctl feat run --verbose`).
  */
 export function setVerboseLogging(verbose: boolean): void {
   logger.level = verbose ? LogLevels.debug : baselineLogLevel;

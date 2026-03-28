@@ -122,7 +122,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                   <div className="w-6 h-6 bg-[#00FF66] rounded-sm flex items-center justify-center text-black font-bold font-mono text-xs">
                     S
                   </div>
-                  <span className="font-mono font-bold tracking-tight text-white">SAIFAC</span>
+                  <span className="font-mono font-bold tracking-tight text-white">SaifCTL</span>
                 </div>
                 <button
                   onClick={onClose}
@@ -144,7 +144,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                     className="px-6 pb-6"
                   >
                     <h2 id="waitlist-title" className="text-xl font-bold text-white mb-1">
-                      Get early access to SAIFAC
+                      Get early access to SaifCTL
                     </h2>
                     <p className="text-gray-400 text-sm mb-6 leading-relaxed">
                       Join the waitlist and we'll notify you when we launch or open alpha/beta.
@@ -190,7 +190,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                     </form>
 
                     <p className="text-gray-600 text-xs mt-4 leading-relaxed">
-                      We'll only email you about SAIFAC updates, launch, and open alpha/beta
+                      We'll only email you about SaifCTL updates, launch, and open alpha/beta
                       announcements.{' '}
                       <a
                         href="/privacy"
@@ -216,7 +216,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                     </h2>
                     <p className="text-gray-400 text-sm mb-6 leading-relaxed">
                       We'll notify <span className="text-white font-mono">{email}</span> when we
-                      launch or open alpha/beta. While you wait - help SAIFAC get discovered by
+                      launch or open alpha/beta. While you wait - help SaifCTL get discovered by
                       starring the repo.
                     </p>
 
@@ -228,11 +228,11 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                       onClick={() => track('github_star_click')}
                     >
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      Star SAIFAC on GitHub
+                      Star SaifCTL on GitHub
                     </a>
 
                     <p className="text-gray-600 text-xs mt-4 text-center">
-                      GitHub stars help SAIFAC get discovered by more developers.
+                      GitHub stars help SaifCTL get discovered by more developers.
                     </p>
                   </motion.div>
                 )}

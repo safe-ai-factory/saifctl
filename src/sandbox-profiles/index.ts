@@ -13,7 +13,7 @@
 
 import { join } from 'node:path';
 
-import { getSaifRoot } from '../constants.js';
+import { getSaifctlRoot } from '../constants.js';
 import { pathExists, readUtf8 } from '../utils/io.js';
 import { goProfile } from './go/profile.js';
 import { goNodeProfile } from './go-node/profile.js';
@@ -78,7 +78,7 @@ export const SUPPORTED_SANDBOX_PROFILES = {
 export const DEFAULT_SANDBOX_PROFILE: SandboxProfile =
   SUPPORTED_SANDBOX_PROFILES['node-pnpm-python'];
 
-const _sandboxProfilesDir = join(getSaifRoot(), 'src', 'sandbox-profiles');
+const _sandboxProfilesDir = join(getSaifctlRoot(), 'src', 'sandbox-profiles');
 
 /** Returns the absolute path to Dockerfile.coder for the given profile id. */
 export function resolveSandboxCoderDockerfilePath(profileId: SupportedSandboxProfileId): string {

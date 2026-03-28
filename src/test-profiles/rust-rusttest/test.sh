@@ -7,10 +7,10 @@
 #
 # Environment variables provided by the Orchestrator (all required):
 #
-#   SAIFAC_TARGET_URL    URL of the application under test (web server or sidecar).
-#   SAIFAC_SIDECAR_URL   URL of the HTTP sidecar that wraps CLI command execution.
-#   SAIFAC_FEATURE_NAME  Name of the Saifac feature being tested.
-#   SAIFAC_TESTS_DIR     Absolute path inside the container where test files are mounted.
+#   SAIFCTL_TARGET_URL    URL of the application under test (web server or sidecar).
+#   SAIFCTL_SIDECAR_URL   URL of the HTTP sidecar that wraps CLI command execution.
+#   SAIFCTL_FEATURE_NAME  Name of the Saifctl feature being tested.
+#   SAIFCTL_TESTS_DIR     Absolute path inside the container where test files are mounted.
 #                         Default: /tests
 #                         Subdirectories:
 #                           /tests/public/        — public spec files (*.rs, visible to agent)
@@ -19,7 +19,7 @@
 #                           /tests/infra_test.rs  — infra health-check (always present)
 #                           /tests/public/mod.rs  — auto-generated module index
 #                           /tests/hidden/mod.rs  — auto-generated module index
-#   SAIFAC_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
+#   SAIFCTL_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
 #
 # Exit code contract:
 #   0  — all tests passed
@@ -29,16 +29,16 @@
 
 set -e
 
-echo "[test-runner] SAIFAC_TARGET_URL:   ${SAIFAC_TARGET_URL}"
-echo "[test-runner] SAIFAC_SIDECAR_URL:  ${SAIFAC_SIDECAR_URL}"
-echo "[test-runner] SAIFAC_FEATURE_NAME: ${SAIFAC_FEATURE_NAME}"
-echo "[test-runner] SAIFAC_TESTS_DIR:    ${SAIFAC_TESTS_DIR}"
-echo "[test-runner] SAIFAC_OUTPUT_FILE:  ${SAIFAC_OUTPUT_FILE}"
+echo "[test-runner] SAIFCTL_TARGET_URL:   ${SAIFCTL_TARGET_URL}"
+echo "[test-runner] SAIFCTL_SIDECAR_URL:  ${SAIFCTL_SIDECAR_URL}"
+echo "[test-runner] SAIFCTL_FEATURE_NAME: ${SAIFCTL_FEATURE_NAME}"
+echo "[test-runner] SAIFCTL_TESTS_DIR:    ${SAIFCTL_TESTS_DIR}"
+echo "[test-runner] SAIFCTL_OUTPUT_FILE:  ${SAIFCTL_OUTPUT_FILE}"
 
-echo "[test-runner] public spec count:  $(find "${SAIFAC_TESTS_DIR}/public" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
-echo "[test-runner] hidden spec count:  $(find "${SAIFAC_TESTS_DIR}/hidden" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}/public" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}/hidden" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
 
-cd "${SAIFAC_TESTS_DIR}"
+cd "${SAIFCTL_TESTS_DIR}"
 
 # cargo-nextest produces JUnit XML natively.
 # --profile ci must be defined in .cargo/nextest.toml (or nextest.toml) in the test crate.
@@ -46,4 +46,4 @@ cd "${SAIFAC_TESTS_DIR}"
 exec cargo nextest run \
   --profile ci \
   --test-output immediate-final \
-  --junit-path "${SAIFAC_OUTPUT_FILE}"
+  --junit-path "${SAIFCTL_OUTPUT_FILE}"

@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SaifacConfig } from '../config/schema.js';
+import type { SaifctlConfig } from '../config/schema.js';
 import { consola } from '../logger.js';
 import type { OrchestratorOpts } from './modes.js';
 import {
@@ -102,7 +102,7 @@ describe('applyEngineCliToOrchestratorOpts', () => {
       environments: {
         staging: { engine: 'docker' as const, file: 'ops/compose.yml' },
       },
-    } as SaifacConfig;
+    } as SaifctlConfig;
 
     const merged = {
       codingEnvironment: { engine: 'docker' as const },
@@ -127,7 +127,7 @@ describe('applyEngineCliToOrchestratorOpts', () => {
       environments: {
         staging: { engine: 'helm' as const, chart: './chart' },
       },
-    } as SaifacConfig;
+    } as SaifctlConfig;
 
     const merged = {
       codingEnvironment: { engine: 'docker' as const },

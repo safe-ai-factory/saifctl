@@ -52,7 +52,7 @@ When unset (upstream), behavior is unchanged: `release-plz release`, conditional
 
 The upstream repo's CI was not attaching binaries to releases. The fork fixes that.
 SAIF downloads the **musl** Argus binary for the current architecture on first use and caches it under
-**`/tmp/saifac/bin/`** as e.g. **`argus-linux-amd64-musl-v0.5.6`** (semver in the filename; not in the repo).
+**`/tmp/saifctl/bin/`** as e.g. **`argus-linux-amd64-musl-v0.5.6`** (semver in the filename; not in the repo).
 Override with **`SAIF_REVIEWER_BIN_DIR`** if needed.
 The binary version is pinned via **`ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts`.
 
@@ -91,7 +91,7 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
      --notes "Manual fork release; CI attaches binaries."
    ```
 
-6. Wait for Actions to finish (the musl build matrix must complete), then **bump `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` and commit. The next run downloads musl binaries with the new version in the filename (under `/tmp/saifac/bin/` by default); older cached builds are removed automatically when a new one is installed.
+6. Wait for Actions to finish (the musl build matrix must complete), then **bump `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` and commit. The next run downloads musl binaries with the new version in the filename (under `/tmp/saifctl/bin/` by default); older cached builds are removed automatically when a new one is installed.
 
    Optionally refresh the **`vendor/argus`** submodule pointer in this repo.
 
@@ -134,7 +134,7 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
    git commit -m "chore(reviewer): pin argus to v${VERSION}"
    ```
 
-   SAIF will download the matching binary on the next run (cached under `/tmp/saifac/bin/` with the version in the filename).
+   SAIF will download the matching binary on the next run (cached under `/tmp/saifctl/bin/` with the version in the filename).
 
 Optionally bump the submodule pointer after syncing the fork:
 

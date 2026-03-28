@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SaifacConfig } from '../config/schema.js';
+import type { SaifctlConfig } from '../config/schema.js';
 import { getGitProvider } from '../git/index.js';
 import { type RunStorage } from '../runs/storage.js';
 import { type RunArtifact, StaleArtifactError } from '../runs/types.js';
@@ -20,8 +20,8 @@ import type { Sandbox } from './sandbox.js';
 
 const feature: Feature = {
   name: 'my-feat',
-  absolutePath: '/tmp/proj/saifac/features/my-feat',
-  relativePath: 'saifac/features/my-feat',
+  absolutePath: '/tmp/proj/saifctl/features/my-feat',
+  relativePath: 'saifctl/features/my-feat',
 };
 
 function makeOrchestratorOpts(): OrchestratorOpts {
@@ -34,7 +34,7 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     projectDir: '/tmp/proj',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifac',
+    saifDir: 'saifctl',
     projectName: 'proj',
     sandboxBaseDir: '/tmp/sandboxes',
     testImage: 'test:latest',
@@ -83,8 +83,8 @@ function makeOrchestratorOpts(): OrchestratorOpts {
 const baseArtifact: RunArtifact = {
   runId: 'run-inspect-1',
   baseCommitSha: 'abc123',
-  runCommits: [{ message: 'saifac: coding attempt 1', diff: 'original patch\n' }],
-  specRef: 'saifac/features/my-feat',
+  runCommits: [{ message: 'saifctl: coding attempt 1', diff: 'original patch\n' }],
+  specRef: 'saifctl/features/my-feat',
   rules: [],
   config: {
     featureName: 'my-feat',
@@ -95,7 +95,7 @@ const baseArtifact: RunArtifact = {
     projectDir: '/tmp/proj',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifac',
+    saifDir: 'saifctl',
     projectName: 'proj',
     testImage: 'test:latest',
     resolveAmbiguity: 'ai',
@@ -140,9 +140,9 @@ const baseArtifact: RunArtifact = {
 
 const sandbox: Sandbox = {
   runId: 'sb-run1',
-  sandboxBasePath: '/tmp/saifac/sandboxes/proj-my-feat-sb-run1',
-  codePath: '/tmp/saifac/sandboxes/proj-my-feat-sb-run1/code',
-  saifacPath: '/tmp/saifac/sandboxes/proj-my-feat-sb-run1/saifac',
+  sandboxBasePath: '/tmp/saifctl/sandboxes/proj-my-feat-sb-run1',
+  codePath: '/tmp/saifctl/sandboxes/proj-my-feat-sb-run1/code',
+  saifctlPath: '/tmp/saifctl/sandboxes/proj-my-feat-sb-run1/saifctl',
   hostBasePatchPath: '',
 };
 
@@ -270,11 +270,11 @@ describe('runInspect', () => {
   let projectDir: string;
 
   beforeEach(async () => {
-    projectDir = await mkdtemp(join(tmpdir(), 'saifac-inspect-'));
+    projectDir = await mkdtemp(join(tmpdir(), 'saifctl-inspect-'));
     vi.clearAllMocks();
     createArtifactRunWorktreeMock.mockResolvedValue({
       worktreePath: join(projectDir, 'wt'),
-      branchName: 'saifac-run-run-inspect-1',
+      branchName: 'saifctl-run-run-inspect-1',
       baseSnapshotPath: join(projectDir, 'base-snap'),
     });
     createSandboxMock.mockResolvedValue(sandbox);
@@ -331,8 +331,8 @@ describe('runInspect', () => {
       runInspect({
         runId: 'x',
         projectDir,
-        saifDir: 'saifac',
-        config: {} as SaifacConfig,
+        saifDir: 'saifctl',
+        config: {} as SaifctlConfig,
         runStorage: null as unknown as RunStorage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
@@ -347,8 +347,8 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: baseArtifact.runId,
       projectDir,
-      saifDir: 'saifac',
-      config: {} as SaifacConfig,
+      saifDir: 'saifctl',
+      config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
@@ -370,8 +370,8 @@ describe('runInspect', () => {
       runInspect({
         runId: 'missing',
         projectDir,
-        saifDir: 'saifac',
-        config: {} as SaifacConfig,
+        saifDir: 'saifctl',
+        config: {} as SaifctlConfig,
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
@@ -389,8 +389,8 @@ describe('runInspect', () => {
       runInspect({
         runId: baseArtifact.runId,
         projectDir,
-        saifDir: 'saifac',
-        config: {} as SaifacConfig,
+        saifDir: 'saifctl',
+        config: {} as SaifctlConfig,
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
@@ -405,8 +405,8 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: baseArtifact.runId,
       projectDir,
-      saifDir: 'saifac',
-      config: {} as SaifacConfig,
+      saifDir: 'saifctl',
+      config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
@@ -437,9 +437,9 @@ describe('runInspect', () => {
       getRun: vi.fn().mockResolvedValue(artifact),
     });
     const newStep = {
-      message: 'saifac: inspect session',
+      message: 'saifctl: inspect session',
       diff: 'new patch content\n',
-      author: 'saifac <saifac@safeaifactory.com>',
+      author: 'saifctl <saifctl@safeaifactory.com>',
     };
     extractIncrementalRoundPatchMock.mockResolvedValue({
       patch: 'new patch content\n',
@@ -450,8 +450,8 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifac',
-      config: {} as SaifacConfig,
+      saifDir: 'saifctl',
+      config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
@@ -488,9 +488,9 @@ describe('runInspect', () => {
       ),
     });
     const staleStep = {
-      message: 'saifac: inspect session',
+      message: 'saifctl: inspect session',
       diff: 'conflict patch\n',
-      author: 'saifac <saifac@safeaifactory.com>',
+      author: 'saifctl <saifctl@safeaifactory.com>',
     };
     extractIncrementalRoundPatchMock.mockResolvedValue({
       patch: 'conflict patch\n',
@@ -501,8 +501,8 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifac',
-      config: {} as SaifacConfig,
+      saifDir: 'saifctl',
+      config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
@@ -512,7 +512,7 @@ describe('runInspect', () => {
     await p;
 
     expect(writeUtf8Mock).toHaveBeenCalledWith(
-      join(projectDir, `.saifac-inspect-stale-${artifact.runId}.json`),
+      join(projectDir, `.saifctl-inspect-stale-${artifact.runId}.json`),
       JSON.stringify([staleStep]),
     );
   });
@@ -531,14 +531,14 @@ describe('runInspect', () => {
     extractIncrementalRoundPatchMock.mockResolvedValue({
       patch: 'b\n',
       patchPath: join(sandbox.sandboxBasePath, 'patch.diff'),
-      commits: [{ message: 'saifac: inspect session', diff: 'b\n' }],
+      commits: [{ message: 'saifctl: inspect session', diff: 'b\n' }],
     });
 
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifac',
-      config: {} as SaifacConfig,
+      saifDir: 'saifctl',
+      config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,

@@ -1,6 +1,6 @@
-# Naming SAIFAC
+# Naming SaifCTL
 
-This document outlines the reasoning behind the naming of the **Safe AI Factory** project, its acronym **SAIFAC**, and the choices we rejected along the way.
+This document outlines the reasoning behind the naming of the **Safe AI Factory** project, its acronym **SaifCTL**, and the choices we rejected along the way.
 
 ## The Full Name: Safe AI Factory
 
@@ -10,14 +10,14 @@ The full name was chosen to explicitly describe what the tool is and how it shou
 - **AI:** Clearly states the domain.
 - **Factory:** The concept of "Software factories" is getting popular - a system that autonomously builds software from specifications using AI agents. A factory implies predictability, assembly lines, repeatable processes, and strict quality control (the Gauntlet).
 
-## The Acronym & CLI: SAIFAC
+## The Acronym & CLI: SaifCTL
 
-Developers need a short, snappy acronym for CLI commands and daily conversation. We chose **SAIFAC** (`saifac`).
+Developers need a short, snappy acronym for CLI commands and daily conversation. We chose **SaifCTL** (`saifctl`).
 
-**Why SAIFAC works:**
+**Why SaifCTL works:**
 
-1. **Zero Collision Risk:** There are virtually no tech companies, AI tools, or open-source projects using the name SAIFAC. It provides a completely clean slate for SEO and GitHub discoverability.
-2. **CLI Ergonomics:** `saifac run` is a distinct, easy-to-type, 6-character command that feels like a proper binary (similar to `kubectl` or `podman`).
+1. **Zero Collision Risk:** There are virtually no tech companies, AI tools, or open-source projects using the name SaifCTL. It provides a completely clean slate for SEO and GitHub discoverability.
+2. **CLI Ergonomics:** `saifctl run` is a distinct, easy-to-type, 6-character command that feels like a proper binary (similar to `kubectl` or `podman`).
 
 ## Rejected Alternatives
 

@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { access, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { getSaifRoot } from '../../constants.js';
+import { getSaifctlRoot } from '../../constants.js';
 
 /** Cedar policies that must ship with the package (keep in sync with package.json "files"). */
 const REQUIRED_CEDAR_PATHS = [
@@ -73,7 +73,7 @@ function listNpmPackPaths(packageRoot: string): Set<string> {
 }
 
 export default async function (): Promise<void> {
-  const root = getSaifRoot();
+  const root = getSaifctlRoot();
   const packed = listNpmPackPaths(root);
   const requiredSh: string[] = [];
   for (const sub of SH_ASSET_ROOTS) {

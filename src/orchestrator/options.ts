@@ -20,7 +20,7 @@ import {
   DEFAULT_STAGING_APP,
   type NormalizedCodingEnvironment,
   type NormalizedStagingEnvironment,
-  type SaifacConfig,
+  type SaifctlConfig,
   type StagingAppConfig,
 } from '../config/schema.js';
 import {
@@ -78,7 +78,7 @@ export function mergeModelOverridesLayers(
 }
 
 /** `config.defaults` model fields only (baseline before artifact / CLI deltas). */
-export function modelOverridesFromSaifacConfig(config?: SaifacConfig): ModelOverrides {
+export function modelOverridesFromSaifctlConfig(config?: SaifctlConfig): ModelOverrides {
   const overrides: ModelOverrides = {};
   const d = config?.defaults;
   if (d?.globalModel) overrides.globalModel = d.globalModel;
@@ -247,7 +247,7 @@ export interface OrchestratorBaselineContext {
   feature: Feature;
   projectDir: string;
   saifDir: string;
-  config: SaifacConfig;
+  config: SaifctlConfig;
 }
 
 /**
@@ -262,7 +262,7 @@ async function applyOrchestratorBaseline(
 
   const maxRuns = config?.defaults?.maxRuns ?? DEFAULT_ORCHESTRATOR_MAX_RUNS;
   const overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifacConfig(config),
+    modelOverridesFromSaifctlConfig(config),
     undefined,
     undefined,
   );
@@ -382,7 +382,7 @@ async function applyOrchestratorBaseline(
 export interface ResolveOrchestratorOptsParams {
   projectDir: string;
   saifDir: string;
-  config: SaifacConfig;
+  config: SaifctlConfig;
   /** Resolved feature (prompt/CLI for start; from artifact for from-artifact/test-from-run). */
   feature: Feature;
   cli: OrchestratorCliInput;
@@ -426,7 +426,7 @@ export async function resolveOrchestratorOpts(
     ? deserializeArtifactConfig(artifact.config).overrides
     : undefined;
   merged.overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifacConfig(config),
+    modelOverridesFromSaifctlConfig(config),
     artifactOverrides,
     cliModelDelta,
   );
@@ -481,7 +481,7 @@ async function mergeArtifactOntoDefaults(
 ////////////////////////////////////////////////////////////
 
 function resolveCoderImage(
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
   sandboxProfile: SandboxProfile,
 ): string {
   if (config?.defaults?.coderImage) {
@@ -491,7 +491,7 @@ function resolveCoderImage(
   return sandboxProfile.coderImageTag;
 }
 
-function resolvePr(config: SaifacConfig | undefined, push: string | null): boolean {
+function resolvePr(config: SaifctlConfig | undefined, push: string | null): boolean {
   const fromConfig = config?.defaults?.pr ?? false;
   const effective = fromConfig;
   if (effective && !push) {
@@ -501,7 +501,7 @@ function resolvePr(config: SaifacConfig | undefined, push: string | null): boole
   return effective;
 }
 
-function resolveGitProvider(config?: SaifacConfig): GitProvider {
+function resolveGitProvider(config?: SaifctlConfig): GitProvider {
   const id = config?.defaults?.gitProvider ?? 'github';
   try {
     return getGitProvider(id);
@@ -511,12 +511,12 @@ function resolveGitProvider(config?: SaifacConfig): GitProvider {
   }
 }
 
-export function resolveSandboxBaseDir(config?: SaifacConfig): string {
+export function resolveSandboxBaseDir(config?: SaifctlConfig): string {
   return config?.defaults?.sandboxBaseDir ?? DEFAULT_SANDBOX_BASE_DIR;
 }
 
 /** Test profile id from CLI + config.defaults, falling back to package default. */
-export function pickTestProfile(cliId: string | undefined, config?: SaifacConfig): TestProfile {
+export function pickTestProfile(cliId: string | undefined, config?: SaifctlConfig): TestProfile {
   const raw = (cliId ?? '').trim();
   const id = raw || config?.defaults?.testProfile || '';
   if (!id) return DEFAULT_TEST_PROFILE;
@@ -530,7 +530,7 @@ export function pickTestProfile(cliId: string | undefined, config?: SaifacConfig
 
 export function pickSandboxProfile(
   cliId: string | undefined,
-  config?: SaifacConfig,
+  config?: SaifctlConfig,
 ): SandboxProfile {
   const raw = (cliId ?? '').trim();
   const id = raw || config?.defaults?.sandboxProfile || '';
@@ -543,7 +543,7 @@ export function pickSandboxProfile(
   }
 }
 
-export function pickAgentProfile(cliId: string | undefined, config?: SaifacConfig): AgentProfile {
+export function pickAgentProfile(cliId: string | undefined, config?: SaifctlConfig): AgentProfile {
   const raw = (cliId ?? '').trim();
   const id = raw || config?.defaults?.agentProfile || '';
   if (!id) return DEFAULT_AGENT_PROFILE;
@@ -559,11 +559,11 @@ export function pickAgentProfile(cliId: string | undefined, config?: SaifacConfi
 export function resolveTestImageTag(
   cliTag: string | undefined,
   profileId: string,
-  config?: SaifacConfig,
+  config?: SaifctlConfig,
 ): string {
   const trimmed = cliTag?.trim();
   const tag =
-    (trimmed ? trimmed : null) ?? config?.defaults?.testImage ?? `saifac-test-${profileId}:latest`;
+    (trimmed ? trimmed : null) ?? config?.defaults?.testImage ?? `saifctl-test-${profileId}:latest`;
   validateImageTag(tag, '--test-image');
   return tag;
 }
@@ -584,28 +584,28 @@ function coalesceScriptPath(
 
 export function pickStartupScript(
   cliPath: string | undefined,
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
 ): OrchestratorScriptPick {
   return coalesceScriptPath(cliPath, config?.defaults?.startupScript);
 }
 
 export function pickGateScript(
   cliPath: string | undefined,
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
 ): OrchestratorScriptPick {
   return coalesceScriptPath(cliPath, config?.defaults?.gateScript);
 }
 
 export function pickStageScript(
   cliPath: string | undefined,
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
 ): OrchestratorScriptPick {
   return coalesceScriptPath(cliPath, config?.defaults?.stageScript);
 }
 
 export function pickTestScript(
   cliPath: string | undefined,
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
 ): OrchestratorScriptPick {
   return coalesceScriptPath(cliPath, config?.defaults?.testScript);
 }
@@ -623,7 +623,7 @@ export function pickAgentScript(cliPath: string | undefined): OrchestratorScript
 }
 
 export function resolveStagingEnvironment(
-  config: SaifacConfig | undefined,
+  config: SaifctlConfig | undefined,
 ): NormalizedStagingEnvironment {
   const raw = config?.environments?.staging ?? { engine: 'docker' as const };
   return normalizeStagingEnvironmentRaw(raw);
@@ -651,7 +651,7 @@ const ENGINE_CLI_STAGING_SET = new Set<string>(['docker', 'helm']);
 /* eslint-disable-next-line max-params -- (merged, config, engine string) */
 export function applyEngineCliToOrchestratorOpts(
   merged: OrchestratorOpts,
-  config: SaifacConfig,
+  config: SaifctlConfig,
   engineRaw: string,
 ): void {
   const spec = parseEngineCliSpec(engineRaw);
@@ -735,7 +735,7 @@ export function parseEngineCliSpec(raw: string, errorPrefix = '--engine'): Engin
  */
 export function pickCodingEnvironmentForEngineCli(
   target: EngineCliCodingKind,
-  config: SaifacConfig,
+  config: SaifctlConfig,
 ): NormalizedCodingEnvironment {
   const fromFile = config.environments?.coding;
   if (fromFile && fromFile.engine === target) {
@@ -744,7 +744,7 @@ export function pickCodingEnvironmentForEngineCli(
   if (target === 'docker') return { engine: 'docker' };
   if (target === 'local') return { engine: 'local' };
   consola.error(
-    'Error: --engine coding=helm requires environments.coding with engine "helm" and chart in saifac config.',
+    'Error: --engine coding=helm requires environments.coding with engine "helm" and chart in saifctl config.',
   );
   process.exit(1);
 }
@@ -755,7 +755,7 @@ export function pickCodingEnvironmentForEngineCli(
  */
 export function pickStagingEnvironmentForEngineCli(
   target: EngineCliStagingKind,
-  config: SaifacConfig,
+  config: SaifctlConfig,
 ): NormalizedStagingEnvironment {
   const fromFile = config.environments?.staging;
   if (fromFile && fromFile.engine === target) {
@@ -765,13 +765,13 @@ export function pickStagingEnvironmentForEngineCli(
     return normalizeStagingEnvironmentRaw({ engine: 'docker' });
   }
   consola.error(
-    'Error: --engine staging=helm requires environments.staging with engine "helm" and chart in saifac config.',
+    'Error: --engine staging=helm requires environments.staging with engine "helm" and chart in saifctl config.',
   );
   process.exit(1);
 }
 
 type StagingConfigRaw =
-  | NonNullable<NonNullable<SaifacConfig['environments']>['staging']>
+  | NonNullable<NonNullable<SaifctlConfig['environments']>['staging']>
   | {
       engine: 'docker';
     };

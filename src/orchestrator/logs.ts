@@ -11,9 +11,9 @@
 //   "agent"  — the coding agent's own output (between delimiter lines, see below)
 //
 // coder-start.sh emits:
-//   [SAIFAC:AGENT_START]   ← start of agent output (not shown to the user)
+//   [SAIFCTL:AGENT_START]   ← start of agent output (not shown to the user)
 //   ... everything the agent script writes to stdout ...
-//   [SAIFAC:AGENT_END]     ← end of agent output (not shown to the user)
+//   [SAIFCTL:AGENT_END]     ← end of agent output (not shown to the user)
 //
 // Those two lines are agent/non-agent output delimiters: they mark where agent
 // stdout begins and ends so we can tag bytes correctly.
@@ -55,13 +55,13 @@ export interface AgentLogEvent {
 }
 
 /** Emitted by coder-start.sh immediately before `bash "$AGENT_SCRIPT"` (one line). */
-export const SAIFAC_AGENT_LOG_START = '[SAIFAC:AGENT_START]';
+export const SAIFCTL_AGENT_LOG_START = '[SAIFCTL:AGENT_START]';
 
 /** Emitted by coder-start.sh immediately after the agent process exits (one line). */
-export const SAIFAC_AGENT_LOG_END = '[SAIFAC:AGENT_END]';
+export const SAIFCTL_AGENT_LOG_END = '[SAIFCTL:AGENT_END]';
 
 const isAgentSegmentDelimiter = (line: string): boolean => {
-  return line === SAIFAC_AGENT_LOG_START || line === SAIFAC_AGENT_LOG_END;
+  return line === SAIFCTL_AGENT_LOG_START || line === SAIFCTL_AGENT_LOG_END;
 };
 
 export type AgentLogLinePrefix = 'agent' | 'inspect';
@@ -163,7 +163,7 @@ function emitAgentSegment(sink: (e: AgentLogEvent) => void, raw: string): void {
 /**
  * Handles stdout chunks from the Leash/docker child (e.g. `coder-start.sh` for runAgent).
  *
- * Uses `[SAIFAC:AGENT_*]` delimiter lines when present. Streams without them (e.g. inspect idle)
+ * Uses `[SAIFCTL:AGENT_*]` delimiter lines when present. Streams without them (e.g. inspect idle)
  * stay in the non-agent region: every line is infra. Emits {@link AgentLogEvent}s; formatting is
  * {@link createDefaultAgentLog}.
  */
@@ -176,7 +176,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
 
   // Skip delimiter lines themselves — they are markers only, not user-facing log text.
   const emitInfraLine = (line: string): void => {
-    if (line === SAIFAC_AGENT_LOG_START || line === SAIFAC_AGENT_LOG_END) return;
+    if (line === SAIFCTL_AGENT_LOG_START || line === SAIFCTL_AGENT_LOG_END) return;
     if (line.trim()) sink({ phase: 'infra', raw: line });
   };
 
@@ -192,11 +192,11 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
         const lines = lineBuf.split('\n');
         lineBuf = lines.pop() ?? '';
         for (const line of lines) {
-          if (line === SAIFAC_AGENT_LOG_START) {
+          if (line === SAIFCTL_AGENT_LOG_START) {
             inAgent = true;
             continue;
           }
-          if (line === SAIFAC_AGENT_LOG_END) {
+          if (line === SAIFCTL_AGENT_LOG_END) {
             inAgent = false;
             continue;
           }
@@ -209,12 +209,12 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
       flush() {
         if (!lineBuf.trim()) return;
         const line = lineBuf;
-        if (line === SAIFAC_AGENT_LOG_START) {
+        if (line === SAIFCTL_AGENT_LOG_START) {
           inAgent = true;
           lineBuf = '';
           return;
         }
-        if (line === SAIFAC_AGENT_LOG_END) {
+        if (line === SAIFCTL_AGENT_LOG_END) {
           inAgent = false;
           lineBuf = '';
           return;
@@ -249,7 +249,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
     const lines = nonAgentLineBuf.split('\n');
     nonAgentLineBuf = lines.pop() ?? '';
     for (const line of lines) {
-      if (line === SAIFAC_AGENT_LOG_START) {
+      if (line === SAIFCTL_AGENT_LOG_START) {
         region = 'agentOutput';
         rawInside = '';
         fedInto = 0;
@@ -263,7 +263,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
   // When we see the END delimiter: flush the agent window, emit segments, resume outside with any trailing bytes.
   const pushAgentOutput = (chunk: string) => {
     rawInside += chunk;
-    const endIdx = rawInside.indexOf(SAIFAC_AGENT_LOG_END);
+    const endIdx = rawInside.indexOf(SAIFCTL_AGENT_LOG_END);
     // END delimiter found: process bytes up to it, flush segments, then parse any trailing bytes as non-agent.
     if (endIdx >= 0) {
       const feed = rawInside.slice(fedInto, endIdx);
@@ -276,7 +276,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
         state: bufferState,
         emitSegment: (s) => emitAgentSegment(sink, s),
       });
-      const after = rawInside.slice(endIdx + SAIFAC_AGENT_LOG_END.length);
+      const after = rawInside.slice(endIdx + SAIFCTL_AGENT_LOG_END.length);
       rawInside = '';
       fedInto = 0;
       region = 'nonAgent';
@@ -286,7 +286,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
     }
 
     // Still in agent output: do not feed the last few bytes — they might be the start of the END delimiter line.
-    const reserve = SAIFAC_AGENT_LOG_END.length - 1;
+    const reserve = SAIFCTL_AGENT_LOG_END.length - 1;
     const safeEnd = rawInside.length - reserve;
     if (safeEnd <= fedInto) return;
     const feed = rawInside.slice(fedInto, safeEnd);
@@ -306,7 +306,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
     flush() {
       if (region === 'nonAgent') {
         if (nonAgentLineBuf.trim()) emitInfraLine(nonAgentLineBuf);
-      } else if (rawInside.indexOf(SAIFAC_AGENT_LOG_END) < 0) {
+      } else if (rawInside.indexOf(SAIFCTL_AGENT_LOG_END) < 0) {
         // Stream ended before END delimiter: flush whatever agent output we buffered.
         strategy.appendInsideWindow({
           state: bufferState,

@@ -3,7 +3,7 @@
 // Everything else stays denied for NetworkConnect.
 //
 // Try with the debug agent (HTTP probe):
-//   saifac feat run ... --agent debug --cedar src/orchestrator/policies/deny-network.cedar
+//   saifctl feat run ... --agent debug --cedar src/orchestrator/policies/deny-network.cedar
 
 // ── Filesystem (aligned with default.cedar) ───────────────────────────────
 
@@ -28,7 +28,7 @@ forbid (
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/saifac/" ]
+    resource in [ Dir::"/workspace/saifctl/" ]
 };
 
 forbid (

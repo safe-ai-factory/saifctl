@@ -5,7 +5,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-pip/Dockerfile.coder \
-#                -t saifac-coder-python-pip:latest .
+#                -t saifctl-coder-python-pip:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-pip

@@ -1,4 +1,4 @@
-# Deploying the SAIFAC Website to GitHub Pages
+# Deploying the SaifCTL Website to GitHub Pages
 
 This document describes how the website is deployed to GitHub Pages and what you need to configure.
 

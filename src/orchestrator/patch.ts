@@ -5,14 +5,14 @@ import type { RunCommit } from '../runs/types.js';
 import { git, gitAdd, gitApply, gitCommit } from '../utils/git.js';
 import { writeUtf8 } from '../utils/io.js';
 
-export const SAIFAC_DEFAULT_AUTHOR = 'saifac <saifac@safeaifactory.com>';
+export const SAIFCTL_DEFAULT_AUTHOR = 'saifctl <saifctl@safeaifactory.com>';
 
 export function resolveRunCommitAuthor(commit: RunCommit): string {
-  return commit.author?.trim() || SAIFAC_DEFAULT_AUTHOR;
+  return commit.author?.trim() || SAIFCTL_DEFAULT_AUTHOR;
 }
 
 /**
- * Applies one run commit's unified diff, stages (excluding `.saifac/`), and commits with message + author.
+ * Applies one run commit's unified diff, stages (excluding `.saifctl/`), and commits with message + author.
  */
 export async function applyRunCommitInRepo(opts: {
   cwd: string;
@@ -23,7 +23,7 @@ export async function applyRunCommitInRepo(opts: {
   const { cwd, commit, gitEnv = process.env, verbose = false } = opts;
   if (!commit.diff.trim()) return;
 
-  const tmpPath = join(cwd, '.saifac-commit.patch');
+  const tmpPath = join(cwd, '.saifctl-commit.patch');
   const safeDiff = commit.diff.endsWith('\n') ? commit.diff : `${commit.diff}\n`;
   await writeUtf8(tmpPath, safeDiff);
   await gitApply({ cwd, env: gitEnv, patchFile: tmpPath });
@@ -31,9 +31,9 @@ export async function applyRunCommitInRepo(opts: {
 
   await gitAdd({ cwd, env: gitEnv });
   try {
-    await git({ cwd, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifac'] });
+    await git({ cwd, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifctl'] });
   } catch {
-    /* .saifac may be absent */
+    /* .saifctl may be absent */
   }
 
   const stagedOut = (

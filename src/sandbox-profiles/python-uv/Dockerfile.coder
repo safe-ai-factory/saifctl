@@ -5,7 +5,7 @@
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-uv/Dockerfile.coder \
-#                -t saifac-coder-python-uv:latest .
+#                -t saifctl-coder-python-uv:latest .
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-uv

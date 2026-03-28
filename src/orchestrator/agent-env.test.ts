@@ -19,23 +19,23 @@ describe('filterAgentEnv', () => {
     expect(filterAgentEnv(input)).toEqual(input);
   });
 
-  it('strips SAIFAC_INITIAL_TASK', () => {
-    const result = filterAgentEnv({ SAIFAC_INITIAL_TASK: 'evil', SAFE: 'ok' });
-    expect(result).not.toHaveProperty('SAIFAC_INITIAL_TASK');
+  it('strips SAIFCTL_INITIAL_TASK', () => {
+    const result = filterAgentEnv({ SAIFCTL_INITIAL_TASK: 'evil', SAFE: 'ok' });
+    expect(result).not.toHaveProperty('SAIFCTL_INITIAL_TASK');
     expect(result).toHaveProperty('SAFE', 'ok');
   });
 
-  it('strips all reserved SAIFAC_* keys', () => {
+  it('strips all reserved SAIFCTL_* keys', () => {
     const reserved: Record<string, string> = {
-      SAIFAC_INITIAL_TASK: '1',
-      SAIFAC_GATE_RETRIES: '2',
-      SAIFAC_GATE_SCRIPT: '3',
-      SAIFAC_REVIEWER_ENABLED: '1',
-      SAIFAC_STARTUP_SCRIPT: '4',
-      SAIFAC_AGENT_INSTALL_SCRIPT: '5',
-      SAIFAC_AGENT_SCRIPT: '6',
-      SAIFAC_TASK_PATH: '7',
-      SAIFAC_RUN_ID: '8',
+      SAIFCTL_INITIAL_TASK: '1',
+      SAIFCTL_GATE_RETRIES: '2',
+      SAIFCTL_GATE_SCRIPT: '3',
+      SAIFCTL_REVIEWER_ENABLED: '1',
+      SAIFCTL_STARTUP_SCRIPT: '4',
+      SAIFCTL_AGENT_INSTALL_SCRIPT: '5',
+      SAIFCTL_AGENT_SCRIPT: '6',
+      SAIFCTL_TASK_PATH: '7',
+      SAIFCTL_RUN_ID: '8',
     };
     const result = filterAgentEnv({ ...reserved, USER_KEY: 'keep' });
     for (const key of Object.keys(reserved)) {
@@ -44,16 +44,16 @@ describe('filterAgentEnv', () => {
     expect(result).toHaveProperty('USER_KEY', 'keep');
   });
 
-  it('strips any SAIFAC_ prefixed key (prefix-based blocking)', () => {
-    const result = filterAgentEnv({ SAIFAC_FUTURE_VAR: 'x', SAIFAC_CUSTOM: 'y', SAFE: 'z' });
-    expect(result).not.toHaveProperty('SAIFAC_FUTURE_VAR');
-    expect(result).not.toHaveProperty('SAIFAC_CUSTOM');
+  it('strips any SAIFCTL_ prefixed key (prefix-based blocking)', () => {
+    const result = filterAgentEnv({ SAIFCTL_FUTURE_VAR: 'x', SAIFCTL_CUSTOM: 'y', SAFE: 'z' });
+    expect(result).not.toHaveProperty('SAIFCTL_FUTURE_VAR');
+    expect(result).not.toHaveProperty('SAIFCTL_CUSTOM');
     expect(result).toHaveProperty('SAFE', 'z');
   });
 
-  it('strips SAIFAC_WORKSPACE_BASE', () => {
-    const result = filterAgentEnv({ SAIFAC_WORKSPACE_BASE: '/workspace', KEEP: 'yes' });
-    expect(result).not.toHaveProperty('SAIFAC_WORKSPACE_BASE');
+  it('strips SAIFCTL_WORKSPACE_BASE', () => {
+    const result = filterAgentEnv({ SAIFCTL_WORKSPACE_BASE: '/workspace', KEEP: 'yes' });
+    expect(result).not.toHaveProperty('SAIFCTL_WORKSPACE_BASE');
     expect(result).toHaveProperty('KEEP', 'yes');
   });
 
@@ -89,15 +89,15 @@ describe('filterAgentEnv', () => {
 
   it('emits a consola.warn for each stripped key', () => {
     const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
-    filterAgentEnv({ SAIFAC_INITIAL_TASK: 'x', LLM_API_KEY: 'y', SAFE: 'z' });
+    filterAgentEnv({ SAIFCTL_INITIAL_TASK: 'x', LLM_API_KEY: 'y', SAFE: 'z' });
     expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn.mock.calls[0][0]).toContain('SAIFAC_INITIAL_TASK');
+    expect(warn.mock.calls[0][0]).toContain('SAIFCTL_INITIAL_TASK');
     expect(warn.mock.calls[1][0]).toContain('LLM_API_KEY');
     warn.mockRestore();
   });
 
   it('returns an empty object when all keys are reserved', () => {
-    const result = filterAgentEnv({ SAIFAC_INITIAL_TASK: 'x', SAIFAC_WORKSPACE_BASE: 'y' });
+    const result = filterAgentEnv({ SAIFCTL_INITIAL_TASK: 'x', SAIFCTL_WORKSPACE_BASE: 'y' });
     expect(result).toEqual({});
   });
 
@@ -111,9 +111,9 @@ describe('filterAgentSecretKeyNames', () => {
     expect(filterAgentSecretKeyNames(['MY_TOKEN', 'OTHER_KEY'])).toEqual(['MY_TOKEN', 'OTHER_KEY']);
   });
 
-  it('strips reserved and SAIFAC_ keys', () => {
+  it('strips reserved and SAIFCTL_ keys', () => {
     const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
-    expect(filterAgentSecretKeyNames(['SAFE', 'LLM_API_KEY', 'SAIFAC_FOO'])).toEqual(['SAFE']);
+    expect(filterAgentSecretKeyNames(['SAFE', 'LLM_API_KEY', 'SAIFCTL_FOO'])).toEqual(['SAFE']);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -172,7 +172,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
 
   it('merges file-based secrets then host keys (host wins on duplicate)', async () => {
     const key = 'AGENT_ENV_TEST_FILE_HOST_DUP';
-    const dir = mkdtempSync(join(tmpdir(), 'saifac-coder-env-'));
+    const dir = mkdtempSync(join(tmpdir(), 'saifctl-coder-env-'));
     writeFileSync(join(dir, 'secrets.env'), `${key}=from-file\n`, 'utf8');
     const prev = process.env[key];
     process.env[key] = 'from-host';

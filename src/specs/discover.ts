@@ -1,14 +1,14 @@
 /**
- * Recursive discovery of features in saifac/features.
+ * Recursive discovery of features in saifctl/features.
  *
  * Supports Next.js-style route groups: directories named (group-name) are
  * traversed. Feature ID = entire relative path from features/.
  *
  * Example:
- *   saifac/features/my-feat/              -> feature: my-feat
- *   saifac/features/(auth)/login/        -> feature: (auth)/login
- *   saifac/features/(auth)/router/       -> feature: (auth)/router
- *   saifac/features/(user)/router/       -> feature: (user)/router  (distinct from above)
+ *   saifctl/features/my-feat/              -> feature: my-feat
+ *   saifctl/features/(auth)/login/        -> feature: (auth)/login
+ *   saifctl/features/(auth)/router/       -> feature: (auth)/router
+ *   saifctl/features/(user)/router/       -> feature: (user)/router  (distinct from above)
  */
 
 import { readdir } from 'node:fs/promises';
@@ -22,7 +22,7 @@ export interface Feature {
   name: string;
   /** Absolute path to the feature directory. */
   absolutePath: string;
-  /** Path relative to project root (e.g. saifac/features/(auth)/login). */
+  /** Path relative to project root (e.g. saifctl/features/(auth)/login). */
   relativePath: string;
 }
 
@@ -50,7 +50,7 @@ export function featureNameToSafeSlug(featureName: string): string {
  * First non-parenthesised dir nested within base is the feature dir (path-based only).
  *
  * @param projectDir - Project root
- * @param saifDir - Path to saifac directory (e.g. "saifac")
+ * @param saifDir - Path to saifctl directory (e.g. "saifctl")
  *
  * @returns Map<featureId, absolutePath> where featureId is the relative path
  */

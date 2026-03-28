@@ -166,7 +166,7 @@ describe('startRulesWatcher', () => {
   });
 
   it('invokes onNewRules with new active rules (caller may write pending file)', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-watch-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-watch-'));
     try {
       const pending = join(dir, 'pending-rules.md');
       await writeUtf8(pending, '');
@@ -221,7 +221,7 @@ describe('startRulesWatcher', () => {
   });
 
   it('skips rules already in knownRuleIds', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'saifac-watch2-'));
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-watch2-'));
     try {
       const pending = join(dir, 'pending-rules.md');
       await writeUtf8(pending, '');

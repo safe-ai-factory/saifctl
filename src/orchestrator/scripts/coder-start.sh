@@ -1,53 +1,53 @@
 #!/bin/bash
-# coder-start.sh — inner agentic loop; copied into the sandbox and bind-mounted at /saifac/coder-start.sh.
+# coder-start.sh — inner agentic loop; copied into the sandbox and bind-mounted at /saifctl/coder-start.sh.
 #
-# Runtime requirements (all SAIFAC coder target images — profile Dockerfile.coder — should provide these):
+# Runtime requirements (all SaifCTL coder target images — profile Dockerfile.coder — should provide these):
 #   - bash on PATH  — this script is bash; gate scripts are invoked as `bash "$GATE_SCRIPT"`.
-#   - sh on PATH    — semantic reviewer is invoked as `sh "$SAIFAC_REVIEWER_SCRIPT"` when set.
+#   - sh on PATH    — semantic reviewer is invoked as `sh "$SAIFCTL_REVIEWER_SCRIPT"` when set.
 #
-# Runs the agent script, then calls /saifac/gate.sh (injected read-only per-run).
+# Runs the agent script, then calls /saifctl/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
 # If the agent script or the gate (or reviewer) fails, the failure output is appended
-# to the task prompt and the agent is re-invoked, up to SAIFAC_GATE_RETRIES times.
+# to the task prompt and the agent is re-invoked, up to SAIFCTL_GATE_RETRIES times.
 #
 # Environment variables:
-#   SAIFAC_INITIAL_TASK        — the full task prompt (required)
-#   SAIFAC_GATE_RETRIES        — max inner rounds before giving up (default: 5)
-#   SAIFAC_GATE_SCRIPT         — path to the gate script (default: /saifac/gate.sh)
-#   SAIFAC_STARTUP_SCRIPT      — path to the installation script (required); run once before
+#   SAIFCTL_INITIAL_TASK        — the full task prompt (required)
+#   SAIFCTL_GATE_RETRIES        — max inner rounds before giving up (default: 5)
+#   SAIFCTL_GATE_SCRIPT         — path to the gate script (default: /saifctl/gate.sh)
+#   SAIFCTL_STARTUP_SCRIPT      — path to the installation script (required); run once before
 #                                 the agent loop. Set via --profile (default: node-pnpm-python) or
 #                                 --startup-script.
-#   SAIFAC_AGENT_INSTALL_SCRIPT — (optional) path to an agent install script; run once after
+#   SAIFCTL_AGENT_INSTALL_SCRIPT — (optional) path to an agent install script; run once after
 #                                 the startup script and before the agent loop. Use to
 #                                 install the coding agent (e.g. pipx install aider-chat).
 #                                 When unset or empty, this step is skipped.
-#   SAIFAC_AGENT_SCRIPT        — path to the agent script (default: /saifac/agent.sh)
+#   SAIFCTL_AGENT_SCRIPT        — path to the agent script (default: /saifctl/agent.sh)
 #                                 The script is called once per inner round. It must read
-#                                 the task from $SAIFAC_TASK_PATH and run the coding agent.
-#   SAIFAC_TASK_PATH           — path where the current task prompt is written before each
-#                                 agent invocation (default: /workspace/.saifac/task.md).
+#                                 the task from $SAIFCTL_TASK_PATH and run the coding agent.
+#   SAIFCTL_TASK_PATH           — path where the current task prompt is written before each
+#                                 agent invocation (default: /workspace/.saifctl/task.md).
 #                                 Agent scripts should read from this file rather than from
 #                                 command-line arguments to avoid escaping and length issues.
-#   SAIFAC_REVIEWER_ENABLED    — when set to a non-empty value, run /saifac/reviewer.sh after
+#   SAIFCTL_REVIEWER_ENABLED    — when set to a non-empty value, run /saifctl/reviewer.sh after
 #                                 the gate passes. If the reviewer fails, the round is treated
 #                                 as a gate failure and the agent retries.
-#   SAIFAC_ROUNDS_STATS_PATH     — (optional) JSONL path for inner-round summaries (default:
-#                                 `${SAIFAC_TASK_PATH}/stats.jsonl`).
-#   SAIFAC_PENDING_RULES_PATH    — (optional) markdown file the host appends with human feedback
+#   SAIFCTL_ROUNDS_STATS_PATH     — (optional) JSONL path for inner-round summaries (default:
+#                                 `${SAIFCTL_TASK_PATH}/stats.jsonl`).
+#   SAIFCTL_PENDING_RULES_PATH    — (optional) markdown file the host appends with human feedback
 #                                 between inner rounds (default: `pending-rules.md` next to task.md).
 #                                 This script renames the file when consumed so the next round
 #                                 picks up only new content.
-#   SAIFAC_RUN_ID                  — (optional) orchestrator run id; echoed in round banners for logs.
+#   SAIFCTL_RUN_ID                  — (optional) orchestrator run id; echoed in round banners for logs.
 #
 # Agent stdout boundaries (for host log formatting): one line each, echoed by this script only —
-#   [SAIFAC:AGENT_START]  — before bash "$AGENT_SCRIPT" (streams live via tee)
-#   [SAIFAC:AGENT_END]    — after the agent exits (host applies OpenHands parsing only between these)
+#   [SAIFCTL:AGENT_START]  — before bash "$AGENT_SCRIPT" (streams live via tee)
+#   [SAIFCTL:AGENT_END]    — after the agent exits (host applies OpenHands parsing only between these)
 
 set -euo pipefail
 
 # Fail fast if a minimal or misconfigured image omits these (should not happen on supported images).
 if ! command -v bash >/dev/null 2>&1; then
-  echo "[coder-start] ERROR: bash is required on PATH (SAIFAC coder images provide it)." >&2
+  echo "[coder-start] ERROR: bash is required on PATH (SaifCTL coder images provide it)." >&2
   exit 127
 fi
 if ! command -v sh >/dev/null 2>&1; then
@@ -55,25 +55,25 @@ if ! command -v sh >/dev/null 2>&1; then
   exit 127
 fi
 
-GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/saifac/gate.sh}"
-AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/saifac/agent.sh}"
-GATE_RETRIES="${SAIFAC_GATE_RETRIES:-5}"
-TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.saifac/task.md}"
-ROUNDS_STATS_PATH="${SAIFAC_ROUNDS_STATS_PATH:-$(dirname "$TASK_PATH")/stats.jsonl}"
-PENDING_RULES_PATH="${SAIFAC_PENDING_RULES_PATH:-$(dirname "$TASK_PATH")/pending-rules.md}"
+GATE_SCRIPT="${SAIFCTL_GATE_SCRIPT:-/saifctl/gate.sh}"
+AGENT_SCRIPT="${SAIFCTL_AGENT_SCRIPT:-/saifctl/agent.sh}"
+GATE_RETRIES="${SAIFCTL_GATE_RETRIES:-5}"
+TASK_PATH="${SAIFCTL_TASK_PATH:-/workspace/.saifctl/task.md}"
+ROUNDS_STATS_PATH="${SAIFCTL_ROUNDS_STATS_PATH:-$(dirname "$TASK_PATH")/stats.jsonl}"
+PENDING_RULES_PATH="${SAIFCTL_PENDING_RULES_PATH:-$(dirname "$TASK_PATH")/pending-rules.md}"
 
-if [ -z "${SAIFAC_INITIAL_TASK:-}" ]; then
-  echo "[coder-start] ERROR: SAIFAC_INITIAL_TASK is not set." >&2
+if [ -z "${SAIFCTL_INITIAL_TASK:-}" ]; then
+  echo "[coder-start] ERROR: SAIFCTL_INITIAL_TASK is not set." >&2
   exit 1
 fi
 
-if [ -z "${SAIFAC_STARTUP_SCRIPT:-}" ]; then
-  echo "[coder-start] ERROR: SAIFAC_STARTUP_SCRIPT is not set." >&2
+if [ -z "${SAIFCTL_STARTUP_SCRIPT:-}" ]; then
+  echo "[coder-start] ERROR: SAIFCTL_STARTUP_SCRIPT is not set." >&2
   exit 1
 fi
 
-if [ ! -f "$SAIFAC_STARTUP_SCRIPT" ]; then
-  echo "[coder-start] ERROR: startup script not found: $SAIFAC_STARTUP_SCRIPT" >&2
+if [ ! -f "$SAIFCTL_STARTUP_SCRIPT" ]; then
+  echo "[coder-start] ERROR: startup script not found: $SAIFCTL_STARTUP_SCRIPT" >&2
   exit 1
 fi
 
@@ -82,17 +82,17 @@ if [ ! -f "$AGENT_SCRIPT" ]; then
   exit 1
 fi
 
-echo "[coder-start] Running startup script: $SAIFAC_STARTUP_SCRIPT"
-bash "$SAIFAC_STARTUP_SCRIPT"
+echo "[coder-start] Running startup script: $SAIFCTL_STARTUP_SCRIPT"
+bash "$SAIFCTL_STARTUP_SCRIPT"
 echo "[coder-start] Startup script completed."
 
-if [ -n "${SAIFAC_AGENT_INSTALL_SCRIPT:-}" ]; then
-  if [ ! -f "$SAIFAC_AGENT_INSTALL_SCRIPT" ]; then
-    echo "[coder-start] ERROR: agent install script not found: $SAIFAC_AGENT_INSTALL_SCRIPT" >&2
+if [ -n "${SAIFCTL_AGENT_INSTALL_SCRIPT:-}" ]; then
+  if [ ! -f "$SAIFCTL_AGENT_INSTALL_SCRIPT" ]; then
+    echo "[coder-start] ERROR: agent install script not found: $SAIFCTL_AGENT_INSTALL_SCRIPT" >&2
     exit 1
   fi
-  echo "[coder-start] Running agent install script: $SAIFAC_AGENT_INSTALL_SCRIPT"
-  bash "$SAIFAC_AGENT_INSTALL_SCRIPT"
+  echo "[coder-start] Running agent install script: $SAIFCTL_AGENT_INSTALL_SCRIPT"
+  bash "$SAIFCTL_AGENT_INSTALL_SCRIPT"
   echo "[coder-start] Agent install script completed."
 fi
 
@@ -158,7 +158,7 @@ log_inner_round_summary() {
 }
 
 main() {
-  local INITIAL_TASK="$SAIFAC_INITIAL_TASK"
+  local INITIAL_TASK="$SAIFCTL_INITIAL_TASK"
   local round=0
   local current_task="$INITIAL_TASK"
   local gate_output gate_exit round_started_at
@@ -167,9 +167,9 @@ main() {
   while [ "$round" -lt "$GATE_RETRIES" ]; do
     round=$((round + 1))
     round_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "[coder-start] ===== Round $round/$GATE_RETRIES${SAIFAC_RUN_ID:+ (run $SAIFAC_RUN_ID)} ====="
+    echo "[coder-start] ===== Round $round/$GATE_RETRIES${SAIFCTL_RUN_ID:+ (run $SAIFCTL_RUN_ID)} ====="
 
-    # Human feedback queued on the host (e.g. `saifac run rules create` while the agent runs).
+    # Human feedback queued on the host (e.g. `saifctl run rules create` while the agent runs).
     if [ -f "$PENDING_RULES_PATH" ] && [ -s "$PENDING_RULES_PATH" ]; then
       pending_content="$(cat "$PENDING_RULES_PATH")"
       mv "$PENDING_RULES_PATH" "${PENDING_RULES_PATH}.consumed.${round}"
@@ -177,9 +177,9 @@ main() {
       echo "[coder-start] Applied pending human feedback (round $round)."
     fi
 
-    # Write the current task to SAIFAC_TASK_PATH so the agent script can read it.
+    # Write the current task to SAIFCTL_TASK_PATH so the agent script can read it.
     # Agent scripts must consume the task from this file (not from env var or CLI args).
-    export SAIFAC_TASK_PATH="$TASK_PATH"
+    export SAIFCTL_TASK_PATH="$TASK_PATH"
     mkdir -p "$(dirname "$TASK_PATH")"
     printf '%s' "$current_task" > "$TASK_PATH"
 
@@ -187,16 +187,16 @@ main() {
     # Instead of calling openhands directly, we call the agent script - a bash script
     # that can contain anything. This way we can use any agent, not just OpenHands.
     # Stream to stdout (tee) so the host sees live output; keep a copy for failure feedback.
-    # The command is wrapped in blocks like [SAIFAC:AGENT_START] so we can foramt the agent's
+    # The command is wrapped in blocks like [SAIFCTL:AGENT_START] so we can foramt the agent's
     # output differently for differnet agents. E.g. OpenHands uses JSON, Aider uses Markdown.
     echo "[coder-start] Running agent: $AGENT_SCRIPT"
     agent_tmpfile="$(mktemp)"
-    printf '%s\n' '[SAIFAC:AGENT_START]'
+    printf '%s\n' '[SAIFCTL:AGENT_START]'
     set +e
     bash "$AGENT_SCRIPT" 2>&1 | tee "$agent_tmpfile"
     agent_exit="${PIPESTATUS[0]}"
     set -e
-    printf '%s\n' '[SAIFAC:AGENT_END]'
+    printf '%s\n' '[SAIFCTL:AGENT_END]'
     agent_output="$(cat "$agent_tmpfile")"
     rm -f "$agent_tmpfile"
 
@@ -234,13 +234,13 @@ main() {
     # User-supplied gate script succeeded, now let's run the semantic reviewer (argus-ai) if enabled.
     if [ "$gate_exit" -eq 0 ]; then
       # Success branch: No reviewer configured.
-      if [ -z "${SAIFAC_REVIEWER_ENABLED:-}" ]; then
+      if [ -z "${SAIFCTL_REVIEWER_ENABLED:-}" ]; then
         log_inner_round_summary gate_passed ""
         echo "[coder-start] Gate PASSED."
         exit 0
       fi
 
-      REVIEWER_SCRIPT="/saifac/reviewer.sh"
+      REVIEWER_SCRIPT="/saifctl/reviewer.sh"
       # Use explicit sh: reviewer.sh is mounted read-only and may not be +x.
       echo "[coder-start] Running semantic reviewer: $REVIEWER_SCRIPT"
       gate_output=$(sh "$REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?

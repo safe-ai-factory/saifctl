@@ -1,5 +1,5 @@
 /**
- * CLI execution wrapper for the saifac command-line tool.
+ * CLI execution wrapper for the saifctl command-line tool.
  *
  * Two execution modes:
  * - Background (spawnUserCmdCapture): Quick, non-interactive commands — list runs,
@@ -16,7 +16,7 @@ import * as vscode from 'vscode';
 import { saifLogger } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
 
-/** Run artifact shape when reading from .saifac/runs/*.json */
+/** Run artifact shape when reading from .saifctl/runs/*.json */
 interface RunArtifact {
   runId: string;
   status: 'failed' | 'completed' | 'running';
@@ -25,11 +25,11 @@ interface RunArtifact {
   updatedAt?: string;
 }
 
-export class SaifCliService {
+export class SaifctlCliService {
   private terminals: Map<string, vscode.Terminal> = new Map();
 
   /**
-   * Checks if the `saifac` CLI is installed and accessible in the system PATH.
+   * Checks if the `saifctl` CLI is installed and accessible in the system PATH.
    * Returns true when SAIF_MOCK_RUNS=1 (allows UI testing without the CLI).
    */
   public async isCliInstalled(): Promise<boolean> {
@@ -37,7 +37,7 @@ export class SaifCliService {
       return true;
     }
     try {
-      await spawnUserCmdCapture('saifac --help', { cwd: process.cwd() });
+      await spawnUserCmdCapture('saifctl --help', { cwd: process.cwd() });
       return true;
     } catch {
       return false;
@@ -64,7 +64,7 @@ export class SaifCliService {
       if (stack) saifLogger.error(stack);
 
       const selection = await vscode.window.showErrorMessage(
-        'SAIFAC Error: Failed to execute command.',
+        'SaifCTL error: Failed to execute command.',
         'View Logs',
       );
       if (selection === 'View Logs') {
@@ -99,22 +99,22 @@ export class SaifCliService {
   // ============================================================================
 
   public async createFeature(featureName: string, cwd: string): Promise<void> {
-    await this.executeInBackground(`saifac feat new -y -n ${escapeArg(featureName)}`, cwd);
+    await this.executeInBackground(`saifctl feat new -y -n ${escapeArg(featureName)}`, cwd);
     vscode.window.showInformationMessage(`Created new feature: ${featureName}`);
   }
 
   public runFeature(featureName: string, cwd: string): void {
     this.executeInTerminal({
-      command: `saifac feat run ${escapeArg(featureName)}`,
-      terminalName: `SAIFAC Run: ${featureName}`,
+      command: `saifctl feat run ${escapeArg(featureName)}`,
+      terminalName: `SaifCTL run: ${featureName}`,
       cwd,
     });
   }
 
   public designFeature(featureName: string, cwd: string): void {
     this.executeInTerminal({
-      command: `saifac feat design ${escapeArg(featureName)}`,
-      terminalName: `SAIFAC Design: ${featureName}`,
+      command: `saifctl feat design ${escapeArg(featureName)}`,
+      terminalName: `SaifCTL design: ${featureName}`,
       cwd,
     });
   }
@@ -124,18 +124,18 @@ export class SaifCliService {
   // ============================================================================
 
   /**
-   * Lists stored runs by reading .saifac/runs/*.json directly.
+   * Lists stored runs by reading .saifctl/runs/*.json directly.
    * Avoids relying on CLI --json output.
    *
    * When SAIF_MOCK_RUNS=1, returns hardcoded mock data for UI testing without
-   * the saifac CLI or .saifac/runs/ present.
+   * the saifctl CLI or .saifctl/runs/ present.
    */
   public async listRuns(cwd: string): Promise<RunArtifact[]> {
     if (process.env.SAIF_MOCK_RUNS === '1') {
       return this.getMockRuns(cwd);
     }
 
-    const runsDir = join(cwd, '.saifac', 'runs');
+    const runsDir = join(cwd, '.saifctl', 'runs');
     let files: string[];
     try {
       files = await readdir(runsDir);
@@ -202,20 +202,20 @@ export class SaifCliService {
 
   public fromArtifact(runId: string, cwd: string): void {
     this.executeInTerminal({
-      command: `saifac run start ${escapeArg(runId)}`,
-      terminalName: `SAIFAC fromArtifact: ${runId}`,
+      command: `saifctl run start ${escapeArg(runId)}`,
+      terminalName: `SaifCTL fromArtifact: ${runId}`,
       cwd,
     });
   }
 
   public async removeRun(runId: string, cwd: string): Promise<void> {
-    await this.executeInBackground(`saifac run rm ${escapeArg(runId)}`, cwd);
+    await this.executeInBackground(`saifctl run rm ${escapeArg(runId)}`, cwd);
     vscode.window.showInformationMessage(`Removed run: ${runId}`);
   }
 
   public async clearAllRuns(cwd: string): Promise<void> {
-    await this.executeInBackground('saifac run clear', cwd);
-    vscode.window.showInformationMessage('Cleared all SAIFAC runs.');
+    await this.executeInBackground('saifctl run clear', cwd);
+    vscode.window.showInformationMessage('Cleared all SaifCTL runs.');
   }
 }
 

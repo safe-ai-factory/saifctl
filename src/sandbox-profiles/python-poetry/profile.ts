@@ -3,5 +3,5 @@ import type { SandboxProfile } from '../types.js';
 export const pythonPoetryProfile: SandboxProfile = {
   id: 'python-poetry',
   displayName: 'Python + Poetry',
-  coderImageTag: 'saifac-coder-python-poetry:latest',
+  coderImageTag: 'saifctl-coder-python-poetry:latest',
 };

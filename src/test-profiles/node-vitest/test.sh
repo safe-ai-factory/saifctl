@@ -7,18 +7,18 @@
 #
 # Environment variables provided by the Orchestrator (all required):
 #
-#   SAIFAC_TARGET_URL    URL of the application under test (web server or sidecar).
+#   SAIFCTL_TARGET_URL    URL of the application under test (web server or sidecar).
 #                         For CLI projects this is the sidecar URL.
 #                         For web projects this is the application's base URL.
 #
-#   SAIFAC_SIDECAR_URL   URL of the HTTP sidecar that wraps CLI command execution.
+#   SAIFCTL_SIDECAR_URL   URL of the HTTP sidecar that wraps CLI command execution.
 #                         Format: http://staging:<port><path>  (e.g. http://staging:8080/exec)
 #                         Always defined — even for web projects — because the sidecar runs
 #                         in every staging container.
 #
-#   SAIFAC_FEATURE_NAME  Name of the Saifac feature being tested (e.g. "greet-cmd").
+#   SAIFCTL_FEATURE_NAME  Name of the Saifctl feature being tested (e.g. "greet-cmd").
 #
-#   SAIFAC_TESTS_DIR     Absolute path inside the container where test files are mounted.
+#   SAIFCTL_TESTS_DIR     Absolute path inside the container where test files are mounted.
 #                         Default: /tests
 #                         Subdirectories:
 #                           /tests/public/       — public spec files (visible to agent)
@@ -26,7 +26,7 @@
 #                           /tests/helpers.ts    — shared test helpers imported by specs
 #                           /tests/infra.spec.ts — infra health-check (always present)
 #
-#   SAIFAC_OUTPUT_FILE   Absolute path where this script must write the test results file.
+#   SAIFCTL_OUTPUT_FILE   Absolute path where this script must write the test results file.
 #                         Default: /test-runner-output/results.xml
 #                         The Orchestrator reads this file after the container exits.
 #                         The /test-runner-output directory is bind-mounted rw by the Orchestrator.
@@ -37,32 +37,32 @@
 #
 # Output file format:
 #   JUnit XML (standard format supported by all major test runners and CI systems).
-#   Written to SAIFAC_OUTPUT_FILE. If the runner crashes before producing output,
+#   Written to SAIFCTL_OUTPUT_FILE. If the runner crashes before producing output,
 #   the file may be absent; the Orchestrator handles this gracefully.
 #
 # To use a custom test script:
 #   Pass --test-script <path> to run / resume / run test / design-fail2pass.
-#   Your script must read the env vars above, write JUnit XML to SAIFAC_OUTPUT_FILE,
+#   Your script must read the env vars above, write JUnit XML to SAIFCTL_OUTPUT_FILE,
 #   and exit 0 on pass / non-zero on failure.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -e
 
-echo "[test-runner] SAIFAC_TARGET_URL:   ${SAIFAC_TARGET_URL}"
-echo "[test-runner] SAIFAC_SIDECAR_URL:  ${SAIFAC_SIDECAR_URL}"
-echo "[test-runner] SAIFAC_FEATURE_NAME: ${SAIFAC_FEATURE_NAME}"
-echo "[test-runner] SAIFAC_TESTS_DIR:    ${SAIFAC_TESTS_DIR}"
-echo "[test-runner] SAIFAC_OUTPUT_FILE:  ${SAIFAC_OUTPUT_FILE}"
+echo "[test-runner] SAIFCTL_TARGET_URL:   ${SAIFCTL_TARGET_URL}"
+echo "[test-runner] SAIFCTL_SIDECAR_URL:  ${SAIFCTL_SIDECAR_URL}"
+echo "[test-runner] SAIFCTL_FEATURE_NAME: ${SAIFCTL_FEATURE_NAME}"
+echo "[test-runner] SAIFCTL_TESTS_DIR:    ${SAIFCTL_TESTS_DIR}"
+echo "[test-runner] SAIFCTL_OUTPUT_FILE:  ${SAIFCTL_OUTPUT_FILE}"
 
-echo "[test-runner] public spec count:  $(find "${SAIFAC_TESTS_DIR}/public" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
-echo "[test-runner] hidden spec count:  $(find "${SAIFAC_TESTS_DIR}/hidden" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}/public" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}/hidden" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
 
-cd "${SAIFAC_TESTS_DIR}"
+cd "${SAIFCTL_TESTS_DIR}"
 
 # Run the tests and save the JUnit XML report to the output file.
 exec npx vitest run \
-  --root "${SAIFAC_TESTS_DIR}" \
+  --root "${SAIFCTL_TESTS_DIR}" \
   --reporter=verbose \
   --reporter=junit \
-  --outputFile="${SAIFAC_OUTPUT_FILE}"
+  --outputFile="${SAIFCTL_OUTPUT_FILE}"

@@ -2,21 +2,21 @@
  * Sandbox management for the Software Factory Orchestrator.
  *
  * Creates an isolated copy of the repository in a sandbox base directory
- * (default: /tmp/saifac/sandboxes/) so the agent can work without touching
+ * (default: /tmp/saifctl/sandboxes/) so the agent can work without touching
  * the host's .git history or files.
  *
  * Directory structure produced:
  *   {sandboxBaseDir}/{proj}-{feat}-{runId}/
- *     gate.sh                ← user-supplied or default gate script; mounted :ro at /saifac/gate.sh
+ *     gate.sh                ← user-supplied or default gate script; mounted :ro at /saifctl/gate.sh
  *     code/                  ← copy of repo (git archive HEAD or rsync); workspace for the AI agent
  *                              for staging container (Container A) during tests
  *       .git/                ← fresh git repo for diffing
- *       saifac/features/{feat}/tests/
+ *       saifctl/features/{feat}/tests/
  *         tests.json         ← test catalog (public cases only; hidden/ dir stripped)
  *         public/            ← public spec files (from rsync, unchanged)
  *         helpers.ts         ← shared transport helpers
  *         infra.spec.ts      ← infra health checks
- *         (hidden/ removed)  ← ALL hidden/ dirs under saifac/features/ deleted so agent
+ *         (hidden/ removed)  ← ALL hidden/ dirs under saifctl/features/ deleted so agent
  *                             cannot see holdout tests from any feature (current or others)
  *       ...rest of repo...
  */
@@ -26,14 +26,14 @@ import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
 
-import { getSaifRoot } from '../constants.js';
+import { getSaifctlRoot } from '../constants.js';
 import type { TestCatalog } from '../design-tests/schema.js';
 import { consola } from '../logger.js';
 import type { RunCommit } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitDiff, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, spawnAsync, spawnWait, writeUtf8 } from '../utils/io.js';
-import { replayRunCommits, SAIFAC_DEFAULT_AUTHOR } from './patch.js';
+import { replayRunCommits, SAIFCTL_DEFAULT_AUTHOR } from './patch.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
@@ -59,14 +59,14 @@ export interface Sandbox {
   runId: string;
   /** The revision to use for optimistic locking on final run saves. */
   runningArtifactRevision?: number;
-  /** e.g. /tmp/saifac/sandboxes/{proj}-{feat}-{runId} */
+  /** e.g. /tmp/saifctl/sandboxes/{proj}-{feat}-{runId} */
   sandboxBasePath: string;
   /** sandboxBasePath/code — copy of the repo (committed tree or working tree) */
   codePath: string;
   /**
-   * sandboxBasePath/saifac — orchestration scripts; mounted :ro at /saifac in staging and coder containers.
+   * sandboxBasePath/saifctl — orchestration scripts; mounted :ro at /saifctl in staging and coder containers.
    */
-  saifacPath: string;
+  saifctlPath: string;
   /**
    * sandboxBasePath/host-base.patch — unified diff of the host repo's uncommitted changes
    * (staged + unstaged) captured at sandbox creation time via `git diff HEAD`.
@@ -81,15 +81,15 @@ export interface Sandbox {
 }
 
 /**
- * Host root for factory temp files (e.g. Argus under `{SAIFAC_TEMP_ROOT}/bin/`).
+ * Host root for factory temp files (e.g. Argus under `{SAIFCTL_TEMP_ROOT}/bin/`).
  * Not the sandbox directory — use {@link DEFAULT_SANDBOX_BASE_DIR} for disposable run copies.
  */
-export const SAIFAC_TEMP_ROOT = join('/tmp', 'saifac');
+export const SAIFCTL_TEMP_ROOT = join('/tmp', 'saifctl');
 
 /** Disposable rsync sandboxes; `cache list` / `cache clear` use this path by default. */
-export const DEFAULT_SANDBOX_BASE_DIR = join(SAIFAC_TEMP_ROOT, 'sandboxes');
+export const DEFAULT_SANDBOX_BASE_DIR = join(SAIFCTL_TEMP_ROOT, 'sandboxes');
 
-const SAIFAC_SCRIPTS_DIR = join(getSaifRoot(), 'src', 'orchestrator', 'scripts');
+const SAIFCTL_SCRIPTS_DIR = join(getSaifctlRoot(), 'src', 'orchestrator', 'scripts');
 
 export interface CreateSandboxOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
@@ -105,17 +105,17 @@ export interface CreateSandboxOpts {
   /** Caller-supplied runId; defaults to a random short id */
   runId?: string;
   /**
-   * Path to the saifac directory, relative to project directory.
+   * Path to the saifctl directory, relative to project directory.
    */
   saifDir: string;
   /**
    * Base directory where sandbox entries are created.
-   * Defaults to `/tmp/saifac/sandboxes` (see {@link DEFAULT_SANDBOX_BASE_DIR}).
+   * Defaults to `/tmp/saifctl/sandboxes` (see {@link DEFAULT_SANDBOX_BASE_DIR}).
    */
   sandboxBaseDir: string;
   /**
-   * Content of the gate script to write into the sandbox as `saifac/gate.sh`.
-   * The script is mounted read-only at `/saifac/gate.sh` inside the coder container
+   * Content of the gate script to write into the sandbox as `saifctl/gate.sh`.
+   * The script is mounted read-only at `/saifctl/gate.sh` inside the coder container
    * and called by `coder-start.sh` after each OpenHands run. It must exit 0 to pass,
    * non-zero to fail (stdout+stderr are fed back to the agent as task feedback).
    *
@@ -123,8 +123,8 @@ export interface CreateSandboxOpts {
    */
   gateScript: string;
   /**
-   * Content of the startup script to write into the sandbox as `saifac/startup.sh`.
-   * The script is mounted read-only at `/saifac/startup.sh` inside the coder container
+   * Content of the startup script to write into the sandbox as `saifctl/startup.sh`.
+   * The script is mounted read-only at `/saifctl/startup.sh` inside the coder container
    * and executed once by `coder-start.sh` before the agent loop begins.
    *
    * Use for workspace setup that must run after the workspace is mounted:
@@ -135,8 +135,8 @@ export interface CreateSandboxOpts {
    */
   startupScript: string;
   /**
-   * Content of the agent setup script to write into the sandbox as `saifac/agent-install.sh`.
-   * The script is mounted read-only at `/saifac/agent-install.sh` inside the coder container
+   * Content of the agent setup script to write into the sandbox as `saifctl/agent-install.sh`.
+   * The script is mounted read-only at `/saifctl/agent-install.sh` inside the coder container
    * and executed once by `coder-start.sh` after the startup script and before the agent loop.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
@@ -146,19 +146,19 @@ export interface CreateSandboxOpts {
    */
   agentInstallScript: string;
   /**
-   * Content of the agent script to write into the sandbox as `saifac/agent.sh`.
-   * The script is mounted read-only at `/saifac/agent.sh` inside the coder container
+   * Content of the agent script to write into the sandbox as `saifctl/agent.sh`.
+   * The script is mounted read-only at `/saifctl/agent.sh` inside the coder container
    * and invoked by `coder-start.sh` once per inner round.
    *
-   * The script must read the task from `$SAIFAC_TASK_PATH` and run the desired
+   * The script must read the task from `$SAIFCTL_TASK_PATH` and run the desired
    * coding agent (OpenHands, Aider, Claude Code, Codex, etc.).
    *
    * Resolved from the agent profile's agent.sh (openhands by default).
    */
   agentScript: string;
   /**
-   * Content of the staging script to write into the sandbox as `saifac/stage.sh`.
-   * Mounted read-only in the staging container (Container A) at /saifac/stage.sh and
+   * Content of the staging script to write into the sandbox as `saifctl/stage.sh`.
+   * Mounted read-only in the staging container (Container A) at /saifctl/stage.sh and
    * invoked by staging-start.sh after startup.sh and the sidecar have run.
    *
    * The script is responsible for app startup (e.g. `npm run start`) or keeping
@@ -199,13 +199,13 @@ export async function copyCommittedGitTreeToDir(repoDir: string, destDir: string
     //       Also, by principle, git should contain only files NOT in .gitignore.
     args: [
       '-c',
-      'git -C "$SAIFAC_GIT_ARCHIVE_REPO" archive HEAD | tar -x -C "$SAIFAC_GIT_ARCHIVE_DEST"',
+      'git -C "$SAIFCTL_GIT_ARCHIVE_REPO" archive HEAD | tar -x -C "$SAIFCTL_GIT_ARCHIVE_DEST"',
     ],
     cwd: repoDir,
     env: {
       ...process.env,
-      SAIFAC_GIT_ARCHIVE_REPO: repoDir,
-      SAIFAC_GIT_ARCHIVE_DEST: destDir,
+      SAIFCTL_GIT_ARCHIVE_REPO: repoDir,
+      SAIFCTL_GIT_ARCHIVE_DEST: destDir,
     },
     stdio: 'inherit',
   });
@@ -265,11 +265,11 @@ export async function diffUntrackedFilesVersusDevNull(projectDir: string): Promi
  *
  * 1. Populate sandboxBasePath/code/ — `git archive HEAD` (default) or rsync when {@link CreateSandboxOpts#includeDirty}
  *    or when {@link CreateSandboxOpts#codeSourceDir} is set (from-artifact snapshot)
- * 2. Remove ALL hidden/ dirs under saifac/features/ so the coder agent cannot see holdout
+ * 2. Remove ALL hidden/ dirs under saifctl/features/ so the coder agent cannot see holdout
  *    tests from any feature (current or others)
  * 3. git init + "Base state" commit, then replay {@link CreateSandboxOpts#runCommits}
- * 4. Create sandboxBasePath/saifac/ and write gate.sh, startup.sh, agent-install.sh, agent.sh, stage.sh
- * 5. Copy factory scripts into saifac/: coder-start.sh, staging-start.sh, reviewer.sh
+ * 4. Create sandboxBasePath/saifctl/ and write gate.sh, startup.sh, agent-install.sh, agent.sh, stage.sh
+ * 5. Copy factory scripts into saifctl/: coder-start.sh, staging-start.sh, reviewer.sh
  *
  * If `{projectName}-{feature}-{runId}` already exists under {@link CreateSandboxOpts#sandboxBaseDir},
  * throws immediately (avoids clobbering an in-flight or leaked sandbox).
@@ -297,12 +297,12 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const dirName = `${projectName}-${feature.name}-${runId}`;
   const sandboxBasePath = `${sandboxBaseDir}/${dirName}`;
   const codePath = join(sandboxBasePath, 'code');
-  const saifacPath = join(sandboxBasePath, 'saifac');
-  const gatePath = join(saifacPath, 'gate.sh');
-  const startupPath = join(saifacPath, 'startup.sh');
-  const agentInstallPath = join(saifacPath, 'agent-install.sh');
-  const agentPath = join(saifacPath, 'agent.sh');
-  const stagePath = join(saifacPath, 'stage.sh');
+  const saifctlPath = join(sandboxBasePath, 'saifctl');
+  const gatePath = join(saifctlPath, 'gate.sh');
+  const startupPath = join(saifctlPath, 'startup.sh');
+  const agentInstallPath = join(saifctlPath, 'agent-install.sh');
+  const agentPath = join(saifctlPath, 'agent.sh');
+  const stagePath = join(saifctlPath, 'stage.sh');
   const hostBasePatchPath = join(sandboxBasePath, 'host-base.patch');
 
   if (await pathExists(sandboxBasePath)) {
@@ -310,13 +310,13 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
       `[sandbox] Sandbox directory already exists: ${sandboxBasePath}\n` +
         `Another \`feat run\` / \`run start\` may still be using it, or a previous run exited without cleanup. ` +
         `Stop the other process, remove this directory, or wait until it finishes. ` +
-        `Use \`saifac run fork <runId>\` to clone the stored run to a new ID, then \`saifac run start <newId>\`.`,
+        `Use \`saifctl run fork <runId>\` to clone the stored run to a new ID, then \`saifctl run start <newId>\`.`,
     );
   }
 
   consola.log(`[sandbox] Creating isolated sandbox at ${sandboxBasePath}`);
   await mkdir(codePath, { recursive: true });
-  await mkdir(saifacPath, { recursive: true });
+  await mkdir(saifctlPath, { recursive: true });
 
   // Capture any uncommitted host changes (staged + unstaged) before rsync so that
   // applyPatchToHost can reconstruct the exact host state the sandbox was based on,
@@ -324,7 +324,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   if (!(await pathExists(projectDir))) {
     throw new Error(
       `[sandbox] Source directory does not exist (cannot run git here). ` +
-        `From-artifact worktree path may be stale — try \`saifac run start\` again. Path: ${projectDir}`,
+        `From-artifact worktree path may be stale — try \`saifctl run start\` again. Path: ${projectDir}`,
     );
   }
 
@@ -387,12 +387,12 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
   if (!(await pathExists(testsJsonPath))) {
     throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saifac feat design -n ${feature.name}' first.`,
+      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
     );
   }
   const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
 
-  // Remove ALL hidden/ dirs from saifac/features so the agent
+  // Remove ALL hidden/ dirs from saifctl/features so the agent
   // cannot see holdout tests from any feature (current or others).
   const saifBase = join(codePath, saifDir);
   const featuresHidden = await removeAllHiddenDirs(join(saifBase, 'features'));
@@ -425,20 +425,20 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     stdio: 'inherit',
     env: {
       ...process.env,
-      GIT_AUTHOR_NAME: 'saifac',
-      GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
-      GIT_COMMITTER_NAME: 'saifac',
-      GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
+      GIT_AUTHOR_NAME: 'saifctl',
+      GIT_AUTHOR_EMAIL: 'saifctl@safeaifactory.com',
+      GIT_COMMITTER_NAME: 'saifctl',
+      GIT_COMMITTER_EMAIL: 'saifctl@safeaifactory.com',
     },
   });
   consola.log(`[sandbox] git init + initial commit done in ${codePath}`);
 
   const replayGitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: 'saifac',
-    GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
-    GIT_COMMITTER_NAME: 'saifac',
-    GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
+    GIT_AUTHOR_NAME: 'saifctl',
+    GIT_AUTHOR_EMAIL: 'saifctl@safeaifactory.com',
+    GIT_COMMITTER_NAME: 'saifctl',
+    GIT_COMMITTER_EMAIL: 'saifctl@safeaifactory.com',
   };
 
   // Apply all commits that have been made to the sandbox since the initial commit.
@@ -453,46 +453,46 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   }
 
   // Write gate.sh: user-supplied content or the built-in pnpm check default.
-  // Mounted read-only at /saifac/gate.sh inside the coder container.
+  // Mounted read-only at /saifctl/gate.sh inside the coder container.
   await writeUtf8(gatePath, gateScript);
   await chmod(gatePath, 0o755);
   consola.log(`[sandbox] Gate script written to ${gatePath}`);
 
-  // Write startup.sh — always present; mounted read-only at /saifac/startup.sh.
+  // Write startup.sh — always present; mounted read-only at /saifctl/startup.sh.
   // Set via --profile or --startup-script.
   await writeUtf8(startupPath, startupScript);
   await chmod(startupPath, 0o755);
   consola.log(`[sandbox] Startup script written to ${startupPath}`);
 
-  // Write agent-install.sh — mounted read-only at /saifac/agent-install.sh.
+  // Write agent-install.sh — mounted read-only at /saifctl/agent-install.sh.
   // Run once after project startup, before the agent loop. Used to install the agent.
   await writeUtf8(agentInstallPath, agentInstallScript);
   await chmod(agentInstallPath, 0o755);
   consola.log(`[sandbox] Agent install script written to ${agentInstallPath}`);
 
-  // Write agent.sh — mounted read-only at /saifac/agent.sh.
+  // Write agent.sh — mounted read-only at /saifctl/agent.sh.
   // Defaults to the agent profile's agent.sh (OpenHands). Override with --agent-script.
   await writeUtf8(agentPath, agentScript);
   await chmod(agentPath, 0o755);
   consola.log(`[sandbox] Agent script written to ${agentPath}`);
 
-  // Write stage.sh — mounted read-only in the staging container at /saifac/stage.sh.
+  // Write stage.sh — mounted read-only in the staging container at /saifctl/stage.sh.
   // Set via --profile or --stage-script.
   await writeUtf8(stagePath, stageScript);
   await chmod(stagePath, 0o755);
   consola.log(`[sandbox] Stage script written to ${stagePath}`);
 
   for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
-    const dest = join(saifacPath, name);
-    await copyFile(join(SAIFAC_SCRIPTS_DIR, name), dest);
+    const dest = join(saifctlPath, name);
+    await copyFile(join(SAIFCTL_SCRIPTS_DIR, name), dest);
     await chmod(dest, 0o755);
   }
-  consola.log(`[sandbox] Factory scripts copied to ${saifacPath}`);
+  consola.log(`[sandbox] Factory scripts copied to ${saifctlPath}`);
 
   return {
     sandboxBasePath,
     codePath,
-    saifacPath,
+    saifctlPath,
     hostBasePatchPath,
     runId,
   };
@@ -515,7 +515,7 @@ export type PatchExcludeRule =
 export interface ExtractPatchOpts {
   /**
    * File sections whose path matches any rule are stripped from the patch.
-   * Paths are relative to the repo root (e.g. "saifac/features/foo/tests/tests.json").
+   * Paths are relative to the repo root (e.g. "saifctl/features/foo/tests/tests.json").
    * Glob patterns are matched with minimatch; regex patterns are tested directly.
    */
   exclude?: PatchExcludeRule[];
@@ -526,16 +526,16 @@ export interface ExtractIncrementalRoundPatchOpts extends ExtractPatchOpts {
   preRoundHeadSha: string;
   /** Outer loop attempt index (1-based), for default commit message. */
   attempt: number;
-  /** Override default `saifac: coding attempt <attempt>`. */
+  /** Override default `saifctl: coding attempt <attempt>`. */
   message?: string;
-  /** Override default {@link SAIFAC_DEFAULT_AUTHOR}. */
+  /** Override default {@link SAIFCTL_DEFAULT_AUTHOR}. */
   author?: string;
 }
 
 /**
  * After an agent round: record **one {@link RunCommit} per git commit** on the first-parent chain
  * from `preRoundHeadSha` to `HEAD`, then optionally **one more** for leftover uncommitted work
- * (committed here with `saifac: coding attempt <n>` unless overridden).
+ * (committed here with `saifctl: coding attempt <n>` unless overridden).
  *
  * Does **not** reset the repo — HEAD stays at the tip so tests run on the real tree.
  * On failed tests the caller should `git reset --hard` to `preRoundHeadSha` and drop all commits
@@ -552,10 +552,10 @@ export async function extractIncrementalRoundPatch(
   const patchPath = join(sandboxBasePath, 'patch.diff');
   const gitEnv = {
     ...process.env,
-    GIT_AUTHOR_NAME: 'saifac',
-    GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
-    GIT_COMMITTER_NAME: 'saifac',
-    GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
+    GIT_AUTHOR_NAME: 'saifctl',
+    GIT_AUTHOR_EMAIL: 'saifctl@safeaifactory.com',
+    GIT_COMMITTER_NAME: 'saifctl',
+    GIT_COMMITTER_EMAIL: 'saifctl@safeaifactory.com',
   };
 
   const preRoundHead = opts.preRoundHeadSha.trim();
@@ -604,11 +604,11 @@ export async function extractIncrementalRoundPatch(
   // then either record a WIP run commit or undo the commit.
   // if exclude rules stripped everything — working tree stays ready for tests either way.
   await gitAdd({ cwd: codePath, env: gitEnv });
-  // Omit `.saifac/` from the staged changes
+  // Omit `.saifctl/` from the staged changes
   try {
-    await git({ cwd: codePath, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifac'] });
+    await git({ cwd: codePath, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifctl'] });
   } catch {
-    /* .saifac may be absent */
+    /* .saifctl may be absent */
   }
 
   // If there are any staged changes after the `gitAdd` above,
@@ -622,8 +622,8 @@ export async function extractIncrementalRoundPatch(
     ).trim();
 
     // Create a commit with unstaged / uncommitted changes.
-    const wipMessage = opts.message ?? `saifac: coding attempt ${opts.attempt}`;
-    const wipAuthor = opts.author ?? SAIFAC_DEFAULT_AUTHOR;
+    const wipMessage = opts.message ?? `saifctl: coding attempt ${opts.attempt}`;
+    const wipAuthor = opts.author ?? SAIFCTL_DEFAULT_AUTHOR;
     await gitCommit({
       cwd: codePath,
       env: gitEnv,
@@ -633,7 +633,7 @@ export async function extractIncrementalRoundPatch(
     });
 
     // Decide whether the commit we just created contains any changes
-    // after we strip from it forbidden paths (e.g. `.saifac/`).
+    // after we strip from it forbidden paths (e.g. `.saifctl/`).
     // If not, revert the commit.
     const rawWip = await gitDiff({
       cwd: codePath,

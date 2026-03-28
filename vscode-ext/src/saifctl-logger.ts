@@ -10,7 +10,7 @@ import { type ConsolaInstance, createConsola, LogLevels } from 'consola/basic';
 
 export const logger: ConsolaInstance = createConsola({
   defaults: {
-    tag: 'saifac',
+    tag: 'saifctl',
   },
 });
 
