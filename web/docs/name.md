@@ -38,9 +38,9 @@ We also explored "SAIFER" (pronounced _safer_).
 - **The Pro:** It literally sounds like the word "safer," aligning with our value prop.
 - **The Fatal Flaw:** Fidelity Investments launched a well-funded RegTech/AI compliance company called **Saifr** (`saifr.ai`). Because they operate in the AI risk and compliance space, using an identical-sounding name would lead to immediate trademark conflicts and brand confusion.
 
-### Why not getsaifac.com or saif.ac?
+### Why not verb-heavy domains (e.g. get* brands) or saif.ac?
 
 When looking for domains:
 
-- **`getsaifac.com`:** Adding verbs like "get" or "try" to domains is increasingly seen as a sign of an immature startup or a temporary workaround. We wanted a permanent, professional home.
+- **Verb-prefixed names (e.g. `getsaifctl.com`):** Adding verbs like "get" or "try" to domains is increasingly seen as a sign of an immature startup or a temporary workaround. We wanted a permanent, professional home.
 - **`saif.ac`:** While a clever "domain hack," the `.ac` extension is globally recognized as the domain for Academic Institutions. Using it for a commercial B2B zero-trust security tool would confuse enterprise firewalls and buyers.

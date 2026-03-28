@@ -1,5 +1,5 @@
 /**
- * Infra engines — infrastructure adaptors for SAIFAC environments.
+ * Infra engines — infrastructure adaptors for SaifCTL environments.
  *
  * An engine manages the full lifecycle of an isolated SaifCTL run:
  *   setup()        → create isolated network + start background services

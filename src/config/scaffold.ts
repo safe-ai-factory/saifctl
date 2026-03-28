@@ -10,7 +10,7 @@ import { pathExists, writeUtf8 } from '../utils/io.js';
 const CONFIG_TEMPLATE = `import type { SaifctlConfig } from 'safe-ai-factory';
 
 /**
- * SAIFAC configuration.
+ * SaifCTL configuration.
  * See docs/config.md and docs/services.md
  */
 const config: SaifctlConfig = {

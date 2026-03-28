@@ -62,7 +62,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
         this.runsCache = raw.map((a) => toSaifRunData(a as RunArtifactRaw, this.workspaceRoot));
         return this.getProjectGroups();
       } catch {
-        vscode.window.showErrorMessage('Failed to fetch SAIFAC runs.');
+        vscode.window.showErrorMessage('Failed to fetch SaifCTL runs.');
         return [];
       }
     }
