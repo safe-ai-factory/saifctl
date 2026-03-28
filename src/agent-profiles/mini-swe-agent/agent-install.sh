@@ -2,7 +2,7 @@
 # mini-SWE-agent setup script — installs mini-swe-agent via uv or pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFCTL_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Pinned versions (checked PyPI 2026-03-21):
 #   https://pypi.org/pypi/mini-swe-agent/ — mini-swe-agent==2.2.7

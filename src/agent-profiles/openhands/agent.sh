@@ -1,8 +1,8 @@
 #!/bin/bash
-# OpenHands agent script — invokes OpenHands with the task read from $SAIFAC_TASK_PATH.
+# OpenHands agent script — invokes OpenHands with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the openhands agent profile. Selected via --agent openhands (default).
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://docs.openhands.dev/openhands/usage/cli/command-reference
 #
@@ -26,14 +26,14 @@ export OPENHANDS_WORK_DIR="${OPENHANDS_WORK_DIR:-/tmp/openhands-state}"
 
 echo "[agent/openhands] Starting agent openhands in agent.sh..."
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/openhands] About to run: openhands --headless --always-approve --override-with-envs --json -t \"${_SAIFAC_TASK_SNIP}\""
+echo "[agent/openhands] About to run: openhands --headless --always-approve --override-with-envs --json -t \"${_SAIFCTL_TASK_SNIP}\""
 
 _agent_exit=0
-openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
 
 echo "[agent/openhands] Finished agent openhands in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

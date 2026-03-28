@@ -2,7 +2,7 @@
 # Terminus agent setup script — installs terminus-ai via uv or pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFCTL_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Pinned versions (checked PyPI 2026-03-21):
 #   https://pypi.org/pypi/terminus-ai/ — terminus-ai==2.0.4

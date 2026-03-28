@@ -1,6 +1,6 @@
 # Guides
 
-Step-by-step walkthroughs for using Saifac day to day. These complement the [command reference](../commands/README.md) and the pipeline overview in [Usage](../usage.md).
+Step-by-step walkthroughs for using SaifCTL day to day. These complement the [command reference](../commands/README.md) and the pipeline overview in [Usage](../usage.md).
 
 <!-- 
 ## Happy path (coming later)

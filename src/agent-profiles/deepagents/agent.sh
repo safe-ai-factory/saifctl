@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deep Agents CLI agent script — runs `deepagents` with the task read from $SAIFAC_TASK_PATH.
+# Deep Agents CLI agent script — runs `deepagents` with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the deepagents agent profile. Selected via --agent deepagents.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # deepagents-cli is installed by agent-install.sh before the loop begins.
 #
@@ -147,9 +147,9 @@ EOF
   echo "[agent/deepagents] Base URL override written to ${_factory_config} (provider: ${_provider})"
 fi
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _deepagents_model_echo=""
 if [ "${#_model_flag[@]}" -gt 0 ]; then
@@ -159,12 +159,12 @@ _config_note=""
 if [ -n "${LLM_BASE_URL:-}" ]; then
   _config_note=" (base URL written to ${_factory_config}, value masked as ****)"
 fi
-echo "[agent/deepagents] About to run: deepagents --agent factory -n \"${_SAIFAC_TASK_SNIP}\" --auto-approve --shell-allow-list recommended ${_deepagents_model_echo}(API keys from env, masked as ****)${_config_note}"
+echo "[agent/deepagents] About to run: deepagents --agent factory -n \"${_SAIFCTL_TASK_SNIP}\" --auto-approve --shell-allow-list recommended ${_deepagents_model_echo}(API keys from env, masked as ****)${_config_note}"
 
 _agent_exit=0
 deepagents \
   --agent factory \
-  -n "$(cat "$SAIFAC_TASK_PATH")" \
+  -n "$(cat "$SAIFCTL_TASK_PATH")" \
   --auto-approve \
   --shell-allow-list recommended \
   "${_model_flag[@]}" || _agent_exit=$?

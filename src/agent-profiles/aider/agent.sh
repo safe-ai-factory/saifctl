@@ -1,8 +1,8 @@
 #!/bin/bash
-# Aider agent script — runs Aider with the task read from $SAIFAC_TASK_PATH.
+# Aider agent script — runs Aider with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the aider agent profile. Selected via --agent aider.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Aider is installed by agent-install.sh (pipx) before the loop begins.
 #
@@ -46,12 +46,12 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_API_BASE="${OPENAI_API_BASE:-$LLM_BASE_URL}"
 fi
 
-echo "[agent/aider] About to run: aider --model \"${LLM_MODEL}\" --message-file \"${SAIFAC_TASK_PATH}\" --yes --no-auto-commits --no-check-update --no-suggest-shell-commands"
+echo "[agent/aider] About to run: aider --model \"${LLM_MODEL}\" --message-file \"${SAIFCTL_TASK_PATH}\" --yes --no-auto-commits --no-check-update --no-suggest-shell-commands"
 
 _agent_exit=0
 aider \
   --model "$LLM_MODEL" \
-  --message-file "$SAIFAC_TASK_PATH" \
+  --message-file "$SAIFCTL_TASK_PATH" \
   --yes \
   --no-auto-commits \
   --no-check-update \

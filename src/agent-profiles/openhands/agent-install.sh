@@ -2,7 +2,7 @@
 # OpenHands agent setup script — installs openhands via uv or pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFCTL_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Pinned versions (checked PyPI 2026-03-21):
 #   https://pypi.org/pypi/openhands/ — openhands==1.13.1
@@ -38,7 +38,7 @@ echo "[agent-install/openhands] Install toolchain: uv=${_uv_path:-<not on PATH>}
 echo "[agent-install/openhands] PATH(head)=${PATH:0:200}..."
 
 # After install, CLI is often under ~/.local/bin; symlink so coder-start always finds it
-_saifac_link_openhands() {
+_saifctl_link_openhands() {
   export PATH="$HOME/.local/bin:$PATH"
 
   # ~/.local/bin first, else PATH
@@ -67,7 +67,7 @@ if [ -n "$_uv_path" ]; then
     echo "[agent-install/openhands] ERROR: uv tool install failed (see messages above)."
     exit 1
   fi
-  _saifac_link_openhands
+  _saifctl_link_openhands
 
 elif [ -n "$_pipx_path" ]; then
   # pipx
@@ -77,7 +77,7 @@ elif [ -n "$_pipx_path" ]; then
       echo "[agent-install/openhands] ERROR: pipx install failed (see messages above)."
       exit 1
     fi
-    _saifac_link_openhands
+    _saifctl_link_openhands
   else
     echo "[agent-install/openhands] ERROR: pipx is available but python${OPENHANDS_PYTHON_PIN} is not on PATH (need uv or that interpreter). PyPI requires ==3.12.*." >&2
     echo "[agent-install/openhands] Hint: image should expose uv or install python${OPENHANDS_PYTHON_PIN} for pipx --python." >&2
@@ -92,7 +92,7 @@ else
       echo "[agent-install/openhands] ERROR: pip install failed (see messages above)."
       exit 1
     fi
-    _saifac_link_openhands
+    _saifctl_link_openhands
   else
     echo "[agent-install/openhands] ERROR: need uv, pipx + python${OPENHANDS_PYTHON_PIN}, or python${OPENHANDS_PYTHON_PIN} for pip." >&2
     exit 1

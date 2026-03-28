@@ -6,9 +6,9 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 
 | Image             | Default tag                             | Purpose                                                    |
 | ----------------- | --------------------------------------- | ---------------------------------------------------------- |
-| `saifac-test-*`   | `saifac-test-<profile>:latest`          | Test runner containers; one per language/framework profile |
-| `saifac-coder-*`  | `saifac-coder-<sandbox-profile>:latest` | Built from `Dockerfile.coder` per profile (official Node, Python, golang, rust, or Miniconda base — not the Leash `coder` image). At run time SAIFAC copies orchestration scripts into the sandbox and bind-mounts them as `/saifac`. |
-| `saifac-stage-*`  | `saifac-stage-<sandbox-profile>:latest` | Lightweight staging container for that profile             |
+| `saifctl-test-*`   | `saifctl-test-<profile>:latest`          | Test runner containers; one per language/framework profile |
+| `saifctl-coder-*`  | `saifctl-coder-<sandbox-profile>:latest` | Built from `Dockerfile.coder` per profile (official Node, Python, golang, rust, or Miniconda base — not the Leash `coder` image). At run time SaifCTL copies orchestration scripts into the sandbox and bind-mounts them as `/saifctl`. |
+| `saifctl-stage-*`  | `saifctl-stage-<sandbox-profile>:latest` | Lightweight staging container for that profile             |
 
 ### Test runner profiles
 
@@ -63,7 +63,7 @@ It does **not** run on push to `main` or on pull requests.
 2. **Build** — Builds all images:
    - All test runner profiles (`pnpm docker build test --all`)
    - All coder and stage profile images
-3. **Publish** — Pushes each `saifac-*` image to GHCR.
+3. **Publish** — Pushes each `saifctl-*` image to GHCR.
 
 ### Published tags
 
@@ -82,16 +82,16 @@ When `--test-image` or `--coder-image` is omitted, Docker pulls the default imag
 
 ```bash
 # Test runners (use :latest or :v1.0.0 to pin a release)
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest
-saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest:v1.0.0
+saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest
+saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest:v1.0.0
 
 # Coder image (default sandbox profile is node-pnpm-python)
-saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest
+saifctl feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-coder-node-pnpm-python:latest
 ```
 
 ## Custom coder images
 
-Start from the same kind of base as a profile (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, a published `saifac-coder-*` image, etc.), then add your agent and tooling:
+Start from the same kind of base as a profile (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, a published `saifctl-coder-*` image, etc.), then add your agent and tooling:
 
 ```dockerfile
 FROM node:25-bookworm-slim
@@ -101,10 +101,10 @@ RUN npm install -g pnpm @anthropic-ai/claude-code
 
 ```bash
 docker build -t my-coder:latest .
-saifac feat run --coder-image my-coder:latest
+saifctl feat run --coder-image my-coder:latest
 ```
 
-SAIFAC still bind-mounts `/saifac` (orchestration scripts) and `/workspace` at run time; your image does not need to bake `coder-start.sh`.
+SaifCTL still bind-mounts `/saifctl` (orchestration scripts) and `/workspace` at run time; your image does not need to bake `coder-start.sh`.
 
 ## Storage
 

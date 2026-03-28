@@ -2,7 +2,7 @@
 # Debug agent setup — intentionally empty (no CLI install).
 #
 # Runs once inside the coder container after the project startup script and
-# before the agent loop (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
+# before the agent loop (SAIFCTL_AGENT_INSTALL_SCRIPT in coder-start.sh).
 # Use this profile to exercise the factory loop without waiting on pip/uv installs.
 
 set -euo pipefail

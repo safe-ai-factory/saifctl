@@ -1,8 +1,8 @@
 #!/bin/bash
-# Codex agent script — runs Codex with the task read from $SAIFAC_TASK_PATH.
+# Codex agent script — runs Codex with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the codex agent profile. Selected via --agent codex.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://developers.openai.com/codex/cli/reference
 #
@@ -37,7 +37,7 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$LLM_BASE_URL}"
 fi
 
-echo "[agent/codex] About to run: codex exec --model \"${LLM_MODEL}\" --dangerously-bypass-approvals-and-sandbox --json --ephemeral - < \"${SAIFAC_TASK_PATH}\""
+echo "[agent/codex] About to run: codex exec --model \"${LLM_MODEL}\" --dangerously-bypass-approvals-and-sandbox --json --ephemeral - < \"${SAIFCTL_TASK_PATH}\""
 
 _agent_exit=0
 codex exec \
@@ -45,7 +45,7 @@ codex exec \
   --dangerously-bypass-approvals-and-sandbox \
   --json \
   --ephemeral \
-  - < "$SAIFAC_TASK_PATH" || _agent_exit=$?
+  - < "$SAIFCTL_TASK_PATH" || _agent_exit=$?
 
 echo "[agent/codex] Finished agent codex in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

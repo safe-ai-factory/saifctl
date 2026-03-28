@@ -14,10 +14,10 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 
 | What                   | How                                                                                                                                                                         |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Default**            | Pre-built images from `ghcr.io/JuroOravec/safe-ai-factory` (e.g. `saifac-test-node-vitest:latest`); pulled if not present locally                                          |
-| **Override**           | `saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest:latest`                                                                         |
+| **Default**            | Pre-built images from `ghcr.io/JuroOravec/safe-ai-factory` (e.g. `saifctl-test-node-vitest:latest`); pulled if not present locally                                          |
+| **Override**           | `saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest:latest`                                                                         |
 | **Build manually**     | `pnpm docker build test` or `pnpm docker build test --all` — for development or offline use                                                                                 |
-| **Custom image**       | `saifac feat run --test-image my-test:v2` — bring any image that implements the Test Runner container contract (reads env vars, writes JUnit XML to `SAIFAC_OUTPUT_FILE`). |
+| **Custom image**       | `saifctl feat run --test-image my-test:v2` — bring any image that implements the Test Runner container contract (reads env vars, writes JUnit XML to `SAIFCTL_OUTPUT_FILE`). |
 | **Custom test script** | `--test-script <path>` — override the default `test-default.sh` with a custom script; always bind-mounted at `/usr/local/bin/test.sh`, never baked into the image.          |
 
 **Configuration:** CLI flags only — no environment variables.
@@ -27,22 +27,22 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 | What                  | How                                                                                                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Default**           | **Build mode** — orchestrator builds an ephemeral image from the profile's `Dockerfile.coder` (same image as the coder container). Code is **mounted** at start; `startup.sh` installs deps. |
-| **Custom Dockerfile** | `environments.staging.app.build.dockerfile` in `saifac/config.ts` — use your own Dockerfile for non-standard sandboxes.                                                                      |
+| **Custom Dockerfile** | `environments.staging.app.build.dockerfile` in `saifctl/config.ts` — use your own Dockerfile for non-standard sandboxes.                                                                      |
 
 ### Leash Coder Image (Agent Container)
 
 | What               | How                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| **Default**        | `saifac-coder-node-pnpm-python:latest` (or profile-specific) from GHCR; Docker pulls automatically when not local |
+| **Default**        | `saifctl-coder-node-pnpm-python:latest` (or profile-specific) from GHCR; Docker pulls automatically when not local |
 | **Build manually** | `pnpm docker build coder` — build from the sandbox profile's Dockerfile.coder                                      |
-| **Override**       | `saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
-| **Host coding**    | `saifac feat run --engine local` — LocalEngine runs OpenHands on the host (no Leash coder container for coding) |
+| **Override**       | `saifctl feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
+| **Host coding**    | `saifctl feat run --engine local` — LocalEngine runs OpenHands on the host (no Leash coder container for coding) |
 
-When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@strongdm/leash`) with `--image saifac-coder-node-pnpm-python:latest ...` (or profile-specific tag), wrapping OpenHands in this image. The sandbox code dir is mounted at `/workspace`. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
+When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@strongdm/leash`) with `--image saifctl-coder-node-pnpm-python:latest ...` (or profile-specific tag), wrapping OpenHands in this image. The sandbox code dir is mounted at `/workspace`. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
 
 ### Other Containers
 
-- **Additional ephemeral** (postgres, redis, etc.): Supplied via engines (e.g. `DockerEngine`) configured in `saifac/config.ts`.
+- **Additional ephemeral** (postgres, redis, etc.): Supplied via engines (e.g. `DockerEngine`) configured in `saifctl/config.ts`.
 
 ---
 
@@ -50,12 +50,12 @@ When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@stro
 
 | Container                 | Role                   | Image Source                                                                      | Purpose                                                                               |
 | ------------------------- | ---------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| **Coder** (Leash)         | Coder agent            | `saifac-coder-node-pnpm-python:latest` from sandbox profile's `Dockerfile.coder` | Runs OpenHands; agent writes code in sandbox; Cedar policy enforced                   |
+| **Coder** (Leash)         | Coder agent            | `saifctl-coder-node-pnpm-python:latest` from sandbox profile's `Dockerfile.coder` | Runs OpenHands; agent writes code in sandbox; Cedar policy enforced                   |
 | **Staging**               | Application under test | Ephemeral image built per-iteration                                               | Runs the codebase: web server or CLI wrapped in an HTTP Sidecar                       |
-| **Test Runner**           | Test runner            | GHCR `saifac-test-<profile>:latest` (or custom via `--test-image`)               | Runs tests against Staging container over HTTP; writes JUnit XML; graded by exit code |
+| **Test Runner**           | Test runner            | GHCR `saifctl-test-<profile>:latest` (or custom via `--test-image`)               | Runs tests against Staging container over HTTP; writes JUnit XML; graded by exit code |
 | **Additional** (optional) | Ephemeral services     | Engines (e.g. `DockerEngine`)                                    | Postgres, Redis, etc. for digital-twin validation                                     |
 
-All containers join a **dedicated bridge network** per run (e.g. `saifac-net-{runId}`). Containers resolve each other by hostname. The Test Runner never mounts the Docker socket.
+All containers join a **dedicated bridge network** per run (e.g. `saifctl-net-{runId}`). Containers resolve each other by hostname. The Test Runner never mounts the Docker socket.
 
 ---
 
@@ -67,9 +67,9 @@ The Staging container runs the application under test. The workspace is **always
 
 `staging-start.sh` runs inside the container in this order:
 
-1. **startup.sh** (mounted at `/saifac/startup.sh`) — installs workspace deps (e.g. `pnpm install`, `cargo fetch`). Same script as the coder container.
+1. **startup.sh** (mounted at `/saifctl/startup.sh`) — installs workspace deps (e.g. `pnpm install`, `cargo fetch`). Same script as the coder container.
 2. **Sidecar** — started in the background so the Test Runner can execute commands via HTTP.
-3. **stage.sh** (mounted at `/saifac/stage.sh`) — the profile's stage script; starts the app (e.g. `pnpm run start`) or keeps the container alive via `wait` for CLI-only. Set via `--profile` or `--stage-script`.
+3. **stage.sh** (mounted at `/saifctl/stage.sh`) — the profile's stage script; starts the app (e.g. `pnpm run start`) or keeps the container alive via `wait` for CLI-only. Set via `--profile` or `--stage-script`.
 
 ### Build Mode (default)
 
@@ -77,19 +77,19 @@ The orchestrator runs `docker build` to create a **runtime-only** image (node, p
 
 | Property      | Value                                                                                     |
 | ------------- | ----------------------------------------------------------------------------------------- |
-| Image         | Ephemeral, tagged `saifac-stage-{proj}-{feat}-img-{runId}`; removed after each iteration |
+| Image         | Ephemeral, tagged `saifctl-stage-{proj}-{feat}-img-{runId}`; removed after each iteration |
 | Build context | Sandbox code directory — used only when the Dockerfile `COPY`s; default does not          |
 | Code delivery | Bind-mount: `{codePath}:/workspace`                                                       |
 | Deps          | Installed at runtime by `startup.sh`                                                      |
 
 **Dockerfile resolution:**
 
-| `saifac/config.ts` `environments.staging.app` | Dockerfile used                                              |
+| `saifctl/config.ts` `environments.staging.app` | Dockerfile used                                              |
 | --------------------------------------------- | ------------------------------------------------------------ |
 | `build` absent or `build.dockerfile` absent   | Sandbox profile's `Dockerfile.coder` (default: node-pnpm-python) |
 | `build: { dockerfile: "path/to/Dockerfile" }` | Custom project Dockerfile                                    |
 
-**Custom Dockerfile example** — for non-standard sandboxes, in `saifac/config.ts`:
+**Custom Dockerfile example** — for non-standard sandboxes, in `saifctl/config.ts`:
 
 ```typescript
 environments: {
@@ -109,15 +109,15 @@ Use a custom Dockerfile when you need a specific base image, system packages, or
 
 ### Sidecar & Stage Script
 
-- **Sidecar:** The orchestrator loads a pre-compiled Go binary (chosen by host architecture: `sidecar-linux-amd64` or `sidecar-linux-arm64`) and injects it as `/saifac/sidecar` via `putArchive`. It is statically linked and requires no language runtime, so it works in any staging container (Node.js, Python, Go, Rust, etc.). Listens on `sidecarPort` (default 8080), path `sidecarPath` (default `/exec`).
+- **Sidecar:** The orchestrator loads a pre-compiled Go binary (chosen by host architecture: `sidecar-linux-amd64` or `sidecar-linux-arm64`) and injects it as `/saifctl/sidecar` via `putArchive`. It is statically linked and requires no language runtime, so it works in any staging container (Node.js, Python, Go, Rust, etc.). Listens on `sidecarPort` (default 8080), path `sidecarPath` (default `/exec`).
 - **stage.sh:** Set via `--profile` (default: node-pnpm-python) or `--stage-script`. The profile's stage script starts the app (e.g. `pnpm run start`) or keeps the container alive via `wait` for CLI-only.
 
 ### Naming
 
-- Staging container: `saifac-stage-{proj}-{feat}-{runId}`
-- Ephemeral staging image (build mode): `saifac-stage-{proj}-{feat}-img-{runId}`
-- Test Runner container: `saifac-test-{proj}-{runId}`
-- Docker network: `saifac-net-{proj}-{feat}-{runId}`
+- Staging container: `saifctl-stage-{proj}-{feat}-{runId}`
+- Ephemeral staging image (build mode): `saifctl-stage-{proj}-{feat}-img-{runId}`
+- Test Runner container: `saifctl-test-{proj}-{runId}`
+- Docker network: `saifctl-net-{proj}-{feat}-{runId}`
 - `runId` is the short random suffix from the sandbox path (e.g. `abc1234` from `.../feat-abc1234`).
 - `proj` is the project name (from `package.json` `"name"` or `--project`); `feat` is the feature name.
 - All four resource types are scoped, so `pnpm docker clear` removes only this project's resources by default and `--all` removes everything across all projects.
@@ -129,7 +129,7 @@ Use a custom Dockerfile when you need a specific base image, system packages, or
 ### Image Resolution (Precedence)
 
 1. **CLI flag:** `--test-image <tag>`
-2. **Default:** `saifac-test-<profile>:latest` (profile from `--test-profile`)
+2. **Default:** `saifctl-test-<profile>:latest` (profile from `--test-profile`)
 
 The orchestrator validates the tag and passes it to Docker. Docker pulls the image from GHCR (or the configured registry) automatically when it is not present locally. No explicit pull or local-build step is performed.
 
@@ -149,11 +149,11 @@ The **test runner script** (`test.sh`) is always bind-mounted at `/usr/local/bin
 
 | Variable               | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `SAIFAC_TARGET_URL`   | URL of the application under test. For CLI projects this is the sidecar URL; for web projects the app's base URL.        |
-| `SAIFAC_SIDECAR_URL`  | URL of the HTTP sidecar that wraps CLI command execution (always defined, even for web projects).                        |
-| `SAIFAC_FEATURE_NAME` | Name of the feature being tested (e.g. `greet-cmd`).                                                                     |
-| `SAIFAC_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                      |
-| `SAIFAC_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML results file**. Default: `/test-runner-output/results.xml`. |
+| `SAIFCTL_TARGET_URL`   | URL of the application under test. For CLI projects this is the sidecar URL; for web projects the app's base URL.        |
+| `SAIFCTL_SIDECAR_URL`  | URL of the HTTP sidecar that wraps CLI command execution (always defined, even for web projects).                        |
+| `SAIFCTL_FEATURE_NAME` | Name of the feature being tested (e.g. `greet-cmd`).                                                                     |
+| `SAIFCTL_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                      |
+| `SAIFCTL_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML results file**. Default: `/test-runner-output/results.xml`. |
 
 **Volume mounts:**
 
@@ -171,13 +171,13 @@ The **test runner script** (`test.sh`) is always bind-mounted at `/usr/local/bin
 - `0` — all tests passed.
 - non-zero — one or more tests failed (or runner error).
 
-**Output file:** JUnit XML written to `SAIFAC_OUTPUT_FILE`. If the runner crashes before producing output the file may be absent; the Orchestrator handles this gracefully.
+**Output file:** JUnit XML written to `SAIFCTL_OUTPUT_FILE`. If the runner crashes before producing output the file may be absent; the Orchestrator handles this gracefully.
 
 ### Pre-Built Test Runner Images
 
 Pre-built images are published to `ghcr.io/JuroOravec/safe-ai-factory` for all supported profiles (node-vitest, node-playwright, python-pytest, python-playwright, go-gotest, go-playwright, rust-rusttest, rust-playwright). **`test.sh` is not baked into the image** — the Orchestrator always bind-mounts it at `/usr/local/bin/test.sh` from `src/orchestrator/test-default.sh` (or a custom script via `--test-script`).
 
-- **Use:** `saifac feat run --test-profile python-pytest` or `--test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest`
+- **Use:** `saifctl feat run --test-profile python-pytest` or `--test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest`
 - **Build locally:** `pnpm docker build test` or `pnpm docker build test --all` — for development or offline (default images are on GHCR).
 
 ### Using a Custom Test Runner Image
@@ -186,9 +186,9 @@ You can bring your own Test Runner image (e.g. with Playwright, a different lang
 
 - **Use the mounted script:** Set `CMD ["/bin/sh", "/usr/local/bin/test.sh"]` — same as the default. The script reads env vars, runs vitest (or whatever your custom `--test-script` does), and writes JUnit XML.
 - **Override per-run:** Pass `--test-script <path>` to use your own script content; it replaces the default for that run.
-- **Ignore the mount:** Set a different `CMD` to run your own logic. You must still write JUnit XML to `$SAIFAC_OUTPUT_FILE` and obey the exit code contract; otherwise the Orchestrator will not parse results correctly.
+- **Ignore the mount:** Set a different `CMD` to run your own logic. You must still write JUnit XML to `$SAIFCTL_OUTPUT_FILE` and obey the exit code contract; otherwise the Orchestrator will not parse results correctly.
 
-Pass `--test-image <your-image>` to `saifac feat run` / `saifac run test` / `saifac feat design-fail2pass`.
+Pass `--test-image <your-image>` to `saifctl feat run` / `saifctl run test` / `saifctl feat design-fail2pass`.
 
 ### Startup Flow (Pre-Built)
 
@@ -203,22 +203,22 @@ No `npm install` step. The container starts and runs tests in seconds.
 
 ### Naming
 
-- Container name: `saifac-test-{runId}`.
+- Container name: `saifctl-test-{runId}`.
 - In iterative modes, `runId` may include attempt suffix (e.g. `abc1234-r3`, `abc1234-a2`).
 
 ### Output
 
 - **Verbose logs:** Streamed to container stdout (visible in orchestrator logs).
-- **JUnit XML report:** Written by the container to `SAIFAC_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to ignore infra health-check failures in fail2pass).
+- **JUnit XML report:** Written by the container to `SAIFCTL_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to ignore infra health-check failures in fail2pass).
 
 ---
 
 ## Additional Containers (infra engines)
 
-Engines (e.g. `DockerEngine`) supply ephemeral external services (postgres, redis, etc.) configured in `saifac/config.ts` under `environments.staging`.
+Engines (e.g. `DockerEngine`) supply ephemeral external services (postgres, redis, etc.) configured in `saifctl/config.ts` under `environments.staging`.
 
 ```typescript
-// saifac/config.ts
+// saifctl/config.ts
 export default {
   environments: {
     staging: {
@@ -237,9 +237,9 @@ export default {
 };
 ```
 
-- **Execution:** Managed by the tool specified in the config (e.g., `docker compose -p saifac-<runId> up -d --wait`).
-- **Network:** The engine attaches the created containers to the SAIFAC bridge network (`saifac-net-{runId}`).
-- **Naming & Hostname:** Docker compose handles container naming natively. The engine connects them to the SAIFAC network using their compose service name as the network alias, so other containers can reach them via standard hostnames (e.g. `postgres:5432`).
+- **Execution:** Managed by the tool specified in the config (e.g., `docker compose -p saifctl-<runId> up -d --wait`).
+- **Network:** The engine attaches the created containers to the SaifCTL bridge network (`saifctl-net-{runId}`).
+- **Naming & Hostname:** Docker compose handles container naming natively. The engine connects them to the SaifCTL network using their compose service name as the network alias, so other containers can reach them via standard hostnames (e.g. `postgres:5432`).
 - **Startup:** Services are brought up by the engine before the Staging and Test Runner containers are created.
 - **Teardown:** Services are torn down by the engine in the `finally` block or by the `CleanupRegistry` on SIGINT/SIGTERM (e.g., `docker compose down -v --remove-orphans`).
 
@@ -247,7 +247,7 @@ export default {
 
 ## Network Lifecycle
 
-1. **Create:** `docker createNetwork({ Name: "saifac-net-{runId}", Driver: "bridge" })`
+1. **Create:** `docker createNetwork({ Name: "saifctl-net-{runId}", Driver: "bridge" })`
 2. **Use:** All containers use `NetworkMode: networkName`.
 3. **Teardown:** After tests, `removeNetwork(networkName)`.
 4. **SIGINT/SIGTERM:** The orchestrator registers all containers and networks in a `CleanupRegistry`. On signal, it tears down in reverse order (containers first, then network).
@@ -258,14 +258,14 @@ export default {
 
 | Command                                     | Purpose                                                                                                 |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `saifac feat run`                           | Uses GHCR images for test runner and coder; pulls if not present locally                                |
-| `saifac feat design-fail2pass`              | Same behaviour                                                                                          |
-| `saifac run test <runId>`                 | Re-test a stored run’s patch (staging + test runner); no coding agent                                  |
+| `saifctl feat run`                           | Uses GHCR images for test runner and coder; pulls if not present locally                                |
+| `saifctl feat design-fail2pass`              | Same behaviour                                                                                          |
+| `saifctl run test <runId>`                 | Re-test a stored run’s patch (staging + test runner); no coding agent                                  |
 | `pnpm docker build test [--all]`            | Build test runner image(s) locally (for development or offline use)                          |
 | `pnpm docker build coder`                   | Build (or rebuild) the coder image from the sandbox profile's `Dockerfile.coder`             |
-| `saifac feat run --test-image my-test:v2`   | Use a custom test runner image                                                               |
-| `saifac feat run --engine local`             | LocalEngine: run OpenHands on host (coding phase)                                       |
-| `saifac feat run --coder-image my-coder:v2` | Use a custom coder image (also used for the staging container)                               |
+| `saifctl feat run --test-image my-test:v2`   | Use a custom test runner image                                                               |
+| `saifctl feat run --engine local`             | LocalEngine: run OpenHands on host (coding phase)                                       |
+| `saifctl feat run --coder-image my-coder:v2` | Use a custom coder image (also used for the staging container)                               |
 
 ---
 

@@ -1,6 +1,6 @@
 # Agent container stdout (high level)
 
-How saifac turns **raw stdout from the coding container** into readable terminal output during `feat run`, resume, and inspect. This is separate from the **structured CLI logger** (`consola`); see [Logging architecture](./logging.md) for that path.
+How saifctl turns **raw stdout from the coding container** into readable terminal output during `feat run`, resume, and inspect. This is separate from the **structured CLI logger** (`consola`); see [Logging architecture](./logging.md) for that path.
 
 ---
 
@@ -21,8 +21,8 @@ The factory needs to know which bytes belong to which role so it can prefix or p
 
 `coder-start.sh` wraps the agent invocation with two **single-line markers** (they are not printed to the user):
 
-1. `[SAIFAC:AGENT_START]` — immediately before `bash "$AGENT_SCRIPT"`
-2. `[SAIFAC:AGENT_END]` — immediately after the agent process exits
+1. `[SAIFCTL:AGENT_START]` — immediately before `bash "$AGENT_SCRIPT"`
+2. `[SAIFCTL:AGENT_END]` — immediately after the agent process exits
 
 Together they define the **agent output region**: bytes between them are tagged as agent phase; everything else (when delimiters are present) is treated as infra. If a stream never emits these lines (some idle inspect paths), the implementation stays in the non-agent path and treats each line as infra.
 
@@ -32,7 +32,7 @@ Together they define the **agent output region**: bytes between them are tagged 
 
 Docker and Leash do not guarantee one `read()` per line or per logical message. Chunks can split mid-line or mid-delimiter. If we printed or classified each chunk immediately, infra and agent text could mix and delimiter detection would be wrong.
 
-So saifac **buffers and parses** the byte stream: partial lines stay in memory until a newline or delimiter boundary is known, then it emits **typed events** (`AgentLogEvent`: `phase` + `raw`) for the sink to format.
+So saifctl **buffers and parses** the byte stream: partial lines stay in memory until a newline or delimiter boundary is known, then it emits **typed events** (`AgentLogEvent`: `phase` + `raw`) for the sink to format.
 
 ---
 
@@ -50,7 +50,7 @@ So saifac **buffers and parses** the byte stream: partial lines stay in memory u
 
 **Line-oriented agents** (`stdoutStrategy: null` on the profile): once a line is known to sit inside the agent region (between delimiters), **one event per line** is enough. Newlines + delimiter awareness are sufficient.
 
-**Structured agents** (e.g. OpenHands with a non-null strategy): output can span lines or include in-stream markers (e.g. `--JSON Event--`). The strategy receives **raw bytes** from that region in **safe prefixes** only: the parser holds back a short tail so an incomplete `[SAIFAC:AGENT_END]` line is never mistaken for real agent content while data is still streaming.
+**Structured agents** (e.g. OpenHands with a non-null strategy): output can span lines or include in-stream markers (e.g. `--JSON Event--`). The strategy receives **raw bytes** from that region in **safe prefixes** only: the parser holds back a short tail so an incomplete `[SAIFCTL:AGENT_END]` line is never mistaken for real agent content while data is still streaming.
 
 ---
 

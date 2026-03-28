@@ -20,7 +20,7 @@ Its primary agent architecture, **CodeAct**, utilizes a continuous reasoning-act
 In the context of the Software Factory, we use OpenHands as the "execution engine" (the Coder Agent) because of its momentum, proven performance, and strong architectural boundaries:
 
 1. **State-of-the-Art Performance:** CodeAct 2.1 resolves ~53% of SWE-Bench Verified out of the box. Instead of building a coder agent from scratch, we get world-class autonomous problem-solving capabilities for free.
-2. **Clear Architecture Boundaries:** OpenHands strictly separates the Agent Server (the LLM reasoning brain) from the Runtime Workspace (the execution sandbox). This allows us to plug in our own isolated environments — we run OpenHands inside a Leash container with Cedar policies forbidding writes to `saifac/`.
+2. **Clear Architecture Boundaries:** OpenHands strictly separates the Agent Server (the LLM reasoning brain) from the Runtime Workspace (the execution sandbox). This allows us to plug in our own isolated environments — we run OpenHands inside a Leash container with Cedar policies forbidding writes to `saifctl/`.
 3. **Pluggable & Extensible:** OpenHands provides a robust Python SDK and a CLI. It allows developers to define custom agents by restricting tools, changing system prompts, or creating multi-agent handoffs.
 4. **Stateless by Default:** The architecture utilizes immutable Pydantic models with the conversation state being the only mutable entity. This deterministic execution makes it perfect for our automated, non-interactive convergence loop.
 
@@ -54,7 +54,7 @@ When integrating OpenHands into the Software Factory loop, we run it headlessly 
 **Via Docker:**
 
 ```bash
-export SAIFAC_WORKSPACE_BASE=$(pwd)
+export SAIFCTL_WORKSPACE_BASE=$(pwd)
 export LLM_MODEL="anthropic/claude-3-5-sonnet-20241022"
 export LLM_API_KEY="your-api-key-here"
 # Optional: export LLM_PROVIDER="anthropic"  # for opencode and similar agents when LLM_MODEL is not provider/model format
@@ -62,13 +62,13 @@ export LLM_API_KEY="your-api-key-here"
 
 docker run -it --pull=always \
   -e SANDBOX_USER_ID=$(id -u) \
-  -e WORKSPACE_MOUNT_PATH=$SAIFAC_WORKSPACE_BASE \
+  -e WORKSPACE_MOUNT_PATH=$SAIFCTL_WORKSPACE_BASE \
   -e LLM_API_KEY=$LLM_API_KEY \
   -e LLM_MODEL=$LLM_MODEL \
   ${LLM_PROVIDER:+-e LLM_PROVIDER=$LLM_PROVIDER} \
   ${LLM_BASE_URL:+-e LLM_BASE_URL=$LLM_BASE_URL} \
   -e LOG_ALL_EVENTS=true \
-  -v $SAIFAC_WORKSPACE_BASE:/opt/SAIFAC_WORKSPACE_BASE \
+  -v $SAIFCTL_WORKSPACE_BASE:/opt/SAIFCTL_WORKSPACE_BASE \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/.openhands-state:/.openhands-state \
   --add-host host.docker.internal:host-gateway \
@@ -76,7 +76,7 @@ docker run -it --pull=always \
   python -m openhands.core.main -t "Implement plan.md"
 ```
 
-_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--engine local` / LocalEngine to run OpenHands directly on the host.)_
+_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifctl-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifctl/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--engine local` / LocalEngine to run OpenHands directly on the host.)_
 
 ---
 

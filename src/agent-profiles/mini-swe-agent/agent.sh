@@ -1,8 +1,8 @@
 #!/bin/bash
-# mini-SWE-agent script — runs `mini` with the task read from $SAIFAC_TASK_PATH.
+# mini-SWE-agent script — runs `mini` with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the mini-swe-agent profile. Selected via --agent mini-swe-agent.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference:    https://mini-swe-agent.com/latest/usage/mini/
 # Global config:    https://mini-swe-agent.com/latest/advanced/global_configuration/
@@ -109,9 +109,9 @@ fi
 # (e.g. custom model names). Known hosted models have pricing data in litellm.
 export MSWEA_COST_TRACKING="${MSWEA_COST_TRACKING:-ignore_errors}"
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _mini_model_echo=""
 if [ "${#_model_flag[@]}" -gt 0 ]; then
@@ -121,11 +121,11 @@ _mini_cfg_echo=""
 if [ "${#_config_flag[@]}" -gt 0 ]; then
   _mini_cfg_echo="-c mini.yaml -c \"${_tmp_config}\" (overlay may contain api_base ****) "
 fi
-echo "[agent/mini-swe-agent] About to run: mini -t \"${_SAIFAC_TASK_SNIP}\" --yolo --exit-immediately ${_mini_model_echo}${_mini_cfg_echo}(API keys from env, masked as ****)"
+echo "[agent/mini-swe-agent] About to run: mini -t \"${_SAIFCTL_TASK_SNIP}\" --yolo --exit-immediately ${_mini_model_echo}${_mini_cfg_echo}(API keys from env, masked as ****)"
 
 _agent_exit=0
 mini \
-  -t "$(cat "$SAIFAC_TASK_PATH")" \
+  -t "$(cat "$SAIFCTL_TASK_PATH")" \
   --yolo \
   --exit-immediately \
   "${_model_flag[@]}" \

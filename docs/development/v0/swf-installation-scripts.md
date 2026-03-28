@@ -15,7 +15,7 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 ## Lifecycle Hooks
 
-### 1. Startup script (`/saifac/startup.sh`)
+### 1. Startup script (`/saifctl/startup.sh`)
 
 **Runs:** Once, before the agent loop begins.
 
@@ -27,9 +27,9 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 **Failure mode:** If the startup script fails (exit non-zero), the container exits immediately. No agent rounds are run.
 
-### 2. Gate script (`/saifac/gate.sh`)
+### 2. Gate script (`/saifctl/gate.sh`)
 
-**Runs:** After each agent invocation, up to `SAIFAC_GATE_RETRIES` times per outer attempt.
+**Runs:** After each agent invocation, up to `SAIFCTL_GATE_RETRIES` times per outer attempt.
 
 **Purpose:** Quick validation to short-circuit the outer tests. Examples: `npm run check`, `pnpm check`, `pytest tests/unit/`, `cargo clippy`.
 
@@ -39,10 +39,10 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 ## Docker image layering (coder)
 
-- **Orchestration (`/saifac`)** — `coder-start.sh`, `gate.sh`, `startup.sh`, agent scripts, and optionally `reviewer.sh` are **copied into** `sandboxBasePath/saifac/` on the host and bind-mounted as a **single read-only directory** at `/saifac` inside the Leash container. No separate `coder-base` image is required.
+- **Orchestration (`/saifctl`)** — `coder-start.sh`, `gate.sh`, `startup.sh`, agent scripts, and optionally `reviewer.sh` are **copied into** `sandboxBasePath/saifctl/` on the host and bind-mounted as a **single read-only directory** at `/saifctl` inside the Leash container. No separate `coder-base` image is required.
 - **`Dockerfile.coder` (per sandbox profile)** — each file chooses its own upstream base (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, `rust:*-slim-bookworm`, `continuumio/miniconda3`, etc.) and adds the language runtime + package manager for that profile. Each profile lives under `src/sandbox-profiles/<profile>/`.
-- Pre-built images are on GHCR (e.g. `saifac-coder-node-pnpm-python:latest`); Docker pulls automatically when not present locally.
-- **Custom agents:** `FROM` a published `saifac-coder-*` image or the same upstream base as a profile, install your tooling, then pass `--coder-image`. Use `--startup-script` for per-repo workspace setup without forking the image.
+- Pre-built images are on GHCR (e.g. `saifctl-coder-node-pnpm-python:latest`); Docker pulls automatically when not present locally.
+- **Custom agents:** `FROM` a published `saifctl-coder-*` image or the same upstream base as a profile, install your tooling, then pass `--coder-image`. Use `--startup-script` for per-repo workspace setup without forking the image.
 
 ---
 
@@ -50,12 +50,12 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 | Variable                 | Required | Default               | Description                                  |
 | ------------------------ | -------- | --------------------- | -------------------------------------------- |
-| `SAIFAC_INITIAL_TASK`   | yes      | —                     | Full task prompt for the agent               |
-| `SAIFAC_GATE_RETRIES`   | no       | 5                     | Max inner gate-retry rounds before giving up |
-| `SAIFAC_GATE_SCRIPT`    | no       | `/saifac/gate.sh`    | Path to the gate script                      |
-| `SAIFAC_STARTUP_SCRIPT` | yes      | `/saifac/startup.sh` | Path to the startup script. Must exist.      |
+| `SAIFCTL_INITIAL_TASK`   | yes      | —                     | Full task prompt for the agent               |
+| `SAIFCTL_GATE_RETRIES`   | no       | 5                     | Max inner gate-retry rounds before giving up |
+| `SAIFCTL_GATE_SCRIPT`    | no       | `/saifctl/gate.sh`    | Path to the gate script                      |
+| `SAIFCTL_STARTUP_SCRIPT` | yes      | `/saifctl/startup.sh` | Path to the startup script. Must exist.      |
 
-`SAIFAC_STARTUP_SCRIPT` is always set by the orchestrator. It points to `/saifac/startup.sh`, which the orchestrator writes from the profile's installation script (or from `--startup-script` when provided). `coder-start.sh` will error if the file is missing.
+`SAIFCTL_STARTUP_SCRIPT` is always set by the orchestrator. It points to `/saifctl/startup.sh`, which the orchestrator writes from the profile's installation script (or from `--startup-script` when provided). `coder-start.sh` will error if the file is missing.
 
 ---
 
@@ -64,10 +64,10 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 After sandbox creation (`createSandbox`):
 
 ```
-/tmp/saifac/sandboxes/{proj}-{feat}-{runId}/
-  gate.sh       ← always written; copied into saifac/ for the coder container mount
-  startup.sh    ← always written from profile or --startup-script; copied into saifac/
-  saifac/       ← assembled per run (copies of coder-start.sh, gate, startup, agent scripts, reviewer when enabled); mounted :ro at /saifac
+/tmp/saifctl/sandboxes/{proj}-{feat}-{runId}/
+  gate.sh       ← always written; copied into saifctl/ for the coder container mount
+  startup.sh    ← always written from profile or --startup-script; copied into saifctl/
+  saifctl/       ← assembled per run (copies of coder-start.sh, gate, startup, agent scripts, reviewer when enabled); mounted :ro at /saifctl
   tests.full.json
   code/         ← rsync copy of repo; mounted as /workspace
 ```
@@ -99,7 +99,7 @@ The workspace is rsync’d into `code/` and bind-mounted at `/workspace` for eac
 **The default profile (node-pnpm-python) supplies an installation script that runs `pnpm install`.** For most Node.js/pnpm projects, no configuration is needed:
 
 ```bash
-saifac feat run
+saifctl feat run
 ```
 
 You should see in the logs:
@@ -134,13 +134,13 @@ chmod +x scripts/my-startup.sh
 ### Step 2: Run with `--startup-script`
 
 ```bash
-saifac feat run --startup-script ./scripts/my-startup.sh
+saifctl feat run --startup-script ./scripts/my-startup.sh
 ```
 
 For a resume (continue):
 
 ```bash
-saifac run start <runId> --startup-script ./scripts/my-startup.sh
+saifctl run start <runId> --startup-script ./scripts/my-startup.sh
 ```
 
 ---
@@ -177,7 +177,7 @@ pytest tests/
 ### Step 3: Run with both scripts
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --startup-script ./scripts/my-startup.sh \
   --gate-script ./scripts/factory-gate.sh
 ```
@@ -206,11 +206,11 @@ RUN npm install -g pnpm @anthropic-ai/claude-code
 ### Step 2: Build and use
 
 ```bash
-docker build -f Dockerfile.my-coder -t my-saifac-coder:latest .
-saifac feat run --coder-image my-saifac-coder:latest
+docker build -f Dockerfile.my-coder -t my-saifctl-coder:latest .
+saifctl feat run --coder-image my-saifctl-coder:latest
 ```
 
-**Note:** `coder-start.sh` runs `/saifac/agent.sh` each round; the default agent profile’s `agent.sh` invokes the AI agent (e.g. OpenHands). Use `--agent` / `--agent-script` to swap the coding CLI without forking `coder-start.sh`.
+**Note:** `coder-start.sh` runs `/saifctl/agent.sh` each round; the default agent profile’s `agent.sh` invokes the AI agent (e.g. OpenHands). Use `--agent` / `--agent-script` to swap the coding CLI without forking `coder-start.sh`.
 
 ---
 
@@ -241,7 +241,7 @@ uv run ruff check .
 ### 3. Run
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --startup-script ./scripts/my-startup.sh \
   --gate-script ./scripts/factory-gate.sh
 ```
@@ -252,14 +252,14 @@ saifac feat run \
 
 | Flag               | Subcommands                        | Description                                                                                                                                                                              |
 | ------------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--model`          | saifac feat run, saifac run start | LLM model override (e.g. anthropic/claude-sonnet-4-5). Falls back to `LLM_MODEL` env.                                                                                                    |
-| `--provider`       | saifac feat run, saifac run start | LLM provider ID (e.g. anthropic, openai, openrouter). Forwarded as `LLM_PROVIDER`. Used by agents like opencode for base URL / routing when `LLM_MODEL` is not in provider/model format. |
-| `--base-url`       | saifac feat run, saifac run start | LLM base URL override (e.g. https://openrouter.ai/api/v1). Falls back to `LLM_BASE_URL` env.                                                                                             |
-| `--profile`        | saifac feat run, saifac run start | Sandbox profile; sets the installation script (and other defaults).                                                                                                                      |
-| `--startup-script` | saifac feat run, saifac run start | Path to script run once before the agent loop (overrides profile).                                                                                                                       |
-| `--gate-script`    | saifac feat run, saifac run start | Path to script run after each agent round. Default: built-in pnpm check.                                                                                                                 |
-| `--gate-retries`   | saifac feat run, saifac run start | Max gate retries per run (default: 5).                                                                                                                                                   |
-| `--coder-image`    | saifac feat run, saifac run start | Docker image for the coder container (default: from profile, e.g. saifac-coder-node-pnpm-python:latest).                                                                                |
+| `--model`          | saifctl feat run, saifctl run start | LLM model override (e.g. anthropic/claude-sonnet-4-5). Falls back to `LLM_MODEL` env.                                                                                                    |
+| `--provider`       | saifctl feat run, saifctl run start | LLM provider ID (e.g. anthropic, openai, openrouter). Forwarded as `LLM_PROVIDER`. Used by agents like opencode for base URL / routing when `LLM_MODEL` is not in provider/model format. |
+| `--base-url`       | saifctl feat run, saifctl run start | LLM base URL override (e.g. https://openrouter.ai/api/v1). Falls back to `LLM_BASE_URL` env.                                                                                             |
+| `--profile`        | saifctl feat run, saifctl run start | Sandbox profile; sets the installation script (and other defaults).                                                                                                                      |
+| `--startup-script` | saifctl feat run, saifctl run start | Path to script run once before the agent loop (overrides profile).                                                                                                                       |
+| `--gate-script`    | saifctl feat run, saifctl run start | Path to script run after each agent round. Default: built-in pnpm check.                                                                                                                 |
+| `--gate-retries`   | saifctl feat run, saifctl run start | Max gate retries per run (default: 5).                                                                                                                                                   |
+| `--coder-image`    | saifctl feat run, saifctl run start | Docker image for the coder container (default: from profile, e.g. saifctl-coder-node-pnpm-python:latest).                                                                                |
 
 ---
 

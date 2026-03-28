@@ -19,7 +19,7 @@ This guide walks you through pushing to a branch, a URL, or your default remote 
 The simplest flow: push to `origin` and open a PR when the agent succeeds.
 
 ```bash
-saifac feat run --push origin --pr
+saifctl feat run --push origin --pr
 ```
 
 If you’re using GitHub, set `GITHUB_TOKEN` in your environment. The factory will push the feature branch when tests pass and create the PR automatically.
@@ -41,7 +41,7 @@ If you’re using GitHub, set `GITHUB_TOKEN` in your environment. The factory wi
 If you typically push to `origin`:
 
 ```bash
-saifac feat run --push origin --pr
+saifctl feat run --push origin --pr
 ```
 
 The factory resolves `origin` via `git remote get-url origin` and uses that URL.
@@ -52,19 +52,19 @@ Provider-specific slugs are concise and easy to read:
 
 ```bash
 # GitHub
-saifac feat run --push owner/repo --pr
+saifctl feat run --push owner/repo --pr
 
 # GitLab (supports nested paths: group/subgroup/repo)
-saifac feat run --push group/subgroup/repo --pr --git-provider gitlab
+saifctl feat run --push group/subgroup/repo --pr --git-provider gitlab
 
 # Bitbucket (workspace/repo)
-saifac feat run --push workspace/repo --pr --git-provider bitbucket
+saifctl feat run --push workspace/repo --pr --git-provider bitbucket
 
 # Azure Repos (org/project/repo — three parts)
-saifac feat run --push myorg/myproject/myrepo --pr --git-provider azure
+saifctl feat run --push myorg/myproject/myrepo --pr --git-provider azure
 
 # Gitea
-saifac feat run --push owner/repo --pr --git-provider gitea
+saifctl feat run --push owner/repo --pr --git-provider gitea
 ```
 
 ### Using a Full URL
@@ -72,7 +72,7 @@ saifac feat run --push owner/repo --pr --git-provider gitea
 For forks, mirrors, or non-default remotes:
 
 ```bash
-saifac feat run --push https://github.com/your-org/your-repo.git --pr
+saifctl feat run --push https://github.com/your-org/your-repo.git --pr
 ```
 
 HTTPS URLs work with token-based auth. SSH URLs (`git@github.com:owner/repo.git`) are passed through unchanged — use your SSH key as usual.
@@ -96,7 +96,7 @@ Each provider reads its token from environment variables. Set the one that match
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
-saifac feat run --push origin --pr
+saifctl feat run --push origin --pr
 ```
 
 ### Example: GitLab (self-hosted)
@@ -105,7 +105,7 @@ saifac feat run --push origin --pr
 export GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
 export GITLAB_URL=https://gitlab.mycompany.com
 
-saifac feat run --push group/repo --pr --git-provider gitlab
+saifctl feat run --push group/repo --pr --git-provider gitlab
 ```
 
 ### Example: Bitbucket
@@ -114,7 +114,7 @@ saifac feat run --push group/repo --pr --git-provider gitlab
 export BITBUCKET_TOKEN=your-token
 export BITBUCKET_USERNAME=your-username
 
-saifac feat run --push workspace/repo --pr --git-provider bitbucket
+saifctl feat run --push workspace/repo --pr --git-provider bitbucket
 ```
 
 ### Example: Azure Repos
@@ -122,7 +122,7 @@ saifac feat run --push workspace/repo --pr --git-provider bitbucket
 ```bash
 export AZURE_DEVOPS_TOKEN=your-pat
 
-saifac feat run --push org/project/repo --pr --git-provider azure
+saifctl feat run --push org/project/repo --pr --git-provider azure
 ```
 
 ### Example: Gitea (self-hosted)
@@ -132,7 +132,7 @@ export GITEA_TOKEN=your-token
 export GITEA_USERNAME=your-username
 export GITEA_URL=https://gitea.mycompany.com
 
-saifac feat run --push owner/repo --pr --git-provider gitea
+saifctl feat run --push owner/repo --pr --git-provider gitea
 ```
 
 ---
@@ -142,7 +142,7 @@ saifac feat run --push owner/repo --pr --git-provider gitea
 To push the branch only (no PR):
 
 ```bash
-saifac feat run --push origin
+saifctl feat run --push origin
 ```
 
 Omit `--pr`. The branch is pushed; you create the PR manually in the UI or with `gh pr create`.
@@ -155,9 +155,9 @@ Omit `--pr`. The branch is pushed; you create the PR manually in the UI or with 
 
 | Command             | When push/PR happens                       |
 | ------------------- | ------------------------------------------ |
-| `saifac feat run`   | After agent succeeds and all tests pass    |
-| `saifac run test`   | After the candidate patch passes all tests |
-| `saifac run start` | After resume completes successfully        |
+| `saifctl feat run`   | After agent succeeds and all tests pass    |
+| `saifctl run test`   | After the candidate patch passes all tests |
+| `saifctl run start` | After resume completes successfully        |
 
 Push and PR happen at the end of a successful run. If the agent hits `--max-runs` or you interrupt, nothing is pushed.
 
@@ -165,7 +165,7 @@ Push and PR happen at the end of a successful run. If the agent hits `--max-runs
 
 ## Branch and Base
 
-- **Feature branch:** Automatically created as `saifac/<featureName>-<runId>` after a successful run (separate from your working branch).
+- **Feature branch:** Automatically created as `saifctl/<featureName>-<runId>` after a successful run (separate from your working branch).
 - **Base branch:** The branch you had checked out when the command started. The PR targets that branch.
 
 ---
@@ -177,7 +177,7 @@ Push and PR happen at the end of a successful run. If the agent hits `--max-runs
 You passed `--pr` without `--push`. Always use both:
 
 ```bash
-saifac feat run --push origin --pr
+saifctl feat run --push origin --pr
 ```
 
 ### Push fails with 401 or 403
@@ -190,7 +190,7 @@ saifac feat run --push origin --pr
 The default provider is `github`. For others, set `--git-provider`:
 
 ```bash
-saifac feat run --push origin --pr --git-provider gitlab
+saifctl feat run --push origin --pr --git-provider gitlab
 ```
 
 ### Azure slug format
@@ -199,7 +199,7 @@ Azure Repos uses three segments: `org/project/repo`. GitHub-style `owner/repo` w
 
 ```bash
 # Correct for Azure
-saifac feat run --push myorg/myproject/myrepo --pr --git-provider azure
+saifctl feat run --push myorg/myproject/myrepo --pr --git-provider azure
 ```
 
 ---

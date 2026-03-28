@@ -76,7 +76,7 @@ If the gate script fails, the reviewer is never run. If the reviewer fails, the 
 ### Prerequisites
 
 - **Leash mode** (default). The reviewer runs inside the coder container. It is **not** used when coding is **local** (LocalEngine / `--engine local`).
-- **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
+- **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifctl/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
 
 ### Enable the Reviewer
 
@@ -85,14 +85,14 @@ The reviewer is **enabled by default**. No setup is needed if you have a compati
 To disable it:
 
 ```sh
-saifac feat run --no-reviewer
+saifctl feat run --no-reviewer
 ```
 
 ### First Run
 
 On run with the reviewer enabled, the factory will:
 
-1. Download the Argus binary for your host architecture (if not already cached for the current `ARGUS_VERSION` under `/tmp/saifac/bin/`)
+1. Download the Argus binary for your host architecture (if not already cached for the current `ARGUS_VERSION` under `/tmp/saifctl/bin/`)
 2. Mount it and `reviewer.sh` into the coder container
 
 If the download fails, check `https://github.com/JuroOravec/argus/releases` for the expected tag, clear the cache dir and retry, or pass `--no-reviewer`.
@@ -107,17 +107,17 @@ Configure the reviewer model independently from the coder:
 
 ```sh
 # Use GPT-4o for the reviewer, Claude for the coder
-saifac feat run --model coder=anthropic/claude-sonnet-4-6,reviewer=openai/gpt-4o
+saifctl feat run --model coder=anthropic/claude-sonnet-4-6,reviewer=openai/gpt-4o
 
 # Single global — both use the same model
-saifac feat run --model anthropic/claude-sonnet-4-6
+saifctl feat run --model anthropic/claude-sonnet-4-6
 ```
 
 The reviewer uses the same resolution order as other agents: per-agent override → global override → auto-discovery from API keys.
 
 ### Config File
 
-In `saifac/config.json` (or equivalent):
+In `saifctl/config.json` (or equivalent):
 
 ```json
 {
@@ -141,7 +141,7 @@ The orchestrator injects these into the coder container when the reviewer is ena
 
 | Variable                 | Purpose                                       |
 | ------------------------ | --------------------------------------------- |
-| `SAIFAC_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/saifac/reviewer.sh`) |
+| `SAIFCTL_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/saifctl/reviewer.sh`) |
 | `REVIEWER_LLM_PROVIDER`  | LLM provider (e.g. `anthropic`, `openai`)     |
 | `REVIEWER_LLM_MODEL`     | API model id (e.g. `gpt-4o`, or `anthropic/claude-…` for OpenRouter) |
 | `REVIEWER_LLM_API_KEY`   | API key for the provider                      |
@@ -157,12 +157,12 @@ The reviewer is **skipped** in these cases:
 
 | Scenario                            | Reviewer runs?                         |
 | ----------------------------------- | -------------------------------------- |
-| `saifac feat run` (default)         | Yes                                    |
-| `saifac feat run --no-reviewer`     | No                                     |
-| `saifac feat run --engine local`     | No                                     |
-| `saifac feat design-fail2pass`      | No (no coder agent)                    |
-| `saifac run start`                 | Same as initial run (from stored opts) |
-| `saifac run test <runId>`           | No (no coder agent)                    |
+| `saifctl feat run` (default)         | Yes                                    |
+| `saifctl feat run --no-reviewer`     | No                                     |
+| `saifctl feat run --engine local`     | No                                     |
+| `saifctl feat design-fail2pass`      | No (no coder agent)                    |
+| `saifctl run start`                 | Same as initial run (from stored opts) |
+| `saifctl run test <runId>`           | No (no coder agent)                    |
 
 ---
 
@@ -193,9 +193,9 @@ Argus is run with `self_reflection = true`, so the model can reconsider its own 
 SAIF downloads the binary automatically but the download failed. Options:
 
 1. Check `https://github.com/JuroOravec/argus/releases` — verify the `argus-ai-v<VERSION>` tag exists and has assets attached.
-2. Remove stale or partial cache: `rm -f /tmp/saifac/bin/argus-linux-*` (or wipe `SAIF_REVIEWER_BIN_DIR`) and retry.
+2. Remove stale or partial cache: `rm -f /tmp/saifctl/bin/argus-linux-*` (or wipe `SAIF_REVIEWER_BIN_DIR`) and retry.
 3. Use `--no-reviewer` to skip the reviewer.
-4. Build Argus from source and place the binary at `/tmp/saifac/bin/argus-linux-{amd64,arm64}-v<semver>` (match `ARGUS_VERSION` in `argus.ts`; or use your `SAIF_REVIEWER_BIN_DIR`).
+4. Build Argus from source and place the binary at `/tmp/saifctl/bin/argus-linux-{amd64,arm64}-v<semver>` (match `ARGUS_VERSION` in `argus.ts`; or use your `SAIF_REVIEWER_BIN_DIR`).
 
 ### Reviewer passes but tests fail
 
@@ -206,7 +206,7 @@ The reviewer only checks semantic correctness against the task. It does not run 
 Override with `--model reviewer=provider/model`:
 
 ```sh
-saifac feat run --model reviewer=anthropic/claude-opus-4-5
+saifctl feat run --model reviewer=anthropic/claude-opus-4-5
 ```
 
 ---

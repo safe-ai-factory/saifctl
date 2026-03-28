@@ -1,8 +1,8 @@
 #!/bin/bash
-# Claude Code agent script — runs Claude with the task read from $SAIFAC_TASK_PATH.
+# Claude Code agent script — runs Claude with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the claude agent profile. Selected via --agent claude.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://code.claude.com/docs/en/cli-reference
 #
@@ -37,15 +37,15 @@ echo "[agent/claude] Starting agent claude in agent.sh..."
 
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/claude] About to run: claude -p \"${_SAIFAC_TASK_SNIP}\" --model \"${LLM_MODEL}\" --dangerously-skip-permissions --output-format stream-json --verbose --no-session-persistence --disable-slash-commands"
+echo "[agent/claude] About to run: claude -p \"${_SAIFCTL_TASK_SNIP}\" --model \"${LLM_MODEL}\" --dangerously-skip-permissions --output-format stream-json --verbose --no-session-persistence --disable-slash-commands"
 
 _agent_exit=0
 claude \
-  -p "$(cat "$SAIFAC_TASK_PATH")" \
+  -p "$(cat "$SAIFCTL_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --dangerously-skip-permissions \
   --output-format stream-json \

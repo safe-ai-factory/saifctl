@@ -1,8 +1,8 @@
 #!/bin/bash
-# Gemini CLI agent script — runs Gemini with the task read from $SAIFAC_TASK_PATH.
+# Gemini CLI agent script — runs Gemini with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the gemini agent profile. Selected via --agent gemini.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://geminicli.com/docs/reference/configuration/#command-line-arguments
 #
@@ -39,18 +39,18 @@ echo "[agent/gemini] Starting agent gemini in agent.sh..."
 
 export GEMINI_API_KEY="${GEMINI_API_KEY:-$LLM_API_KEY}"
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/gemini] About to run: gemini --model \"${LLM_MODEL}\" --yolo --output-format stream-json \"${_SAIFAC_TASK_SNIP}\""
+echo "[agent/gemini] About to run: gemini --model \"${LLM_MODEL}\" --yolo --output-format stream-json \"${_SAIFCTL_TASK_SNIP}\""
 
 _agent_exit=0
 gemini \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json \
-  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+  "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
 
 echo "[agent/gemini] Finished agent gemini in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

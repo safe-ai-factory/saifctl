@@ -2,7 +2,7 @@
 # Forge Code agent setup script — installs the forge binary via the official install script.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFCTL_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Forge is a compiled Rust binary distributed via a curl install script.
 # No Node.js, Python, or other runtime is required.

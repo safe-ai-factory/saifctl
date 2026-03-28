@@ -46,10 +46,10 @@ Before creating features, set an LLM API key and run the init command once:
 # Or OPENAI_API_KEY / OPENROUTER_API_KEY
 export ANTHROPIC_API_KEY=sk-ant-...
 
-saifac init
+saifctl init
 ```
 
-This scaffolds `saifac/config.ts` (if missing), creates and configures Shotgun, and indexes your codebase.
+This scaffolds `saifctl/config.ts` (if missing), creates and configures Shotgun, and indexes your codebase.
 
 See [LLM configuration](models.md) for all supported providers and model override options.
 
@@ -58,7 +58,7 @@ You can provide `CONTEXT7_API_KEY` to make Shotgun use Context7 for documentatio
 ```sh
 export CONTEXT7_API_KEY=my-secret-key
 
-saifac init
+saifctl init
 ```
 
 ## 1. Create new feature
@@ -68,24 +68,24 @@ saifac init
 To start a new feature, create a directory for your specs and tests:
 
 ```sh
-saifac feat new
+saifctl feat new
 
 # With name and description:
-saifac feat new -n add-login --desc "Add login to the React website: email/password auth"
+saifctl feat new -n add-login --desc "Add login to the React website: email/password auth"
 ```
 
 This creates a new feature directory:
 
-`saifac/features/add-login/`
+`saifctl/features/add-login/`
 
 ```txt
-saifac/
+saifctl/
 └─ features/
    └─ add-login/
       └─ proposal.md
 ```
 
-See [`saifac feat new`](commands/feat-new.md) for full options.
+See [`saifctl feat new`](commands/feat-new.md) for full options.
 
 ## 2. Define feature spec
 
@@ -125,10 +125,10 @@ Registration, forgot password, OAuth, and email verification. Assume a backend e
 This runs [Shotgun](https://github.com/shotgun-sh/shotgun) to make our specs more detailed:
 
 ```bash
-saifac feat design -n add-login
+saifctl feat design -n add-login
 
 # Pass --model to choose a specific LLM:
-saifac feat design -n add-login \
+saifctl feat design -n add-login \
   --model anthropic/claude-sonnet-4-6
 ```
 
@@ -148,7 +148,7 @@ After a while, we will end up with 4 new files:
 | `tasks.md`         | Task tracking for the agent |
 
 ```txt
-saifac/
+saifctl/
 └─ features/
    └─ add-login/
       ├─ proposal.md
@@ -163,19 +163,19 @@ Fix factual errors, clear out ambiguities, add extra context.
 **Re-running research:** If your proposal changed, re-generate `plan.md` and other files with [`design-specs`](./commands/feat-design-specs.md) command:
 
 ```bash
-saifac feat design-specs -n add-login
+saifctl feat design-specs -n add-login
 ```
 
 ## 4. Generate tests
 
 > _Run AI to do prepare tests. Update what's wrong, clear out ambiguities._
 
-When you ran the `saifac feat design` command, it also generated tests based on the enriched specs.
+When you ran the `saifctl feat design` command, it also generated tests based on the enriched specs.
 
 You will find the tests in the `tests/` directory:
 
 ```txt
-saifac/
+saifctl/
 └─ features/
    └─ add-login/
       ├─ proposal.md
@@ -210,7 +210,7 @@ Fix test errors, add extra tests if needed.
 **Re-running test generation:** If your specs changed, re-generate `tests.json` and other test files with [`design-tests`](./commands/feat-design-tests.md) command:
 
 ```bash
-saifac feat design-tests -n add-login
+saifctl feat design-tests -n add-login
 ```
 
 ## 5. Writing tests
@@ -297,12 +297,12 @@ The principle of Test-driven development (TDD) is that - before we make any chan
 
 If the tests passed right away, the agent would have nothing to optimize towards. It could write anything and it would be approved.
 
-This check runs automatically when you run `saifac feat design`.
+This check runs automatically when you run `saifctl feat design`.
 
 **Re-running tests:** If you added or changed tests, you can re-run the initial test assertion with the [`design-fail2pass`](./commands/feat-design-fail2pass.md) command:
 
 ```bash
-saifac feat design-fail2pass -n add-login
+saifctl feat design-fail2pass -n add-login
 ```
 
 After the tests successfully failed, you can start your coding agent.

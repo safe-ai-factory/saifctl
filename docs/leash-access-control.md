@@ -8,7 +8,7 @@ An agent that can read and write the whole workspace and reach any host on the i
 
 ## How to use
 
-Save as `saifac/policies/allowlist.cedar` (paths and hostnames are yours to tune):
+Save as `saifctl/policies/allowlist.cedar` (paths and hostnames are yours to tune):
 
 ```cedar
 // Filesystem + ProcessExec: same shape as src/orchestrator/policies/default.cedar (Leash schema).
@@ -33,7 +33,7 @@ forbid (
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/saifac/" ]
+    resource in [ Dir::"/workspace/saifctl/" ]
 };
 
 forbid (
@@ -70,7 +70,7 @@ permit (
 Run with that policy:
 
 ```bash
-saifac feat run -n your-feature --cedar policies/allowlist.cedar
+saifctl feat run -n your-feature --cedar policies/allowlist.cedar
 ```
 
 ## Default policy
@@ -78,7 +78,7 @@ saifac feat run -n your-feature --cedar policies/allowlist.cedar
 Omit `--cedar` to use the default policy:
 
 ```bash
-saifac feat run -n your-feature
+saifctl feat run -n your-feature
 ```
 
 In this repository the bundled file is `src/orchestrator/policies/default.cedar` (published inside the npm package).
@@ -86,7 +86,7 @@ In this repository the bundled file is `src/orchestrator/policies/default.cedar`
 Default policy:
 
 - **Network:** `NetworkConnect` for `Host::"*"`
-- **Filesystem:** `FileOpen` / `FileOpenReadOnly` under `Dir::"/"`; `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `FileOpenReadWrite` forbidden under `Dir::"/workspace/saifac/"` and `Dir::"/workspace/.git/"`
+- **Filesystem:** `FileOpen` / `FileOpenReadOnly` under `Dir::"/"`; `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `FileOpenReadWrite` forbidden under `Dir::"/workspace/saifctl/"` and `Dir::"/workspace/.git/"`
 - **ProcessExec:** permitted under `Dir::"/"` (shell and tools on `PATH`)
 
 ---
@@ -97,7 +97,7 @@ Policies usually live in your repo (e.g. `policies/`). Adjust hostnames and dire
 
 ### 1. Deny all outbound network
 
-No `NetworkConnect` `permit` → everything outbound is denied. Good for checking enforcement; pair with `--agent debug` (HTTP probe) unless `SAIFAC_SKIP_NETWORK_PROBE=1`.
+No `NetworkConnect` `permit` → everything outbound is denied. Good for checking enforcement; pair with `--agent debug` (HTTP probe) unless `SAIFCTL_SKIP_NETWORK_PROBE=1`.
 
 `policies/no-network.cedar`:
 
@@ -123,7 +123,7 @@ forbid (
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/saifac/" ]
+    resource in [ Dir::"/workspace/saifctl/" ]
 };
 
 forbid (
@@ -144,7 +144,7 @@ permit (
 ```
 
 ```bash
-saifac feat run -n your-feature --agent debug --cedar policies/no-network.cedar
+saifctl feat run -n your-feature --agent debug --cedar policies/no-network.cedar
 ```
 
 ### 2. Network allowlist
@@ -152,7 +152,7 @@ saifac feat run -n your-feature --agent debug --cedar policies/no-network.cedar
 Add `Host::"..."` entries for your LLM API, GitHub, `npm.jsr.io`, and any other hostnames you need to reach.
 
 ```bash
-saifac feat run -n your-feature --cedar policies/network-allowlist.cedar
+saifctl feat run -n your-feature --cedar policies/network-allowlist.cedar
 ```
 
 `policies/network-allowlist.cedar`:
@@ -200,7 +200,7 @@ forbid (
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/saifac/" ]
+    resource in [ Dir::"/workspace/saifctl/" ]
 };
 
 forbid (
@@ -229,7 +229,7 @@ permit (
 ```
 
 ```bash
-saifac feat run -n your-feature --cedar policies/fs-writes-src-only.cedar
+saifctl feat run -n your-feature --cedar policies/fs-writes-src-only.cedar
 ```
 
 ---

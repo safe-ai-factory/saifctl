@@ -8,7 +8,7 @@ This document describes how to use a coding agent other than OpenHands with the 
 
 The factory loop runs a **user-supplied agent script** once per inner round. That script:
 
-1. **Reads the task** from the environment variable `$SAIFAC_TASK_PATH` (a markdown file)
+1. **Reads the task** from the environment variable `$SAIFCTL_TASK_PATH` (a markdown file)
 2. **Invokes your preferred agent** (Aider, Claude Code, etc.) with the task
 3. **Exits** when the agent completes
 
@@ -18,26 +18,26 @@ The task file is written by `coder-start.sh` before each invocation, so you don'
 
 ## Step 1: Write an Agent Runner Script
 
-Create a bash script that runs your agent. The script **must** read the task from `$SAIFAC_TASK_PATH`.
+Create a bash script that runs your agent. The script **must** read the task from `$SAIFCTL_TASK_PATH`.
 
 ### Example: Aider
 
 ```bash
 #!/bin/bash
-# aider-runner.sh — run Aider with the task from $SAIFAC_TASK_PATH
+# aider-runner.sh — run Aider with the task from $SAIFCTL_TASK_PATH
 set -euo pipefail
 
-aider --message-file "$SAIFAC_TASK_PATH" --yes
+aider --message-file "$SAIFCTL_TASK_PATH" --yes
 ```
 
 ### Example: Claude Code
 
 ```bash
 #!/bin/bash
-# claude-runner.sh — run Claude Code with the task from $SAIFAC_TASK_PATH
+# claude-runner.sh — run Claude Code with the task from $SAIFCTL_TASK_PATH
 set -euo pipefail
 
-claude --print "$(cat "$SAIFAC_TASK_PATH")"
+claude --print "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 ### Example: Custom Python Script
@@ -47,14 +47,14 @@ claude --print "$(cat "$SAIFAC_TASK_PATH")"
 # my-agent-runner.sh
 set -euo pipefail
 
-python ./scripts/my-agent.py --task-file "$SAIFAC_TASK_PATH"
+python ./scripts/my-agent.py --task-file "$SAIFCTL_TASK_PATH"
 ```
 
 ### Contract Your Script Must Honour
 
 | Requirement                         | Description                                                                                                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Read task from `$SAIFAC_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
+| Read task from `$SAIFCTL_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
 | Work in the workspace               | In Leash mode the workspace is `/workspace`. With local coding (LocalEngine / `--engine local`) it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
 | Exit on completion                  | Exit code 0 when done, non-zero on failure. The factory uses the exit code to decide whether to run the gate.                                                                  |
 | Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--agent-env` or `--agent-env-file`.                           |
@@ -87,18 +87,18 @@ npm install -g aider
 Then run:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --startup-script ./startup-with-aider.sh
 ```
 
 ### Option B: Extend a Coder Base Image
 
-For agents that need custom binaries or heavy dependencies, extend a published `saifac-coder-*` image or the same upstream base your profile uses (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, etc.) and build your own image:
+For agents that need custom binaries or heavy dependencies, extend a published `saifctl-coder-*` image or the same upstream base your profile uses (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, etc.) and build your own image:
 
 ```dockerfile
 # Dockerfile.my-coder
-FROM saifac-coder-node-pnpm-python:latest
+FROM saifctl-coder-node-pnpm-python:latest
 
 # Install Aider (Python) — example; adjust for your stack
 RUN pipx install aider-chat
@@ -116,7 +116,7 @@ docker build -f Dockerfile.my-coder -t my-coder:latest .
 Then run with `--coder-image my-coder:latest`:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --coder-image my-coder:latest
 ```
@@ -145,7 +145,7 @@ With **local coding** (LocalEngine), the agent inherits the full host environmen
 ### Single variables (custom)
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --agent-env AIDER_MODEL=gpt-4o \
   --agent-env AIDER_YES=1
@@ -166,27 +166,27 @@ AIDER_YES=1
 Run:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --agent-env-file ./agent.env
 ```
 
-**Reserved variables**: The factory filters out `SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*`. If you pass them via `--agent-env`, they are ignored with a warning.
+**Reserved variables**: The factory filters out `SAIFCTL_*`, `LLM_*`, `REVIEWER_LLM_*`. If you pass them via `--agent-env`, they are ignored with a warning.
 
 ---
 
 ## Step 5: Run the Factory Loop
 
-Invoke `saifac feat run` (or `saifac run start <runId>` for resume) with all flags combined:
+Invoke `saifctl feat run` (or `saifctl run start <runId>` for resume) with all flags combined:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --agent-env-file ./agent.env \
   --startup-script ./startup-with-aider.sh
 ```
 
-For `saifac run start`, the same flags apply — you can change the agent script between runs.
+For `saifctl run start`, the same flags apply — you can change the agent script between runs.
 
 ---
 
@@ -197,7 +197,7 @@ For `saifac run start`, the same flags apply — you can change the agent script
    ```bash
    #!/bin/bash
    set -euo pipefail
-   aider --message-file "$SAIFAC_TASK_PATH" --yes
+   aider --message-file "$SAIFCTL_TASK_PATH" --yes
    ```
 
 2. **Create a startup script** that installs Aider (`startup-with-aider.sh`):
@@ -223,7 +223,7 @@ For `saifac run start`, the same flags apply — you can change the agent script
    ```bash
    chmod +x ./aider-runner.sh ./startup-with-aider.sh
 
-   saifac feat run \
+   saifctl feat run \
      --agent-script ./aider-runner.sh \
      --startup-script ./startup-with-aider.sh
    ```
@@ -235,22 +235,22 @@ For `saifac run start`, the same flags apply — you can change the agent script
 If you use `--engine local` (or `environments.coding.engine: 'local'`), the agent runs directly on the host via **LocalEngine** (no Docker/Leash for the coding phase). Useful for troubleshooting:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./aider-runner.sh \
   --engine local
 ```
 
 In this mode:
 
-- The workspace is the sandbox `code/` directory (path passed as `SAIFAC_WORKSPACE_BASE`)
-- `$SAIFAC_TASK_PATH` points to `{sandbox}/code/.saifac/task.md`
+- The workspace is the sandbox `code/` directory (path passed as `SAIFCTL_WORKSPACE_BASE`)
+- `$SAIFCTL_TASK_PATH` points to `{sandbox}/code/.saifctl/task.md`
 - Your agent must be installed on the host
 
 ## Agent logging
 
 The factory uses the **selected agent profile**:
 
-- Profiles with a non-null `stdoutStrategy` (e.g. **OpenHands**) split and pretty-print structured segments inside the `[SAIFAC:AGENT_*]` window (e.g. OpenHands converts JSON events to `[think]`, `[agent]`, `[inspect]`, errors, etc.)
+- Profiles with a non-null `stdoutStrategy` (e.g. **OpenHands**) split and pretty-print structured segments inside the `[SAIFCTL:AGENT_*]` window (e.g. OpenHands converts JSON events to `[think]`, `[agent]`, `[inspect]`, errors, etc.)
 - Profiles with **`stdoutStrategy: null`** stream **line-wise** output with an `[agent]` prefix inside that same window.
 
 Using `--agent-script` without changing `--agent` still uses the **current profile’s** strategy. Pick `--agent aider` (or another non-OpenHands profile) when your script is not emitting OpenHands JSON events.
@@ -262,8 +262,8 @@ Using `--agent-script` without changing `--agent` still uses the **current profi
 | Issue                        | Cause                                                            | Fix                                                                                     |
 | ---------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `agent script not found`     | The path to `--agent-script` is wrong or the file isn't readable | Use an absolute path or a path relative to the repo root; ensure the file exists        |
-| Agent receives empty task    | `$SAIFAC_TASK_PATH` is unset or wrong                           | Don't override `SAIFAC_TASK_PATH` via `--agent-env`; the factory sets it automatically |
-| `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*` via `--agent-env`                     |
+| Agent receives empty task    | `$SAIFCTL_TASK_PATH` is unset or wrong                           | Don't override `SAIFCTL_TASK_PATH` via `--agent-env`; the factory sets it automatically |
+| `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `SAIFCTL_*`, `LLM_*`, `REVIEWER_LLM_*` via `--agent-env`                     |
 | Agent not found in container | Agent isn't installed in the coder image or startup script       | Install in `--startup-script` or build a custom `--coder-image`                         |
 | Garbled or missing output    | OpenHands profile parsing applied to non–OpenHands output       | Use `--agent aider` (or another matching profile) or adjust `--agent` to match your script’s output shape |
 

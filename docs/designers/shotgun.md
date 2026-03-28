@@ -2,7 +2,7 @@
 
 [Shotgun](https://github.com/shotgun-sh/shotgun) is the default spec designer. It takes your feature proposal, researches your codebase, and produces a full technical spec — `plan.md`, `specification.md`, `research.md`, and `tasks.md` — before any coding agent runs.
 
-**Usage:** `saifac feat design` (default) or `saifac feat design --designer shotgun`
+**Usage:** `saifctl feat design` (default) or `saifctl feat design --designer shotgun`
 
 > **Note:** Shotgun also serves as a codebase indexer (`--indexer shotgun`). These are two separate roles. This page covers the designer role. See [Shotgun as indexer](../indexer/shotgun.md) for the indexing role.
 
@@ -36,16 +36,16 @@ This stores the configuration so you don't need to set environment variables on 
 
 ```bash
 # Default — Shotgun runs automatically:
-saifac feat design
+saifctl feat design
 
 # Explicit:
-saifac feat design --designer shotgun
+saifctl feat design --designer shotgun
 
 # With a specific model:
-saifac feat design --designer shotgun --model claude-opus-4-5
+saifctl feat design --designer shotgun --model claude-opus-4-5
 
 # From a parent monorepo (custom project dir):
-saifac feat design --project-dir ./packages/my-app
+saifctl feat design --project-dir ./packages/my-app
 ```
 
 If the spec files already exist in the feature directory, the CLI asks whether to redo them — safe to re-run at any time.
@@ -73,7 +73,7 @@ export OPENAI_API_KEY=sk-or-...   # your OpenRouter key
 
 ## What it produces
 
-Running `saifac feat design` with the Shotgun designer writes four files into `saifac/features/<feature>/`:
+Running `saifctl feat design` with the Shotgun designer writes four files into `saifctl/features/<feature>/`:
 
 | File               | Purpose                                                                          |
 | ------------------ | -------------------------------------------------------------------------------- |
@@ -88,7 +88,7 @@ These files are consumed downstream by the when planning and writing tests.
 
 ## How it works
 
-1. **Read the proposal** — Shotgun reads your `saifac/features/<feature>/proposal.md`. One paragraph is enough; if the file is missing, Shotgun runs a generic research pass.
+1. **Read the proposal** — Shotgun reads your `saifctl/features/<feature>/proposal.md`. One paragraph is enough; if the file is missing, Shotgun runs a generic research pass.
 
 2. **Research the codebase** — Shotgun's internal research agents query your repo using [tree-sitter](https://tree-sitter.github.io) and (optionally) Context7, finding existing patterns, file structures, and conventions relevant to your feature.
 
@@ -98,7 +98,7 @@ These files are consumed downstream by the when planning and writing tests.
 
 ## Notes
 
-- Shotgun manages its own codebase querying internally. When used as a designer, it does not delegate to the factory's `--indexer` tool — it runs its own research pipeline. This is why `saifac init` (which builds the indexer's graph) is not required before using Shotgun as a designer.
+- Shotgun manages its own codebase querying internally. When used as a designer, it does not delegate to the factory's `--indexer` tool — it runs its own research pipeline. This is why `saifctl init` (which builds the indexer's graph) is not required before using Shotgun as a designer.
 
 ---
 

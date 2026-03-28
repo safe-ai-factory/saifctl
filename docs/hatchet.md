@@ -25,15 +25,15 @@ export HATCHET_CLIENT_TOKEN=<token>
 export HATCHET_SERVER_URL=localhost:7077
 
 # 4. Run as normal — now with durability + dashboard
-saifac feat run -n my-feature
+saifctl feat run -n my-feature
 
 # Open http://localhost:8888 to watch the run in real time.
 ```
 
-Run `saifac doctor` at any time to verify connectivity:
+Run `saifctl doctor` at any time to verify connectivity:
 
 ```sh
-saifac doctor
+saifctl doctor
 #   ✔  Docker is running
 #   ✔  HATCHET_CLIENT_TOKEN is set
 #   ✔  Hatchet client initialized (server: localhost:7077)
@@ -51,7 +51,7 @@ See [Environment variables](env-vars.md) for the full variable reference.
 
 ## How it works
 
-When `HATCHET_CLIENT_TOKEN` is set, `saifac feat run` submits the run to a
+When `HATCHET_CLIENT_TOKEN` is set, `saifctl feat run` submits the run to a
 **`feat-run` Hatchet workflow** instead of driving the loop directly.
 The workflow mirrors the same phases:
 
@@ -68,4 +68,4 @@ feat-run (parent workflow)
 ```
 
 If the process is killed mid-run, Hatchet re-queues the interrupted step on
-the next `saifac feat run` invocation with the same run ID (resume support).
+the next `saifctl feat run` invocation with the same run ID (resume support).

@@ -77,7 +77,7 @@ For **extra** variables you choose (tools, tokens, non-LLM APIs), use `--agent-e
 
 ## Logging
 
-These variables tune what saifac prints to the terminal. They are read by the
+These variables tune what saifctl prints to the terminal. They are read by the
 [consola](https://github.com/unjs/consola) logger on startup and require no
 code changes to take effect.
 
@@ -87,7 +87,7 @@ code changes to take effect.
 | `DEBUG`         | When set to any non-empty value and `CONSOLA_LEVEL` is **not** set, consola raises its level to `4` (verbose) automatically. Mirrors the Node.js ecosystem `DEBUG` convention. |
 
 Both variables are overridden at runtime by the `--verbose` CLI flag
-(`saifac feat run --verbose`), which sets the level to `debug` (5) for that
+(`saifctl feat run --verbose`), which sets the level to `debug` (5) for that
 invocation. Prefer the flag for one-off debugging; prefer the env vars for
 persistent configuration or CI.
 
@@ -99,12 +99,12 @@ For full logging architecture details see
 | Variable           | Description                                                                                                                                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `DOCKER_HOST`      | Docker API endpoint (e.g. `unix:///path/to/docker.sock`). See [Troubleshooting](troubleshooting.md). |
-| `SAIFAC_LEASH_BIN` | Optional absolute path to Leash’s `bin/leash.js`. If unset, SAIFAC resolves `@strongdm/leash` from where it is installed.   |
+| `SAIFCTL_LEASH_BIN` | Optional absolute path to Leash’s `bin/leash.js`. If unset, SaifCTL resolves `@strongdm/leash` from where it is installed.   |
 
 ## Hatchet (optional)
 
 Setting these options enables the Hatchet-backed orchestrator, which adds
-durability and a local dashboard. When absent, saifac runs in the default
+durability and a local dashboard. When absent, saifctl runs in the default
 in-process mode. See [Hatchet integration](hatchet.md) for setup instructions.
 
 | Variable               | Description                                                       |
@@ -116,12 +116,12 @@ in-process mode. See [Hatchet integration](hatchet.md) for setup instructions.
 
 The semantic reviewer is a Rust binary that's injected into the container.
 
-SAIFAC downloads the Argus binary on the **host** before mounting it into the container.
+SaifCTL downloads the Argus binary on the **host** before mounting it into the container.
 
-The binary is cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5`.
+The binary is cached under `/tmp/saifctl/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5`.
 
 | Variable                  | Description                                                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SAIF_REVIEWER_BIN_DIR`   | Directory for cached Argus binaries, named `argus-linux-amd64-v<semver>` / `argus-linux-arm64-v<semver>`. Default: `/tmp/saifac/bin`. |
+| `SAIF_REVIEWER_BIN_DIR`   | Directory for cached Argus binaries, named `argus-linux-amd64-v<semver>` / `argus-linux-arm64-v<semver>`. Default: `/tmp/saifctl/bin`. |
 
 See [Semantic reviewer](./reviewer.md).

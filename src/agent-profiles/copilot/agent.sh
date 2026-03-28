@@ -1,8 +1,8 @@
 #!/bin/bash
-# Copilot CLI agent script — runs GitHub Copilot CLI with the task read from $SAIFAC_TASK_PATH.
+# Copilot CLI agent script — runs GitHub Copilot CLI with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the copilot agent profile. Selected via --agent copilot.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli
 #
@@ -58,19 +58,19 @@ if [ -n "${LLM_MODEL:-}" ]; then
   _model_flag=(--model "$LLM_MODEL")
 fi
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _copilot_model_echo=""
 if [ "${#_model_flag[@]}" -gt 0 ]; then
   _copilot_model_echo="--model \"${LLM_MODEL}\" "
 fi
-echo "[agent/copilot] About to run: copilot --prompt \"${_SAIFAC_TASK_SNIP}\" ${_copilot_model_echo}--allow-all --no-ask-user --no-auto-update --autopilot (COPILOT_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN from env, masked as ****)"
+echo "[agent/copilot] About to run: copilot --prompt \"${_SAIFCTL_TASK_SNIP}\" ${_copilot_model_echo}--allow-all --no-ask-user --no-auto-update --autopilot (COPILOT_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN from env, masked as ****)"
 
 _agent_exit=0
 copilot \
-  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
+  --prompt "$(cat "$SAIFCTL_TASK_PATH")" \
   "${_model_flag[@]}" \
   --allow-all \
   --no-ask-user \

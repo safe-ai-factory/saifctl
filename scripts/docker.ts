@@ -15,7 +15,7 @@ import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
-import { getSaifRoot } from '../src/constants.js';
+import { getSaifctlRoot } from '../src/constants.js';
 import { consola } from '../src/logger.js';
 import {
   DEFAULT_SANDBOX_PROFILE,
@@ -58,7 +58,7 @@ async function parseProjectName(opts: { project?: string }): Promise<string> {
     typeof opts.project === 'string' && opts.project.trim() ? opts.project.trim() : '';
   if (fromOpt) return fromOpt;
 
-  const repoRoot = getSaifRoot();
+  const repoRoot = getSaifctlRoot();
   try {
     const pkg = JSON.parse(await readUtf8(resolve(repoRoot, 'package.json'))) as {
       name?: unknown;
@@ -99,7 +99,7 @@ const testBuildCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const repoRoot = getSaifRoot();
+    const repoRoot = getSaifctlRoot();
     const buildAll = args.all === true;
     const skipExisting = args['skip-existing'] === true;
 
@@ -129,8 +129,8 @@ const testBuildCommand = defineCommand({
         total: testTotal,
       });
       const tag = buildAll
-        ? `saifac-test-${profile.id}:latest`
-        : args['test-image']?.trim() || `saifac-test-${profile.id}:latest`;
+        ? `saifctl-test-${profile.id}:latest`
+        : args['test-image']?.trim() || `saifctl-test-${profile.id}:latest`;
       if (!buildAll) validateImageTag(tag, '--test-image');
 
       const dockerfilePath = resolveTestDockerfilePath(profile.id);
@@ -171,8 +171,8 @@ const testBuildCommand = defineCommand({
       consola.log('Test image(s) built successfully.');
     }
     if (!buildAll) {
-      const tag = args['test-image']?.trim() || `saifac-test-${profilesToBuild[0]!.id}:latest`;
-      consola.log(`Use it with: npx saifac feat run --test-image ${tag}`);
+      const tag = args['test-image']?.trim() || `saifctl-test-${profilesToBuild[0]!.id}:latest`;
+      consola.log(`Use it with: npx saifctl feat run --test-image ${tag}`);
     }
   },
 });
@@ -195,7 +195,7 @@ const coderBuildCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const repoRoot = getSaifRoot();
+    const repoRoot = getSaifctlRoot();
     const buildAll = args.all === true;
     const skipExisting = args['skip-existing'] === true;
 
@@ -270,8 +270,8 @@ const coderBuildCommand = defineCommand({
     if (!buildAll) {
       const profile = profilesToBuild[0]!;
       const tag = args['coder-image']?.trim() || profile.coderImageTag;
-      consola.log(`Use it with: saifac feat run --profile ${profile.id}`);
-      consola.log(`Override: saifac feat run --coder-image ${tag}`);
+      consola.log(`Use it with: saifctl feat run --profile ${profile.id}`);
+      consola.log(`Override: saifctl feat run --coder-image ${tag}`);
     }
   },
 });
@@ -296,9 +296,9 @@ const clearCommand = defineCommand({
     const clearAll = args.all === true;
     const projName = clearAll ? null : await parseProjectName(args);
 
-    const stagingPrefix = clearAll ? 'saifac-stage-' : `saifac-stage-${projName}-`;
-    const testRunnerPrefix = clearAll ? 'saifac-test-' : `saifac-test-${projName}-`;
-    const networkPrefix = clearAll ? 'saifac-net-' : `saifac-net-${projName}-`;
+    const stagingPrefix = clearAll ? 'saifctl-stage-' : `saifctl-stage-${projName}-`;
+    const testRunnerPrefix = clearAll ? 'saifctl-test-' : `saifctl-test-${projName}-`;
+    const networkPrefix = clearAll ? 'saifctl-net-' : `saifctl-net-${projName}-`;
 
     let removedContainers = 0;
     let removedImages = 0;

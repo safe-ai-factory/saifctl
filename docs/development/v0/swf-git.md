@@ -25,7 +25,7 @@ The Software Factory uses Git in three distinct phases:
 
 | Phase       | Where                                                     | Purpose                                                                                                                                                                |
 | ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sandbox** | Isolated `code/` directory inside `/tmp/saifac/sandboxes/` | A _fresh_ Git repo (not a clone) used solely for diffing agent changes against a baseline. The host's `.git` is never mounted or copied, to avoid exposing git history |
+| **Sandbox** | Isolated `code/` directory inside `/tmp/saifctl/sandboxes/` | A _fresh_ Git repo (not a clone) used solely for diffing agent changes against a baseline. The host's `.git` is never mounted or copied, to avoid exposing git history |
 | **Tests**   | Same sandbox                                              | **`feat run` / `run start`:** after each round, `extractIncrementalRoundPatch` leaves `code/` at a new commit — staging/tests run on that tree (no extra `git apply` of the round diff). **`run test`:** same sandbox layout as resume (base snapshot + replayed `runCommits`); **`runIterativeLoop`** runs in **test-only** mode (no coding agent) and reuses the same staging / test-retry / vague-specs path. |
 | **Success** | Host repository                                           | A Git worktree is used to create a feature branch, apply the patch, commit, and optionally push/PR—_without ever changing the main working tree's checked-out branch_. |
 
@@ -33,9 +33,9 @@ The host repository's working directory is **never** modified during the loop. A
 
 ### Working tree contract
 
-**Primary workflow:** SAIFAC assumes the project you run against is in a **clean, committed** state at **`HEAD`**. By default the sandbox is filled with **`git archive HEAD`** (the tree recorded in Git at the tip commit), not whatever happens to be on disk. That keeps the baseline aligned with Git: what the agent sees is what is committed. **[`saifac run apply`](../../commands/run-apply.md)** and merging the resulting `saifac/…` branch into your line of work are straightforward in that mode.
+**Primary workflow:** SaifCTL assumes the project you run against is in a **clean, committed** state at **`HEAD`**. By default the sandbox is filled with **`git archive HEAD`** (the tree recorded in Git at the tip commit), not whatever happens to be on disk. That keeps the baseline aligned with Git: what the agent sees is what is committed. **[`saifctl run apply`](../../commands/run-apply.md)** and merging the resulting `saifctl/…` branch into your line of work are straightforward in that mode.
 
-**Edge case — dirty working tree:** **`--include-dirty`** on **`feat run`** (or **`defaults.includeDirty`** in config) switches the sandbox copy to an **rsync** of the working tree (committed + staged + unstaged + untracked, still respecting `.gitignore`). That is intentionally **opt-in**: local reminders, WIP files, and parallel edits are easier to model, but host apply can bake those paths into the feature branch history. For that situation, prefer **[`saifac run export`](../../commands/run-export.md)** and apply the unified diff with **`git apply`** (or review via staged apply) so you control what gets committed. Distributed / CI runs should stay on the default (committed-only) contract.
+**Edge case — dirty working tree:** **`--include-dirty`** on **`feat run`** (or **`defaults.includeDirty`** in config) switches the sandbox copy to an **rsync** of the working tree (committed + staged + unstaged + untracked, still respecting `.gitignore`). That is intentionally **opt-in**: local reminders, WIP files, and parallel edits are easier to model, but host apply can bake those paths into the feature branch history. For that situation, prefer **[`saifctl run export`](../../commands/run-export.md)** and apply the unified diff with **`git apply`** (or review via staged apply) so you control what gets committed. Distributed / CI runs should stay on the default (committed-only) contract.
 
 ---
 
@@ -51,7 +51,7 @@ The host repository's working directory is **never** modified during the loop. A
   host-base.patch     ← Empty when sandbox matches HEAD; else delta for host apply (see below)
   code/               ← Default: tree at HEAD via git archive; optional: rsync working tree
     .git/             ← Fresh git repo (git init), NOT a clone of the host
-    saifac/features/
+    saifctl/features/
       (all hidden/ dirs removed — agent cannot see holdout tests from any feature)
       {featureName}/tests/tests.json  ← Public-only tests
     ...rest of repo...
@@ -79,7 +79,7 @@ The host repository's working directory is **never** modified during the loop. A
 
    The sandbox still has **no** Git history from the host after this step.
 
-3. **Remove all `hidden/` dirs** under `saifac/features/` from the code copy. This strips holdout tests from _every_ feature (not just the current one), so the agent cannot read or infer them. The Test Runner later mounts the real `hidden/` dirs from the host when verifying the patch.
+3. **Remove all `hidden/` dirs** under `saifctl/features/` from the code copy. This strips holdout tests from _every_ feature (not just the current one), so the agent cannot read or infer them. The Test Runner later mounts the real `hidden/` dirs from the host when verifying the patch.
 
 4. **Fresh Git repo inside `code/`:**
 
@@ -89,7 +89,7 @@ The host repository's working directory is **never** modified during the loop. A
    git commit -m "Base state"
    ```
 
-   Uses fixed author/committer (`saifac`, `saifac@safeaifactory.com`) for reproducibility. Untracked files from an rsync copy become **tracked** in this commit; that is why the dirty-workflow and **`run apply`** interact awkwardly unless you use **`run export`**.
+   Uses fixed author/committer (`saifctl`, `saifctl@safeaifactory.com`) for reproducibility. Untracked files from an rsync copy become **tracked** in this commit; that is why the dirty-workflow and **`run apply`** interact awkwardly unless you use **`run export`**.
 
 5. **Why a fresh repo?** The sandbox is a _snapshot_ used for diffing. The agent (OpenHands) writes files; we need a clean baseline to compute per-round diffs. Cloning the host repo would bring along its history and remotes—unnecessary and potentially confusing when we later apply the patch to a different branch.
 
@@ -101,7 +101,7 @@ The host repository's working directory is **never** modified during the loop. A
 
 **Location:** `src/orchestrator/sandbox.ts` → `extractIncrementalRoundPatch()`
 
-After each agent round, the orchestrator walks the **first-parent** chain from `preRoundHeadSha` to `HEAD` and emits **one `RunCommit` per commit** (message and author from that commit; diff `parent..commit`, with exclude rules applied). Any **leftover staged** work (including “only uncommitted” rounds) gets **one** extra commit with `saifac: coding attempt <n>` and a matching `RunCommit` record.
+After each agent round, the orchestrator walks the **first-parent** chain from `preRoundHeadSha` to `HEAD` and emits **one `RunCommit` per commit** (message and author from that commit; diff `parent..commit`, with exclude rules applied). Any **leftover staged** work (including “only uncommitted” rounds) gets **one** extra commit with `saifctl: coding attempt <n>` and a matching `RunCommit` record.
 
 ### Sequence
 
@@ -109,7 +109,7 @@ After each agent round, the orchestrator walks the **first-parent** chain from `
 
 2. **Per commit:** `git diff parent..sha`, `%B` / `%an <%ae>` for message and author, then **filter** excluded paths (see [§4](#4-patch-exclude-rules-reward-hacking-prevention)). Empty diffs after filtering are skipped.
 
-3. **`git add`**, unstage `.saifac/`. If the index is non-empty, **commit** with the round default message/author, then append the WIP step (`git diff` from tip-before-WIP to `HEAD`). If the filtered WIP diff is empty, the capture commit is undone with `git reset --soft HEAD~1` so excluded-only staging does not advance `HEAD` without a recorded step.
+3. **`git add`**, unstage `.saifctl/`. If the index is non-empty, **commit** with the round default message/author, then append the WIP step (`git diff` from tip-before-WIP to `HEAD`). If the filtered WIP diff is empty, the capture commit is undone with `git reset --soft HEAD~1` so excluded-only staging does not advance `HEAD` without a recorded step.
 
 4. **Write** combined **`patch.diff`** beside `code/` and append all new round commits to **`run-commits.json`** (callers merge into the accumulator).
 
@@ -127,7 +127,7 @@ The agent must not be able to "cheat" by modifying tests or specs to fake a pass
 
 | Pattern         | Purpose                                                                          |
 | --------------- | -------------------------------------------------------------------------------- |
-| `saifac/**`     | The agent must not modify its own test specifications or test cases.             |
+| `saifctl/**`     | The agent must not modify its own test specifications or test cases.             |
 | `.git/hooks/**` | A malicious patch could install a git hook that runs arbitrary code on the host. |
 
 ### How filtering works
@@ -160,11 +160,11 @@ git clean -fd
 
 ## 6. Patch application for tests
 
-**`saifac feat run` / `run start` (inner loop):** **Location:** `loop.ts` — after `extractIncrementalRoundPatch`, `code/` is already at the round commit; staging mounts that tree. There is **no** `git apply` of `patch.diff` for verification in this path.
+**`saifctl feat run` / `run start` (inner loop):** **Location:** `loop.ts` — after `extractIncrementalRoundPatch`, `code/` is already at the round commit; staging mounts that tree. There is **no** `git apply` of `patch.diff` for verification in this path.
 
-**`saifac run test`:** **Location:** `modes.ts` → `fromArtifactCore({ testOnly: true })` → `runStartCore` → `loop.ts` → `runIterativeLoop` with **`OrchestratorOpts.testOnly`**. Worktree and sandbox setup match **`run start`**: `worktree.ts` → `createArtifactRunWorktree()`, then `sandbox.ts` → `createSandbox()` with the artifact worktree as **`sandboxSourceDir`**, **base snapshot** as **`codeSourceDir`**, and **`seedRunCommits`** replayed into `code/`.
+**`saifctl run test`:** **Location:** `modes.ts` → `fromArtifactCore({ testOnly: true })` → `runStartCore` → `loop.ts` → `runIterativeLoop` with **`OrchestratorOpts.testOnly`**. Worktree and sandbox setup match **`run start`**: `worktree.ts` → `createArtifactRunWorktree()`, then `sandbox.ts` → `createSandbox()` with the artifact worktree as **`sandboxSourceDir`**, **base snapshot** as **`codeSourceDir`**, and **`seedRunCommits`** replayed into `code/`.
 
-The stored `basePatchDiff` (tracked/staged vs `HEAD` **plus untracked files**) is applied in the **temporary resume worktree**, then **`saifac: base patch`** is committed, then each stored **`RunCommit`** is applied and committed in order (**same reconstruction as `run start`**). The sandbox is built by **rsync** from a **base snapshot** (before run commits) plus **replay** of `runCommits` inside `code/` — not via `git clone --local`. There is **no** second code path such as a separate `runTestsCore`: the orchestrator writes **`run-commits.json`** in the sandbox from the stored commits, runs **`runStagingTestVerification`** (staging + test retries + optional vague-specs handling), and persists outcomes through the same **`cleanupAndSaveRun`** path as **`run start`**.
+The stored `basePatchDiff` (tracked/staged vs `HEAD` **plus untracked files**) is applied in the **temporary resume worktree**, then **`saifctl: base patch`** is committed, then each stored **`RunCommit`** is applied and committed in order (**same reconstruction as `run start`**). The sandbox is built by **rsync** from a **base snapshot** (before run commits) plus **replay** of `runCommits` inside `code/` — not via `git clone --local`. There is **no** second code path such as a separate `runTestsCore`: the orchestrator writes **`run-commits.json`** in the sandbox from the stored commits, runs **`runStagingTestVerification`** (staging + test retries + optional vague-specs handling), and persists outcomes through the same **`cleanupAndSaveRun`** path as **`run start`**.
 
 **Host apply:** **`applyPatchToHost`** is called with **`projectDir`** set to the **CLI project directory** (the user’s repo root), **not** the ephemeral resume worktree. The caller passes **`commits`** in memory (the same `RunCommit[]` as written to **`run-commits.json`** in the sandbox) so the apply step does not re-read JSON from disk inside `applyPatchToHost`. `git worktree add` uses **`startCommit`** = the run’s **`baseCommitSha`** when available so the new branch roots at the same commit the sandbox was based on, not necessarily the user’s current `HEAD`. Using the resume worktree as `projectDir` here would replay commits onto a tree that already contains them and can produce errors such as *already exists in working directory* (see [§8](#8-success-path-apply-patch-to-host-via-worktree)).
 
@@ -174,7 +174,7 @@ The stored `basePatchDiff` (tracked/staged vs `HEAD` **plus untracked files**) i
 
 **Location:** `modes.ts` → `runStartCore` → `runIterativeLoop()` (`loop.ts`)
 
-In **saifac feat run** and **saifac run start**, the flow is:
+In **saifctl feat run** and **saifctl run start**, the flow is:
 
 1. Remember `preRoundHeadSha` (current `HEAD` in `code/` before the agent runs).
 2. OpenHands runs and modifies files in the sandbox.
@@ -182,7 +182,7 @@ In **saifac feat run** and **saifac run start**, the flow is:
 4. The Staging container uses the **`code/`** tree **as committed** — no separate `git apply` phase before tests.
 5. If tests fail, that attempt’s run commits are dropped from the artifact, `code/` is reset to `preRoundHeadSha`, feedback is sent to OpenHands, and the loop repeats.
 
-**`saifac run test`** enters the same `runIterativeLoop` with **`testOnly`**: steps 1–2 and 5 are skipped (no agent, no reset-and-retry outer loop). The sandbox already reflects replayed **`runCommits`**; the loop writes **`run-commits.json`**, runs **`runStagingTestVerification`** once, then success/failure handling matches the normal path (including **`applyPatchToHost`** when tests pass). **Hatchet:** `feat-run` → `convergence-loop` branches the same way when **`testOnly`** is set on serialized opts.
+**`saifctl run test`** enters the same `runIterativeLoop` with **`testOnly`**: steps 1–2 and 5 are skipped (no agent, no reset-and-retry outer loop). The sandbox already reflects replayed **`runCommits`**; the loop writes **`run-commits.json`**, runs **`runStagingTestVerification`** once, then success/failure handling matches the normal path (including **`applyPatchToHost`** when tests pass). **Hatchet:** `feat-run` → `convergence-loop` branches the same way when **`testOnly`** is set on serialized opts.
 
 ---
 
@@ -195,7 +195,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
 ### Design goals
 
 - **Never touch the main working tree.** The user may have multiple agents running; each must be able to create its own branch without conflicting.
-- **Branch visibility.** The default branch name ends with a **short hash of the combined patch** so retries and parallel runs are less likely to collide: `saifac/<featureName>-<runId>-<diffHash>` where `<diffHash>` is the first **6** hex digits of SHA-256 over the concatenated `RunCommit` diffs. Override with **`--branch`** on `feat run`, `run start`, `run test`, or **`saifac run apply`**.
+- **Branch visibility.** The default branch name ends with a **short hash of the combined patch** so retries and parallel runs are less likely to collide: `saifctl/<featureName>-<runId>-<diffHash>` where `<diffHash>` is the first **6** hex digits of SHA-256 over the concatenated `RunCommit` diffs. Override with **`--branch`** on `feat run`, `run start`, `run test`, or **`saifctl run apply`**.
 - **Optional push and PR.** The user can supply `--push` and `--pr` to push the branch and open a Pull Request (provider-specific API).
 
 ### Flow
@@ -207,7 +207,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
 3. **Create a worktree** at `{sandboxBasePath}/worktree` on a new branch, starting at **`baseCommitSha`** when the run captured it:
 
    ```bash
-   git worktree add -b "saifac/${featureName}-${runId}-${diffHash}" "${sandboxBasePath}/worktree" "${baseCommitSha}"
+   git worktree add -b "saifctl/${featureName}-${runId}-${diffHash}" "${sandboxBasePath}/worktree" "${baseCommitSha}"
    ```
 
    - When `baseCommitSha` is missing or invalid, the implementation may fall back to `HEAD`-anchored behavior; normal runs always persist `baseCommitSha` on the artifact.
@@ -239,7 +239,7 @@ The sandbox and the worktree are populated from different sources. This asymmetr
 | **Sandbox `code/`** | Default: `git archive HEAD` into `code/`; optional `rsync` | Default: **committed** tree at `HEAD` only. With **`--include-dirty`** (or `defaults.includeDirty` in config): same as before — full working tree (committed + uncommitted + untracked, respecting `.gitignore`). Resume with a **base snapshot** always uses **rsync** from that snapshot. |
 | **Worktree**        | `git worktree add` at **`baseCommitSha`** when set (else `HEAD`) | Only **COMMITTED** files at that commit until **`host-base.patch`** |
 
-- **Sandbox:** By default `createSandbox()` runs `git archive HEAD` (via `sh` + `tar`) so the agent sees only committed files; `host-base.patch` is empty. With **`--include-dirty`**, it **rsync**s the working tree (`-a --filter=:- .gitignore --exclude=.git`) so uncommitted and untracked paths are visible; `host-base.patch` captures the delta for host apply. To land those runs without merging a branch that bakes in untracked files, use **`saifac run export`** and `git apply`. See [run-export.md](../../commands/run-export.md).
+- **Sandbox:** By default `createSandbox()` runs `git archive HEAD` (via `sh` + `tar`) so the agent sees only committed files; `host-base.patch` is empty. With **`--include-dirty`**, it **rsync**s the working tree (`-a --filter=:- .gitignore --exclude=.git`) so uncommitted and untracked paths are visible; `host-base.patch` captures the delta for host apply. To land those runs without merging a branch that bakes in untracked files, use **`saifctl run export`** and `git apply`. See [run-export.md](../../commands/run-export.md).
 
 - **Worktree:** For host apply, `git worktree add` creates the branch at **`baseCommitSha`** when set (stored run start), so the tree matches the sandbox’s git baseline even if the user has moved `HEAD` since. Untracked and uncommitted files from the main working tree are not present until **`host-base.patch`** is applied.
 
@@ -249,10 +249,10 @@ The sandbox and the worktree are populated from different sources. This asymmetr
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `--push <target>` | Push the feature branch after success. Accepts a Git URL, provider slug (`owner/repo`), or remote name.                              |
 | `--pr`            | Create a Pull Request after pushing. Requires `--push` and the provider token env var.                                               |
-| `--branch`        | Override the local branch name for host apply (default: `saifac/<feature>-<runId>-<diffHash>`). Persisted in the run artifact when saved. |
+| `--branch`        | Override the local branch name for host apply (default: `saifctl/<feature>-<runId>-<diffHash>`). Persisted in the run artifact when saved. |
 | `--git-provider`  | Git hosting provider: `github` (default), `gitlab`, `bitbucket`, `azure`, `gitea`. See [swf-git-provider.md](./swf-git-provider.md). |
 
-### `saifac run apply`
+### `saifctl run apply`
 
 When tests have already passed (or you accept the stored patch) but host apply failed or you deferred push/PR, **[`run apply`](../../commands/run-apply.md)** rebuilds the branch via **`createArtifactRunWorktree()`** under the same **`/tmp/worktrees/`** path as `run start`, using **`outputBranchName`** = the final host branch, then drops only the worktree registration so the branch remains. No sandbox tests or agent loop.
 
@@ -307,12 +307,12 @@ Patches that modify `.git/hooks/` are **rejected** before application. A malicio
 ### Parallel-run safety
 
 - **Worktree:** The main working tree is never checked out to a different branch. Multiple agents can run simultaneously; each creates its own worktree and branch.
-- **Branch naming:** `saifac/<featureName>-<runId>-<diffHash>` (first **6** hex chars of the run-commit diff hash) avoids collisions when the same run id is reused or parallel runs overlap; **`--branch`** overrides when you need a fixed name.
+- **Branch naming:** `saifctl/<featureName>-<runId>-<diffHash>` (first **6** hex chars of the run-commit diff hash) avoids collisions when the same run id is reused or parallel runs overlap; **`--branch`** overrides when you need a fixed name.
 - **Sandbox isolation:** Each run has its own sandbox directory. Canonical run commits live in `sandboxBasePath/run-commits.json` (and a combined `patch.diff` may be written for summarization), not in a shared location.
 
 ### Patch exclude rules
 
-By stripping `saifac/**` and `.git/hooks/**` from every patch, we prevent:
+By stripping `saifctl/**` and `.git/hooks/**` from every patch, we prevent:
 
 - **Reward hacking:** The agent cannot modify tests to force a pass.
 - **Hook injection:** The agent cannot install git hooks on the host.

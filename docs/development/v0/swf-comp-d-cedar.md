@@ -168,4 +168,4 @@ permit (
 };
 ```
 
-**Note:** The shipped `default.cedar` uses read-only opens on `Dir::"/"`, `FileOpenReadWrite` on `Dir::"/workspace/"` and `Dir::"/tmp/"`, and `forbid`s `FileOpenReadWrite` under `saifac/` and `.git/`. Start from that file when you want parity with `saifac feat run` defaults.
+**Note:** The shipped `default.cedar` uses read-only opens on `Dir::"/"`, `FileOpenReadWrite` on `Dir::"/workspace/"` and `Dir::"/tmp/"`, and `forbid`s `FileOpenReadWrite` under `saifctl/` and `.git/`. Start from that file when you want parity with `saifctl feat run` defaults.

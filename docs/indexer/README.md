@@ -25,7 +25,7 @@ The indexer improves the quality of the specs, which in turn improves the qualit
 Use `--indexer <id>`:
 
 ```bash
-saifac init --indexer shotgun
+saifctl init --indexer shotgun
 ```
 
 | ID                        | Name                | Project URL                                   |
@@ -38,14 +38,14 @@ saifac init --indexer shotgun
 
 The indexer appears in two places in the workflow.
 
-### 1. Build the index — `saifac init`
+### 1. Build the index — `saifctl init`
 
 At the beginning, when the codebase is indexed:
 
 ```bash
-saifac init
+saifctl init
 # or explicitly:
-saifac init --indexer shotgun
+saifctl init --indexer shotgun
 ```
 
 This parses your repository and builds a semantic graph the agents can query.
@@ -55,9 +55,9 @@ This parses your repository and builds a semantic graph the agents can query.
 The indexer is used automatically when you run `feat design`:
 
 ```bash
-saifac feat design
+saifctl feat design
 # or explicitly:
-saifac feat design --indexer shotgun
+saifctl feat design --indexer shotgun
 ```
 
 The Architect and tests-writing agents query the index as they write specs and tests, grounding every decision in your actual codebase.
@@ -67,7 +67,7 @@ The Architect and tests-writing agents query the index as they write specs and t
 Pass `--indexer none` to skip the indexer entirely — useful for quick runs or when the index hasn't been built yet:
 
 ```bash
-saifac feat design --indexer none
+saifctl feat design --indexer none
 ```
 
 ---
@@ -76,13 +76,13 @@ saifac feat design --indexer none
 
 Indexers use the project name the database ID!
 
-The ID ties the index built during `saifac init` to the index queried during `saifac feat design`.
+The ID ties the index built during `saifctl init` to the index queried during `saifctl feat design`.
 
 Make sure to use the same project name when building and querying the index:
 
 ```bash
-saifac init
-saifac feat design
+saifctl init
+saifctl feat design
 ```
 
 Project name defaults to the `name` field in your `package.json`.
@@ -90,8 +90,8 @@ Project name defaults to the `name` field in your `package.json`.
 Override project name with `-p / --project` when you have multiple indexed codebases or no `package.json`:
 
 ```bash
-saifac init --project my-app
-saifac feat design --project my-app
+saifctl init --project my-app
+saifctl feat design --project my-app
 ```
 
 ---

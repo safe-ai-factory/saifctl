@@ -1,8 +1,8 @@
 #!/bin/bash
-# Qwen Code agent script — runs Qwen with the task read from $SAIFAC_TASK_PATH.
+# Qwen Code agent script — runs Qwen with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the qwen agent profile. Selected via --agent qwen.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference: https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/
 #
@@ -41,15 +41,15 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$LLM_BASE_URL}"
 fi
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/qwen] About to run: qwen --prompt \"${_SAIFAC_TASK_SNIP}\" --model \"${LLM_MODEL}\" --yolo --output-format stream-json"
+echo "[agent/qwen] About to run: qwen --prompt \"${_SAIFCTL_TASK_SNIP}\" --model \"${LLM_MODEL}\" --yolo --output-format stream-json"
 
 _agent_exit=0
 qwen \
-  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
+  --prompt "$(cat "$SAIFCTL_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json || _agent_exit=$?

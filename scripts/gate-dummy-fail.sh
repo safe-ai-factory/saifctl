@@ -5,7 +5,7 @@
 # so you should see these lines in logs and in the retry prompt.
 #
 # Usage (from your project root, path relative to --project-dir):
-#   saifac feat run -n <feature> --gate-script ./scripts/gate-dummy-fail.sh
+#   saifctl feat run -n <feature> --gate-script ./scripts/gate-dummy-fail.sh
 #
 # Tip: pair with --gate-retries 1 and --no-reviewer for a fast, deterministic failure loop.
 set -u

@@ -18,7 +18,7 @@ sequenceDiagram
   participant Stats as stats.ts
   participant Eng as Coding engine
   participant Coder as coder-start.sh
-  participant FS as Sandbox code/.saifac/
+  participant FS as Sandbox code/.saifctl/
 
   Host->>Stats: prepareRoundsStatsFile(sandboxBasePath)
   Stats->>FS: Truncate stats.jsonl (ensure dirs)
@@ -38,12 +38,12 @@ sequenceDiagram
 
 | Layer | Path |
 | --- | --- |
-| Host (orchestrator) | `{sandboxBasePath}/code/.saifac/stats.jsonl` — see `roundsStatsPath()` in `src/orchestrator/stats.ts` |
-| Container | `/workspace/.saifac/stats.jsonl` (workspace is bind-mounted from `code/`) |
+| Host (orchestrator) | `{sandboxBasePath}/code/.saifctl/stats.jsonl` — see `roundsStatsPath()` in `src/orchestrator/stats.ts` |
+| Container | `/workspace/.saifctl/stats.jsonl` (workspace is bind-mounted from `code/`) |
 
-`coder-start.sh` defaults `SAIFAC_ROUNDS_STATS_PATH` to `$(dirname "$SAIFAC_TASK_PATH")/stats.jsonl`. The engine sets `SAIFAC_TASK_PATH` to `{codePath}/.saifac/task.md`, so the default stats path aligns with the host helper **as long as** `SAIFAC_ROUNDS_STATS_PATH` is not overridden to something inconsistent.
+`coder-start.sh` defaults `SAIFCTL_ROUNDS_STATS_PATH` to `$(dirname "$SAIFCTL_TASK_PATH")/stats.jsonl`. The engine sets `SAIFCTL_TASK_PATH` to `{codePath}/.saifctl/task.md`, so the default stats path aligns with the host helper **as long as** `SAIFCTL_ROUNDS_STATS_PATH` is not overridden to something inconsistent.
 
-If you override `SAIFAC_ROUNDS_STATS_PATH` in `agent-env`, you must keep the file on a path the host still reads (under the mounted workspace) or you will lose stats on the host side.
+If you override `SAIFCTL_ROUNDS_STATS_PATH` in `agent-env`, you must keep the file on a path the host still reads (under the mounted workspace) or you will lose stats on the host side.
 
 ## JSONL record shape
 

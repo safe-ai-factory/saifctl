@@ -4,30 +4,30 @@
 # Part of the debug agent profile. Selected via --agent debug.
 # No LLM: use for fast e2e / pipeline debugging (startup, gate, tests).
 #
-# Writes to SAIFAC_WORKSPACE_BASE (default /workspace). Content matches the
-# public structure checks for saifac/features/dummy (H1, Purpose, Structure, Next Steps).
+# Writes to SAIFCTL_WORKSPACE_BASE (default /workspace). Content matches the
+# public structure checks for saifctl/features/dummy (H1, Purpose, Structure, Next Steps).
 
 set -euo pipefail
 
 echo "[agent/debug] Starting agent debug in agent.sh..."
 
 # HTTP probe exercises Leash NetworkConnect when you tighten Cedar policy.
-# Override URL: SAIFAC_NETWORK_PROBE_URL. Skip entirely: SAIFAC_SKIP_NETWORK_PROBE=1 (e.g. unit tests).
-if [[ -z "${SAIFAC_SKIP_NETWORK_PROBE:-}" ]]; then
+# Override URL: SAIFCTL_NETWORK_PROBE_URL. Skip entirely: SAIFCTL_SKIP_NETWORK_PROBE=1 (e.g. unit tests).
+if [[ -z "${SAIFCTL_SKIP_NETWORK_PROBE:-}" ]]; then
   command -v curl >/dev/null 2>&1 || {
-    echo '[agent/debug] curl is required for the network probe (or set SAIFAC_SKIP_NETWORK_PROBE=1)' >&2
+    echo '[agent/debug] curl is required for the network probe (or set SAIFCTL_SKIP_NETWORK_PROBE=1)' >&2
     exit 1
   }
-  _probe_url="${SAIFAC_NETWORK_PROBE_URL:-https://example.com}"
+  _probe_url="${SAIFCTL_NETWORK_PROBE_URL:-https://example.com}"
   echo "[agent/debug] Network probe: GET ${_probe_url}"
   curl -fsS --max-time 15 -o /dev/null "$_probe_url"
   echo '[agent/debug] Network probe OK'
 fi
 
-_WORKSPACE="${SAIFAC_WORKSPACE_BASE:-/workspace}"
+_WORKSPACE="${SAIFCTL_WORKSPACE_BASE:-/workspace}"
 _dummy_path="$_WORKSPACE/dummy.md"
 
-echo "[agent/debug] Writing placeholder dummy.md at ${_dummy_path} (task file: ${SAIFAC_TASK_PATH:-<unset>})"
+echo "[agent/debug] Writing placeholder dummy.md at ${_dummy_path} (task file: ${SAIFCTL_TASK_PATH:-<unset>})"
 
 cat > "$_dummy_path" <<'EOF'
 # Dummy

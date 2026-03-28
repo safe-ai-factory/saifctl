@@ -1,8 +1,8 @@
-# Distributed Architecture Plan: SAIFAC Control Plane
+# Distributed Architecture Plan: SaifCTL Control Plane
 
 ## Overview
 
-This document describes the plan for evolving SAIFAC from a single-machine CLI tool into a
+This document describes the plan for evolving SaifCTL from a single-machine CLI tool into a
 **distributed, multi-tenant control plane** — a centralized server that manages agent runs across
 many machines, teams, or cloud environments, with a dashboard for monitoring, logs, and control.
 
@@ -19,7 +19,7 @@ an entire organization's AI engineering operations.
 3. **Dynamic worker provisioning** — Workers are spun up on demand and torn down when idle, so users
    pay only for what they use.
 4. **Multi-user, multi-project support** — Teams, cost quotas, RBAC.
-5. **Webhook triggers** — GitHub issues/comments, Jira, Slack → trigger runs without `saifac` CLI.
+5. **Webhook triggers** — GitHub issues/comments, Jira, Slack → trigger runs without `saifctl` CLI.
 
 ---
 
@@ -29,8 +29,8 @@ We use **[Hatchet](https://hatchet.run)** as the workflow/task queue backbone. H
 open-source, self-hostable durable-execution engine with:
 
 - A built-in dashboard (runs, steps, logs, retries, replay).
-- TypeScript SDK — matches the existing SAIFAC codebase.
-- Fan-out / step DAGs — maps naturally to the SAIFAC orchestrator loop (coding → gate → reviewer →
+- TypeScript SDK — matches the existing SaifCTL codebase.
+- Fan-out / step DAGs — maps naturally to the SaifCTL orchestrator loop (coding → gate → reviewer →
   test → merge).
 - Worker-side pull model — workers long-poll for tasks; they do NOT need a publicly reachable port,
   only outbound access to the Hatchet server.
@@ -44,7 +44,7 @@ Hatchet uses a **pull model**: workers connect to the Hatchet server and ask for
 - Workers do **not** need to run continuously. You can spin one up only when a task is queued.
 - Workers can be provisioned dynamically (e.g. a GitHub Actions job, an ECS task, a Fly.io Machine
   started by a webhook) and torn down when idle.
-- A `saifac worker start` command connects the local machine as a worker — useful for individual
+- A `saifctl worker start` command connects the local machine as a worker — useful for individual
   developers who want to run agents locally without a persistent server.
 
 ---
@@ -53,7 +53,7 @@ Hatchet uses a **pull model**: workers connect to the Hatchet server and ask for
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    SAIFAC Control Plane                     │
+│                    SaifCTL Control Plane                     │
 │                                                             │
 │  ┌─────────-────┐   ┌───────────────┐   ┌────────────────┐  │
 │  │  API Server  │   │   Hatchet     │   │   Dashboard    │  │
@@ -70,7 +70,7 @@ Hatchet uses a **pull model**: workers connect to the Hatchet server and ask for
           │         ┌─────────▼──────────┐
           │         │  Worker Node(s)    │
           │         │                    │
-          │         │  saifac worker     │
+          │         │  saifctl worker     │
           │         │  - pulls tasks     │
           │         │  - spins Docker    │
           │         │  - runs Leash      │
@@ -234,7 +234,7 @@ interface LogLine {
 
 ## Hatchet Workflow Definition
 
-The SAIFAC orchestrator loop becomes a **Hatchet workflow** where each phase is a durable step.
+The SaifCTL orchestrator loop becomes a **Hatchet workflow** where each phase is a durable step.
 
 ### What is (and isn't) a Hatchet step
 
@@ -374,7 +374,7 @@ A worker is a long-running process that:
 
 ```bash
 # Start a worker on any machine that has Docker
-saifac worker start --server https://saifac.mycompany.com --token $WORKER_TOKEN
+saifctl worker start --server https://saifctl.mycompany.com --token $WORKER_TOKEN
 ```
 
 ### Dynamic provisioning (no always-on workers required)
@@ -390,7 +390,7 @@ GitHub webhook → API Server → enqueue Hatchet task
                                      ↓
                Lambda/Cloud Function: launch spot VM with cloud-init
                                      ↓
-               VM boots → `saifac worker start --ephemeral` → picks up task
+               VM boots → `saifctl worker start --ephemeral` → picks up task
                                      ↓
                Task done → worker exits → VM terminates (cost: ~zero idle)
 ```
@@ -398,17 +398,17 @@ GitHub webhook → API Server → enqueue Hatchet task
 **Pattern B: GitHub Actions (cheapest to start)**
 
 ```yaml
-# .github/workflows/saifac-worker.yml
+# .github/workflows/saifctl-worker.yml
 on:
   repository_dispatch:
-    types: [saifac-run-queued]
+    types: [saifctl-run-queued]
 
 jobs:
   worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npx saifac worker start --ephemeral --server ${{ vars.SAIFAC_SERVER }}
+      - run: npx saifctl worker start --ephemeral --server ${{ vars.SAIFCTL_SERVER }}
         env:
           WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}
 ```
@@ -448,7 +448,7 @@ POST   /webhooks/gitlab                 # GitLab events
 
 ## Dashboard Features
 
-The Hatchet-managed UI covers the basics (run list, step graph, logs) out of the box. SAIFAC adds
+The Hatchet-managed UI covers the basics (run list, step graph, logs) out of the box. SaifCTL adds
 a thin layer on top:
 
 | Panel           | What it shows                                                                            |
@@ -486,12 +486,12 @@ When running in distributed mode the recommended setup is:
 ### Phase 1 — Local Hatchet (single machine, optional local server)
 
 Refactor `src/orchestrator/loop.ts` into a Hatchet workflow. UX is identical to today —
-`saifac feat run` works the same — but the loop is now durable, retryable, and visible in the
+`saifctl feat run` works the same — but the loop is now durable, retryable, and visible in the
 Hatchet dashboard when a server is running.
 
 > **Infra note:** Hatchet has no embedded/SQLite mode. It always requires a running server
 > (Postgres + engine). For singleplayer use, `hatchet server start` spins up a Docker-based
-> local server (Hatchet Lite). This is optional — `saifac feat run` falls back to the existing
+> local server (Hatchet Lite). This is optional — `saifctl feat run` falls back to the existing
 > in-process loop when no `HATCHET_CLIENT_TOKEN` is configured (see step 1.1 below).
 
 **Deliverables:**
@@ -568,14 +568,14 @@ const FeatRunInput = z.object({
 
 #### Step 1.4 — Dual-path dispatch in `modes.ts`
 
-In `runStartCore()` (the entry point called by `saifac feat run`):
+In `runStartCore()` (the entry point called by `saifctl feat run`):
 
 ```typescript
 const hatchet = getHatchetClient();
 
 if (hatchet) {
   // Hatchet path: register worker + dispatch workflow; wait for result
-  const worker = await hatchet.worker('saifac-worker', { workflows: [featRunWorkflow] });
+  const worker = await hatchet.worker('saifctl-worker', { workflows: [featRunWorkflow] });
   await worker.start();
   const run = await hatchet.admin.runWorkflow('feat-run', input);
   result = await run.result();
@@ -585,7 +585,7 @@ if (hatchet) {
 }
 ```
 
-`saifac feat run` without `HATCHET_CLIENT_TOKEN` is 100% identical to today.
+`saifctl feat run` without `HATCHET_CLIENT_TOKEN` is 100% identical to today.
 
 ---
 
@@ -634,13 +634,13 @@ In the Hatchet path:
 
 - The `run-agent` child step returns **`commits`**: an array of `RunCommit` objects (one per sandbox commit on the first-parent chain for that attempt, plus an optional WIP `RunCommit`), plus combined `patchContent` for the test phase. On failure or abort, the parent pops **`agentOut.commits.length`** entries from `runCommitsAccum` (same as local `loop.ts` with `roundCommitCount`).
 - The parent `convergence-loop` step updates `run-commits.json` after each attempt and, on failure paths, builds/saves a `RunArtifact` via `runStorage.saveRun()` (see `feat-run.workflow.ts`).
-- Same `RunArtifact` schema as today — `saifac run start` continues to work unchanged.
+- Same `RunArtifact` schema as today — `saifctl run start` continues to work unchanged.
 
 ---
 
-#### Step 1.9 — Local server docs + `saifac doctor` check
+#### Step 1.9 — Local server docs + `saifctl doctor` check
 
-Add a `saifac doctor` (or extend existing) command that checks:
+Add a `saifctl doctor` (or extend existing) command that checks:
 
 - Docker running
 - `HATCHET_CLIENT_TOKEN` set (optional — prints "Hatchet not configured, running in local mode")
@@ -673,15 +673,15 @@ saifac feat run -n my-feature
 1. **Singleplayer vs distributed Hatchet:** These are two separate modes, not a Cloud vs
    self-hosted choice:
    - **Singleplayer (Phase 1):** Embedded local Hatchet instance (sqlite-backed, single binary).
-     No account, no URL, no config. `saifac feat run` works exactly as today — Hatchet is purely
+     No account, no URL, no config. `saifctl feat run` works exactly as today — Hatchet is purely
      an internal implementation detail that adds durability and a local dashboard.
-   - **Distributed (Phase 2+):** SAIFAC becomes a Hatchet client. The user supplies
+   - **Distributed (Phase 2+):** SaifCTL becomes a Hatchet client. The user supplies
      `HATCHET_SERVER_URL` and `HATCHET_CLIENT_TOKEN`. Whether that URL points to Hatchet Cloud,
-     a self-hosted instance, or a company-managed cluster is entirely their responsibility. SAIFAC
+     a self-hosted instance, or a company-managed cluster is entirely their responsibility. SaifCTL
      ships no Hatchet server for this mode.
 
 2. **Dashboard: use Hatchet UI first.** ✓ Resolved. Hatchet's built-in UI covers run list,
-   step graph, and log streaming out of the box. SAIFAC-specific panels (Leash audit trail,
+   step graph, and log streaming out of the box. SaifCTL-specific panels (Leash audit trail,
    Cedar denials, cost per run) are added later as supplementary views alongside the Hatchet UI —
    no need to rebuild what Hatchet already provides.
 
@@ -690,8 +690,8 @@ saifac feat run -n my-feature
    plus, optionally, **Leash-native** file/network audit (Leash runs in a sidecar on the worker, not
    inside Hatchet steps). See item 5 — Leash has **no** built-in audit webhook; wiring those events
    in is integration work (e.g. tail `LEASH_LOG` or mirror the Control UI WebSocket).
-   - **SAIFAC's job:** Emit structured `AuditEvent` JSON (orchestrator + optional Leash-derived) to a
-     configurable `SAIFAC_AUDIT_WEBHOOK_URL`. We own the emission side only.
+   - **SaifCTL's job:** Emit structured `AuditEvent` JSON (orchestrator + optional Leash-derived) to a
+     configurable `SAIFCTL_AUDIT_WEBHOOK_URL`. We own the emission side only.
    - **User's job:** Wire that webhook to whatever backend they already operate — Loki, Datadog,
      Splunk, ClickHouse, or nothing. Off-the-shelf log shippers (Vector, Fluent Bit) can consume
      the webhook and route it without any custom code.
@@ -702,13 +702,13 @@ saifac feat run -n my-feature
    - User generates a `HATCHET_CLIENT_TOKEN` from the Hatchet dashboard (Settings → API Tokens).
    - That token is set as an env var wherever the worker runs (local machine, GitHub Actions secret,
      K8s secret, etc.). The Hatchet SDK uses it to authenticate the persistent gRPC connection.
-   - SAIFAC's only job is to document that `saifac worker start` requires these two env vars:
+   - SaifCTL's only job is to document that `saifctl worker start` requires these two env vars:
      ```
      HATCHET_CLIENT_TOKEN=<from hatchet dashboard>
      HATCHET_SERVER_URL=<their hatchet instance>
      ```
    - Token scoping (per-team, per-project capabilities) is managed inside the Hatchet dashboard,
-     not by SAIFAC.
+     not by SaifCTL.
 
 5. **Leash telemetry forwarding:** ✓ Clarified against **strongdm/leash** source (main branch,
    shallow clone). There is **no** `webhook` string anywhere in the repository — **Leash does not
@@ -723,9 +723,9 @@ saifac feat run -n my-feature
      mounted log volume (`-v ... logDir:/log`).
    - **Product telemetry** uses OpenTelemetry + Statsig (`internal/telemetry/`) — not a
      user-defined audit export.
-     **Implication for SAIFAC:** Forwarding fine-grained Leash events centrally means **we** build one
+     **Implication for SaifCTL:** Forwarding fine-grained Leash events centrally means **we** build one
      of: (a) a small companion that tails `events.log` and maps lines → `AuditEvent` + optional
-     `SAIFAC_AUDIT_WEBHOOK_URL`; (b) an optional WebSocket client that speaks the same `/api` protocol
+     `SAIFCTL_AUDIT_WEBHOOK_URL`; (b) an optional WebSocket client that speaks the same `/api` protocol
      as the SPA (brittle across Leash releases); or (c) an upstream feature request to StrongDM for
      a first-class export hook. Until then, orchestrator-emitted lifecycle events (item 3) are the
      reliable, version-stable path; Leash file/network audit is best-effort / integration-dependent.

@@ -1,13 +1,13 @@
 # CLI internals
 
-How the `saifac` command-line interface is built and how to reason about flags when changing or debugging it.
+How the `saifctl` command-line interface is built and how to reason about flags when changing or debugging it.
 
 ## Stack
 
 - **[citty](https://github.com/unjs/citty)** — `defineCommand`, nested `subCommands`, and `runMain` drive parsing and dispatch.
 - **Node** — citty ultimately uses `node:util` `parseArgs` for option parsing (with `strict: false`), then applies its own conventions on top.
 
-The published binary is `saifac` → `dist/cli.js`, built from `src/cli/index.ts` via **tsup** (`tsup.config.ts` entry `cli`). During development, `package.json` scripts often invoke **`tsx src/cli/commands/<command>.ts`** so a single subcommand tree can be run without going through the root `saifac` binary.
+The published binary is `saifctl` → `dist/cli.js`, built from `src/cli/index.ts` via **tsup** (`tsup.config.ts` entry `cli`). During development, `package.json` scripts often invoke **`tsx src/cli/commands/<command>.ts`** so a single subcommand tree can be run without going through the root `saifctl` binary.
 
 ## Command tree
 
@@ -41,7 +41,7 @@ CLI flags use **kebab-case** (`--project-dir`). Citty’s parsed `args` proxy re
 
 String options are normally parsed as a **single string**. Repeating the same flag (e.g. `--discovery-mcp a=1 --discovery-mcp b=2`) is **not** a supported pattern for accumulating values: the parser typically keeps **one** value per flag (often the **last** occurrence), so earlier values are lost.
 
-For multi-value options, saifac consistently uses **one flag** and **comma-separated** segments, parsed in `src/cli/utils.ts` by **`parseCommaSeparatedOverrides`** and similar helpers:
+For multi-value options, saifctl consistently uses **one flag** and **comma-separated** segments, parsed in `src/cli/utils.ts` by **`parseCommaSeparatedOverrides`** and similar helpers:
 
 ```bash
 --discovery-mcp a=1,b=2
@@ -67,14 +67,14 @@ Required positionals (e.g. `runId`, feature `name`) are declared with `type: 'po
 Command code keeps **citty’s parsed `args`** separate from **final values** (paths, merged config, storage clients):
 
 1. **Read** — thin helpers that return only what the user passed (e.g. `readProjectDirFromCli`, `readSaifDirFromCli`, `readStorageStringFromCli`, `readDiscoveryCliReads`, `readAgentEnvPairSegmentsFromCli`, `readAgentEnvFileRawFromCli`).
-2. **Resolve / merge** — combine those reads with `cwd`, loaded **`SaifacConfig`**, and defaults (`resolveCliProjectDir`, `resolveSaifDirRelative`, `resolveStorageOverrides`, `resolveRunStorage`, `resolveDiscoveryOptions`, `mergeAgentEnvFromReads`).
-3. **Models / base URLs** — the CLI supplies a **delta** only: **`parseModelOverridesCliDelta`** in `src/orchestrator/options.ts`. The full stack is **`mergeModelOverridesLayers(modelOverridesFromSaifacConfig(config), artifact?, cliDelta)`** (config → optional stored-run artifact → CLI).
+2. **Resolve / merge** — combine those reads with `cwd`, loaded **`SaifctlConfig`**, and defaults (`resolveCliProjectDir`, `resolveSaifDirRelative`, `resolveStorageOverrides`, `resolveRunStorage`, `resolveDiscoveryOptions`, `mergeAgentEnvFromReads`).
+3. **Models / base URLs** — the CLI supplies a **delta** only: **`parseModelOverridesCliDelta`** in `src/orchestrator/options.ts`. The full stack is **`mergeModelOverridesLayers(modelOverridesFromSaifctlConfig(config), artifact?, cliDelta)`** (config → optional stored-run artifact → CLI).
 
 Comma-separated flag bodies are still tokenized by **`parseCommaSeparatedOverrides`** in `utils.ts`.
 
 ## Further reading
 
 - `src/cli/utils.ts` — reads, resolves, discovery, agent-env merge, and comma parsing; storage merge is **`resolveStorageOverrides`** (raw string from **`readStorageStringFromCli`**).
-- `src/orchestrator/options.ts` — **`parseModelOverridesCliDelta`**, **`mergeModelOverridesLayers`**, **`modelOverridesFromSaifacConfig`**.
+- `src/orchestrator/options.ts` — **`parseModelOverridesCliDelta`**, **`mergeModelOverridesLayers`**, **`modelOverridesFromSaifctlConfig`**.
 - `src/cli/args.ts` — reusable `defineCommand` arg fragments.
 - Per-command files under `src/cli/commands/*.ts`.

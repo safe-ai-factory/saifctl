@@ -26,7 +26,7 @@ It prepares an **exhaustive** list of test cases, then implements them as execut
 
 The black box testing agent uses a **two-phase** approach validated by recent research: design first, implement second. This enables easier human review and traceability.
 
-### Phase 1: Test Case Design (`saifac feat design <feature>`)
+### Phase 1: Test Case Design (`saifctl feat design <feature>`)
 
 **Cost & duration:** The full planning workflow (Shotgun spec gen + tests design + tests write) costs ~$1 and takes 1–2 min on Sonnet 4.6.
 
@@ -52,10 +52,10 @@ Each test case MUST **trace back** to a specific success criterion or acceptance
 
 A human reviews `tests.json` in their IDE before Phase 2 runs. If it's incomplete, the user can iterate:
 
-1. **Agentic Iteration:** Edit `tests.json` manually in your IDE, or add `--prompt` support to `saifac feat design` to refine the catalog.
+1. **Agentic Iteration:** Edit `tests.json` manually in your IDE, or add `--prompt` support to `saifctl feat design` to refine the catalog.
 2. **Manual/IDE Iteration:** The user can use standard IDE tools (like Cursor's inline chat) to modify the JSON directly.
 
-### Phase 2: Test Implementation (runs automatically after Phase 1 in `saifac feat design`)
+### Phase 2: Test Implementation (runs automatically after Phase 1 in `saifctl feat design`)
 
 **Input:** The Test Catalog (`tests.json`) from Phase 1.
 
@@ -114,7 +114,7 @@ The Test Runner sends HTTP requests to the sidecar running inside the staging co
 
 ### Request Format
 
-`POST` to `http://<test-host>:<sidecarPort><sidecarPath>` (e.g. `http://saifac-stage-abc123:8080/exec`):
+`POST` to `http://<test-host>:<sidecarPort><sidecarPath>` (e.g. `http://saifctl-stage-abc123:8080/exec`):
 
 ```json
 {
@@ -151,8 +151,8 @@ This test sends a request to run `pnpm run greeting` in the staging container an
 ```typescript
 import { describe, it, expect } from 'vitest';
 
-// Orchestrator injects SAIFAC_TARGET_URL (e.g. http://staging:8080/exec for sidecar, http://staging:3000 for web)
-const TARGET_URL = process.env.SAIFAC_TARGET_URL ?? 'http://localhost:8080/exec';
+// Orchestrator injects SAIFCTL_TARGET_URL (e.g. http://staging:8080/exec for sidecar, http://staging:3000 for web)
+const TARGET_URL = process.env.SAIFCTL_TARGET_URL ?? 'http://localhost:8080/exec';
 
 async function execInAgent(cmd: string, args: string[] = [], env: Record<string, string> = {}) {
   const res = await fetch(TARGET_URL, {
@@ -192,7 +192,7 @@ describe('greeting command (via sidecar)', () => {
 });
 ```
 
-The Orchestrator injects `SAIFAC_TARGET_URL` into the Test Runner container (e.g. `http://staging:8080/exec` for the sidecar, or `http://staging:3000` for a web server). Tests read `process.env.SAIFAC_TARGET_URL`. For local development without the Orchestrator, fall back to `http://localhost:8080/exec`.
+The Orchestrator injects `SAIFCTL_TARGET_URL` into the Test Runner container (e.g. `http://staging:8080/exec` for the sidecar, or `http://staging:3000` for a web server). Tests read `process.env.SAIFCTL_TARGET_URL`. For local development without the Orchestrator, fall back to `http://localhost:8080/exec`.
 
 ---
 
@@ -202,7 +202,7 @@ The Phase 1 output is a JSON object compatible with `generateObject` and similar
 
 ### Test Catalog (Root)
 
-`tests.json` defines test cases only. Infrastructure (sidecarPort, sidecarPath, baseUrl, build, additional containers) comes from `saifac/config.ts` `environments.staging`. See [Environments and Infrastructure](../../services.md) for a user guide; [Software Factory Services](./swf-services.md) for the architecture.
+`tests.json` defines test cases only. Infrastructure (sidecarPort, sidecarPath, baseUrl, build, additional containers) comes from `saifctl/config.ts` `environments.staging`. See [Environments and Infrastructure](../../services.md) for a user guide; [Software Factory Services](./swf-services.md) for the architecture.
 
 For a CLI application, `tests.json` looks like this:
 
@@ -215,10 +215,10 @@ For a CLI application, `tests.json` looks like this:
 }
 ```
 
-For a web API with a database, you would configure the infrastructure in `saifac/config.ts`:
+For a web API with a database, you would configure the infrastructure in `saifctl/config.ts`:
 
 ```typescript
-// saifac/config.ts
+// saifctl/config.ts
 export default {
   environments: {
     staging: {
@@ -506,17 +506,17 @@ Before the Coder Agent starts, the black box testing agent runs the generated te
 
 | Step | Command                                                    | Purpose                                                                                     |
 | ---- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --- |
-| 0    | `saifac init`                                              | One-time: OpenSpec + Shotgun config + codebase index                                        |
-| 1    | `saifac feat new`                                          | Create feature, optionally write `proposal.md`                                              |
+| 0    | `saifctl init`                                              | One-time: OpenSpec + Shotgun config + codebase index                                        |
+| 1    | `saifctl feat new`                                          | Create feature, optionally write `proposal.md`                                              |
 | 2    | (Edit `proposal.md` / spec dir as needed)                  | Human refines proposal before design                                                        |
-| 3    | [`saifac feat design`](feat-design.md)                     | Generate specs and tests from a feature's proposal (full design workflow)                   |
-| —    | [`saifac feat design-specs`](feat-design-specs.md)         | Generate specs from a features's proposal only (first step of design).                      |
-| —    | [`saifac feat design-tests`](feat-design-tests.md)         | Generate tests from existing specs (second step of design).                                 |     |
-| 5    | [`saifac feat design-fail2pass`](feat-design-fail2pass.md) | Run tests against main; at least one feature test must fail (third step of design workflow) |
-| 6    | `saifac feat run`                                          | Start an agent to implement the specs. Runs until it passes your tests.                     |
+| 3    | [`saifctl feat design`](feat-design.md)                     | Generate specs and tests from a feature's proposal (full design workflow)                   |
+| —    | [`saifctl feat design-specs`](feat-design-specs.md)         | Generate specs from a features's proposal only (first step of design).                      |
+| —    | [`saifctl feat design-tests`](feat-design-tests.md)         | Generate tests from existing specs (second step of design).                                 |     |
+| 5    | [`saifctl feat design-fail2pass`](feat-design-fail2pass.md) | Run tests against main; at least one feature test must fail (third step of design workflow) |
+| 6    | `saifctl feat run`                                          | Start an agent to implement the specs. Runs until it passes your tests.                     |
 | 7    | (PR merged to main)                                        | Human or automation                                                                         |
-| —    | `saifac cache list`                                        | List sandbox dirs for this project (`--all`: all projects)                                  |
-| —    | `saifac cache clear`                                       | Remove sandbox entries for this project (`--all`: everything)                               |
+| —    | `saifctl cache list`                                        | List sandbox dirs for this project (`--all`: all projects)                                  |
+| —    | `saifctl cache clear`                                       | Remove sandbox entries for this project (`--all`: everything)                               |
 
 ---
 

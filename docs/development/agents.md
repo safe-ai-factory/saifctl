@@ -2,7 +2,7 @@
 
 ## Overview
 
-When you run `saifac feat run`, the factory:
+When you run `saifctl feat run`, the factory:
 
 1. Creates a sandbox (container with a copy of your repo)
 2. Runs a **startup script** once (e.g. `pnpm install`)
@@ -27,7 +27,7 @@ You choose which integration to use via `--agent <id>` or `--agent-script <path/
 
 | Requirement                | Description                                                                                                |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Read task from file        | Task is written to `$SAIFAC_TASK_PATH` before each invocation. Use that path, not CLI args.               |
+| Read task from file        | Task is written to `$SAIFCTL_TASK_PATH` before each invocation. Use that path, not CLI args.               |
 | Work in the workspace      | In Leash mode: `/workspace`. With `--engine local`: current directory (sandbox `code/`). |
 | Exit on completion         | Exit 0 when done, non-zero on failure. The gate runs after the agent exits.                                |
 | Headless / non-interactive | Agent must run without prompts (e.g. `--yes`, `--headless`, `--always-approve`).                           |
@@ -48,9 +48,9 @@ Thus we need to 1) handle logs per-agent, and 2) have ability to transform the a
 
 For example, OpenHands sets a strategy that detects the start and end of its JSON events. JSON events are then turned e.g. into `[think]`, etc, segments, while the rest is logged as-is.
 
-Profiles with **`stdoutStrategy: null`** get line-wise `[agent]`-prefixed output inside the `[SAIFAC:AGENT_*]` window.
+Profiles with **`stdoutStrategy: null`** get line-wise `[agent]`-prefixed output inside the `[SAIFCTL:AGENT_*]` window.
 
-This is not configurable via CLI or `saifac.config`.
+This is not configurable via CLI or `saifctl.config`.
 
 ## Adding agents integrations
 

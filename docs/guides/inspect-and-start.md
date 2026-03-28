@@ -1,6 +1,6 @@
 # Fix agent mistakes: inspect, then run start
 
-Step into the agent's container, edit the code, then run `saifac run start` so the agent continues from your fixes.
+Step into the agent's container, edit the code, then run `saifctl run start` so the agent continues from your fixes.
 
 **You need:** Docker, [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) (VS Code), and a **Run ID**.
 
@@ -12,14 +12,14 @@ Step into the agent's container, edit the code, then run `saifac run start` so t
 
 ## Before you start
 
-- **Run id** — First column of `saifac run list`, or the id printed when a run stops.
+- **Run id** — First column of `saifctl run list`, or the id printed when a run stops.
 - **Same git repo** as the original run; base commit must still exist ([run start notes](../commands/run-start.md#notes)).
 - **Saved runs enabled** — not `runs=none` ([Runs](../runs.md)).
 
-Running `saifac run list` will show you the list of runs:
+Running `saifctl run list` will show you the list of runs:
 
 ```bash
-saifac run list
+saifctl run list
 
 3 run(s):
 
@@ -31,19 +31,19 @@ saifac run list
 Run ID is also included in the output of `feat run` and `run start`:
 
 ```bash
-saifac feat run -n add-login
+saifctl feat run -n add-login
 
 ...
 
 Feature implemented successfully in 1 attempt(s).
 Start again with:
-  saifac run start eed5lz6
+  saifctl run start eed5lz6
 ```
 
 ## 1. Start inspect
 
 ```bash
-saifac run inspect <runId>
+saifctl run inspect <runId>
 ```
 
 Keep this terminal open. Note the **container name** and **workspace path** from the logs.
@@ -102,10 +102,10 @@ Each container has a "Base state" commit. This is the copy of your host repo at 
 ```bash
 git log --oneline
 
-d7472ff (HEAD -> main) saifac: coding attempt 3
-4652af6 saifac: coding attempt 2
+d7472ff (HEAD -> main) saifctl: coding attempt 3
+4652af6 saifctl: coding attempt 2
 71f52d3 fix(Juro): unblock agent
-959ba1e saifac: coding attempt 1
+959ba1e saifctl: coding attempt 1
 ef903a9 Base state
 ```
 
@@ -115,7 +115,7 @@ Explore diffs in the UI:
 
 ## 6. Stop inspect
 
-In the **inspect** terminal: **Ctrl+C**. Saifac saves any changes you made to the run as a new commit.
+In the **inspect** terminal: **Ctrl+C**. Saifctl saves any changes you made to the run as a new commit.
 
 Cleanup message:
 
@@ -132,7 +132,7 @@ Cleanup message:
 Use the same run ID from step 1. See [`run start`](../commands/run-start.md) for more details.
 
 ```bash
-saifac run start <runId>
+saifctl run start <runId>
 ```
 
 The agent's container will now include your changes from step 4.
@@ -140,25 +140,25 @@ The agent's container will now include your changes from step 4.
 Your agent should now successfully implement the feature:
 
 ```bash
-saifac run start eed5lz6 
+saifctl run start eed5lz6 
 
 [orchestrator] MODE: fromArtifact — dummy (run eed5lz6)
 [orchestrator] Preparing workspace from storage...
-Preparing worktree (new branch 'saifac-run-eed5lz6')
+Preparing worktree (new branch 'saifctl-run-eed5lz6')
 HEAD is now at 7b5d1c6 refactor: rename `run inspect` to `run info`
 
 ...
 
 Feature implemented successfully in 1 attempt(s).
 Start again with:
-  saifac run start eed5lz6
+  saifctl run start eed5lz6
 ```
 
 ## If something goes wrong
 
 | Issue | What to do |
 | ----- | ---------- |
-| `.saifac-inspect-stale-<runId>.json` file | Something else updated that run while you were in inspect; your changes landed in that file. Follow the CLI text; details in [run inspect](../commands/run-inspect.md#what-it-does). |
+| `.saifctl-inspect-stale-<runId>.json` file | Something else updated that run while you were in inspect; your changes landed in that file. Follow the CLI text; details in [run inspect](../commands/run-inspect.md#what-it-does). |
 
 ## Recap
 

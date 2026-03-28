@@ -22,8 +22,8 @@ Round complete → exit container
 
 The reviewer runs only for:
 
-- `saifac feat run`
-- `saifac run start`
+- `saifctl feat run`
+- `saifctl run start`
 
 To disable the reviewer, you can, pass `--no-reviewer`.
 
@@ -39,15 +39,15 @@ You can configure the reviewer to use a different model than the main coding age
 
 ```bash
 # Use Sonnet for the coder, and Opus for the reviewer
-saifac feat run --model coder=anthropic/claude-sonnet-4-6,reviewer=anthropic/claude-opus-4-6
+saifctl feat run --model coder=anthropic/claude-sonnet-4-6,reviewer=anthropic/claude-opus-4-6
 
 # Disable the reviewer for this run
-saifac feat run --no-reviewer
+saifctl feat run --no-reviewer
 ```
 
 ### Using config file
 
-To configure this permanently, update `saifac/config.json`:
+To configure this permanently, update `saifctl/config.json`:
 
 ```json
 {
@@ -72,14 +72,14 @@ Argus provides best practices for semantic code review:
 - Reviewer can search the codebase to understand call stacks across files.
 - Reviewer compares the diff against the original task.
 
-The factory downloads the Argus Linux binary for the current architecture on first use and caches it under `/tmp/saifac/bin/`. The binary is mounted into the container alongside a script (`reviewer.sh`). The script writes Argus TOML to **`.saifac/argus.toml`** and runs `argus --config` so the repo root stays free of `.argus.toml`. See `vendor/README.md`.
+The factory downloads the Argus Linux binary for the current architecture on first use and caches it under `/tmp/saifctl/bin/`. The binary is mounted into the container alongside a script (`reviewer.sh`). The script writes Argus TOML to **`.saifctl/argus.toml`** and runs `argus --config` so the repo root stays free of `.argus.toml`. See `vendor/README.md`.
 
 If Argus spots an issue, it prints findings like `- file.ts:42: Missing error handling` which the factory feeds back into the prompt for the next agent iteration.
 
 ## Troubleshooting
 
 - **Argus binary download failed**  
-  SAIF auto-downloads the binary on first use. If the download fails, check `https://github.com/JuroOravec/argus/releases` for the expected tag and assets. Clear `/tmp/saifac/bin/argus-linux-*` (or your `SAIF_REVIEWER_BIN_DIR`) and retry. Use `--no-reviewer` to bypass.
+  SAIF auto-downloads the binary on first use. If the download fails, check `https://github.com/JuroOravec/argus/releases` for the expected tag and assets. Clear `/tmp/saifctl/bin/argus-linux-*` (or your `SAIF_REVIEWER_BIN_DIR`) and retry. Use `--no-reviewer` to bypass.
 - **Reviewer passes but tests fail**  
   The reviewer verifies _intent and logic_ from the git diff. It does not actually execute your code or tests. Tests verification runs in the next stage after the reviewer passes.
 

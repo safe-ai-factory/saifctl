@@ -22,10 +22,10 @@ Use `--profile` to pick a profile. The default is `node-pnpm-python`.
 
 ## Example: Run agent on Python codebase
 
-Run `saifac feat run` to start the AI coding agent. `--profile python-uv` means we'll install dependencies with `uv` at the beginning:
+Run `saifctl feat run` to start the AI coding agent. `--profile python-uv` means we'll install dependencies with `uv` at the beginning:
 
 ```bash
-saifac feat run --profile python-uv
+saifctl feat run --profile python-uv
 ```
 
 ## Available profiles
@@ -72,7 +72,7 @@ Sandbox profiles set defaults for the following four settings. You can override 
 Here is how you can supply custom installation script to a `node-pnpm-python` profile:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --profile node-pnpm-python \
   --startup-script ./my-install.sh
 ```
@@ -80,7 +80,7 @@ saifac feat run \
 If no built-in profile matches your project, omit `--profile` and supply the components directly:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --coder-image my-image:latest \
   --startup-script ./my-install.sh \
   --gate-script ./my-check.sh \

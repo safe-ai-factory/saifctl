@@ -9,14 +9,14 @@
    - How: `--profile <id>` or supply custom Docker images and installation scripts to adapt.
    - See [Sandbox profiles →](./sandbox-profiles.md)
    ```bash
-   saifac feat run --profile python-uv
+   saifctl feat run --profile python-uv
    ```
 2. **Any agentic CLI:**
    - Included: OpenHands (default), Aider, Claude Code, Forge, GitHub Copilot CLI, Terminus, Codex, Gemini, Qwen, OpenCode, KiloCode, mini-SWE-agent, Deep Agents.
    - How: `--agent <id>` or supply a custom agent script.
    - See [Agents →](./agents/README.md)
    ```bash
-   saifac feat run --agent aider
+   saifctl feat run --agent aider
    ```
 3. **Any LLM provider:**
    - Included: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Groq, Cohere, Together, Fireworks, DeepInfra, Cerebras, Hugging Face, Moonshot AI, Alibaba, Vertex, Baseten, Perplexity, Vercel, OpenRouter, and Ollama.
@@ -24,14 +24,14 @@
    - Set single model globally or target individual agents.
    - See [LLM configuration →](./models.md)
    ```bash
-   saifac feat run --model openai/o3
+   saifctl feat run --model openai/o3
    ```
 4. **Connect to any repository**
    - Included: Github, Gitlab, Gitea, Bitbucket, and Azure Repos
    - How: `--git-provider <id>`. To connect, pass your API token as env vars (e.g. `GITHUB_TOKEN`, ...)
    - See [Source control →](./source-control.md)
    ```bash
-   saifac feat run --git-provider github
+   saifctl feat run --git-provider github
    ```
 
 _Missing an integration? [Open an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
@@ -45,7 +45,7 @@ Included: OpenHands (default), Aider, Claude Code, Forge, GitHub Copilot CLI, Te
 Use `--agent <id>` to switch:
 
 ```bash
-saifac feat run --agent aider
+saifctl feat run --agent aider
 ```
 
 See [Agents docs](./agents/README.md) for the full list and configuration options.
@@ -68,7 +68,7 @@ export OPENROUTER_API_KEY=sk-or-...
 Set a single model for the entire command:
 
 ```bash
-saifac feat run --model openai/o3
+saifctl feat run --model openai/o3
 ```
 
 Target a specific agent while keeping defaults for the rest:
@@ -76,35 +76,35 @@ Target a specific agent while keeping defaults for the rest:
 ```bash
 # Use o3 for the coding agent,
 # keep defaults for other agents
-saifac feat run --model coder=openai/o3
+saifctl feat run --model coder=openai/o3
 
 # Cheap model for PR summaries,
 # strong model for everything else
-saifac feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
+saifctl feat run --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
 ```
 
 See [Models](./models.md) for the full reference and available agents.
 
 ## Configuration files
 
-You can store default options in `saifac/config.*` so you don't have to pass them via CLI every time.
+You can store default options in `saifctl/config.*` so you don't have to pass them via CLI every time.
 
 `safe-ai-factory` uses [Cosmiconfig](https://github.com/cosmiconfig/cosmiconfig), so you can write your config in JSON, YAML, JS, or TS:
 
-- `saifac/config.json`
-- `saifac/config.yaml` / `config.yml`
-- `saifac/config.js` / `config.cjs`
-- `saifac/config.ts`
+- `saifctl/config.json`
+- `saifctl/config.yaml` / `config.yml`
+- `saifctl/config.js` / `config.cjs`
+- `saifctl/config.ts`
 
 Any CLI flag you pass overrides the corresponding config default.
 
 ```json
-// saifac/config.json
+// saifctl/config.json
 {
   "defaults": {
     "maxRuns": 5,
     "globalModel": "anthropic/claude-sonnet-4",
-    "globalStorage": "s3://my-bucket/saifac-runs"
+    "globalStorage": "s3://my-bucket/saifctl-runs"
   }
 }
 ```
@@ -126,7 +126,7 @@ You don't need to build anything. The factory ships pre-built coder and stage im
 Use `--profile` CLI option:
 
 ```bash
-saifac feat run --profile python-uv
+saifctl feat run --profile python-uv
 ```
 
 [See all available profiles and step-by-step usage →](./sandbox-profiles.md)
@@ -154,7 +154,7 @@ You can easily configure in which language + framework to run your tests in with
 Use `--test-profile` CLI option:
 
 ```bash
-saifac feat run --test-profile python-playwright
+saifctl feat run --test-profile python-playwright
 ```
 
 | Profile                 | Language + framework    |
@@ -172,12 +172,12 @@ See [Test profiles →](./test-profiles.md) for step-by-step usage.
 
 ## Connect to any repository
 
-SAIFAC natively integrates with your source control. You can configure it to automatically open a PR or push to a remote branch when the tests finally pass.
+SaifCTL natively integrates with your source control. You can configure it to automatically open a PR or push to a remote branch when the tests finally pass.
 
 Use `--push origin --pr` when running the agent:
 
 ```bash
-saifac feat run --push origin --pr
+saifctl feat run --push origin --pr
 ```
 
 Included integrations: Github, Gitlab, Gitea, Bitbucket, and Azure Repos.
@@ -186,13 +186,13 @@ See [Source control docs](./source-control.md) for details and configuration.
 
 ## Security & Isolation
 
-SAIFAC runs agents in a zero-trust, sandboxed environment. Docker isolation, hidden tests, Cedar policies, and prompt-injection defenses ensure the agent cannot cheat, reward-hack, or break out.
+SaifCTL runs agents in a zero-trust, sandboxed environment. Docker isolation, hidden tests, Cedar policies, and prompt-injection defenses ensure the agent cannot cheat, reward-hack, or break out.
 
 See [Security & Isolation](./security.md) for the full architecture.
 
 ## Durability and Observability (Hatchet)
 
-The factory orchestrates complex, long-running agent loops that can span hours. By default, `saifac` runs everything in-process on your local machine.
+The factory orchestrates complex, long-running agent loops that can span hours. By default, `saifctl` runs everything in-process on your local machine.
 
 If you want **durability** (runs survive process crashes and can be resumed from where they left off) and a **local dashboard** to watch step graphs, logs, and retry history in real time, you can opt into the Hatchet integration.
 
@@ -201,7 +201,7 @@ Simply install the Hatchet CLI, start a local server, and set your token:
 ```bash
 export HATCHET_CLIENT_TOKEN=<your-token>
 export HATCHET_SERVER_URL=localhost:7077
-saifac feat run -n my-feature
+saifctl feat run -n my-feature
 ```
 
 There is zero functional difference or configuration changes required — the factory seamlessly shifts from in-process loop to Hatchet-backed workflow execution.
@@ -218,14 +218,14 @@ By default, the coding agents' permissions are:
 
 - Filesystem:
   - Read and write anywhere in the workspace.
-  - Except `saifac/` (reward-hacking prevention) and `.git/` (sandbox-escape prevention).
+  - Except `saifctl/` (reward-hacking prevention) and `.git/` (sandbox-escape prevention).
 - Network:
   - Unrestricted.
 
 Override with `--cedar` to supply your own Cedar policy:
 
 ```bash
-saifac feat run --cedar ./my-policy.cedar
+saifctl feat run --cedar ./my-policy.cedar
 ```
 
 [See the full default policy and customization guide here](./leash-access-control.md).
@@ -240,10 +240,10 @@ Use `--designer` to switch:
 
 ```bash
 # Default:
-saifac feat design
+saifctl feat design
 
 # Explicit:
-saifac feat design --designer shotgun
+saifctl feat design --designer shotgun
 ```
 
 | Designer          | Switch with          |
@@ -264,13 +264,13 @@ Use `--indexer` to switch or disable:
 
 ```bash
 # Index is built automatically during init:
-saifac init
+saifctl init
 
 # Use during spec generation:
-saifac feat design --indexer shotgun
+saifctl feat design --indexer shotgun
 
 # Disable:
-saifac feat design --indexer none
+saifctl feat design --indexer none
 ```
 
 | Indexer           | Switch with         |

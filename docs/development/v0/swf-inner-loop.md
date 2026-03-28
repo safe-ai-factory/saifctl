@@ -41,19 +41,19 @@ flowchart TD
 A shell script that wraps each agent invocation with a post-run validation step.
 
 - **Location:** `src/orchestrator/scripts/coder-start.sh`
-- **In container:** Copied into the Docker image at `/saifac/coder-start.sh` (see `Dockerfile.coder`)
+- **In container:** Copied into the Docker image at `/saifctl/coder-start.sh` (see `Dockerfile.coder`)
 - **Not modifiable by the agent:** Baked into the image; the agent cannot reach it
 
 **Behaviour:**
 
-1. Read environment variables: `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_GATE_SCRIPT`, `SAIFAC_AGENT_SCRIPT`
-2. Run `SAIFAC_STARTUP_SCRIPT` once.
-3. Loop up to `SAIFAC_GATE_RETRIES` times (default: 5):
-   - Write `$current_task` to `$SAIFAC_TASK_PATH` (default: `/workspace/.saifac/task.md`)
-   - Invoke the agent script: `bash "$SAIFAC_AGENT_SCRIPT"` — the script must read the task from `$SAIFAC_TASK_PATH`
-   - If `SAIFAC_GATE_SCRIPT` (or `/saifac/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
+1. Read environment variables: `SAIFCTL_INITIAL_TASK`, `SAIFCTL_GATE_RETRIES`, `SAIFCTL_GATE_SCRIPT`, `SAIFCTL_AGENT_SCRIPT`
+2. Run `SAIFCTL_STARTUP_SCRIPT` once.
+3. Loop up to `SAIFCTL_GATE_RETRIES` times (default: 5):
+   - Write `$current_task` to `$SAIFCTL_TASK_PATH` (default: `/workspace/.saifctl/task.md`)
+   - Invoke the agent script: `bash "$SAIFCTL_AGENT_SCRIPT"` — the script must read the task from `$SAIFCTL_TASK_PATH`
+   - If `SAIFCTL_GATE_SCRIPT` (or `/saifctl/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
    - Else run the gate script, capture stdout+stderr and exit code
-   - If gate exits 0: run the semantic reviewer (if `SAIFAC_REVIEWER_SCRIPT` is set and exists). If reviewer passes → exit 0 (success). If reviewer fails → append output and loop again
+   - If gate exits 0: run the semantic reviewer (if `SAIFCTL_REVIEWER_SCRIPT` is set and exists). If reviewer passes → exit 0 (success). If reviewer fails → append output and loop again
    - If gate exits non-zero → append the output to `current_task` as "## Validation Failed — Fix Before Finishing" and loop again
 4. If max rounds exhausted without gate/reviewer passing → exit 1
 
@@ -61,25 +61,25 @@ A shell script that wraps each agent invocation with a post-run validation step.
 
 | Variable                  | Required | Default                       | Description                                                            |
 | ------------------------- | -------- | ----------------------------- | ---------------------------------------------------------------------- |
-| `SAIFAC_INITIAL_TASK`    | yes      | —                             | Full task prompt; written to `SAIFAC_TASK_PATH` each round            |
-| `SAIFAC_GATE_RETRIES`    | no       | 5                             | Max inner loop rounds before giving up                                 |
-| `SAIFAC_GATE_SCRIPT`     | no       | `/saifac/gate.sh`            | Path to the gate script                                                |
-| `SAIFAC_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
-| `SAIFAC_AGENT_SCRIPT`    | no       | `/saifac/agent.sh`           | Path to the agent runner script                                        |
-| `SAIFAC_TASK_PATH`       | no       | `/workspace/.saifac/task.md` | Path where the current task is written before each invocation          |
-| `SAIFAC_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
+| `SAIFCTL_INITIAL_TASK`    | yes      | —                             | Full task prompt; written to `SAIFCTL_TASK_PATH` each round            |
+| `SAIFCTL_GATE_RETRIES`    | no       | 5                             | Max inner loop rounds before giving up                                 |
+| `SAIFCTL_GATE_SCRIPT`     | no       | `/saifctl/gate.sh`            | Path to the gate script                                                |
+| `SAIFCTL_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
+| `SAIFCTL_AGENT_SCRIPT`    | no       | `/saifctl/agent.sh`           | Path to the agent runner script                                        |
+| `SAIFCTL_TASK_PATH`       | no       | `/workspace/.saifctl/task.md` | Path where the current task is written before each invocation          |
+| `SAIFCTL_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
 
 ### 2. `Dockerfile.coder`
 
 The loop script is copied into the sandbox and bind-mounted in the Leash target (coder) container:
 
 ```dockerfile
-RUN mkdir -p /saifac
-COPY src/orchestrator/scripts/coder-start.sh /saifac/coder-start.sh
-RUN chmod +x /saifac/coder-start.sh
+RUN mkdir -p /saifctl
+COPY src/orchestrator/scripts/coder-start.sh /saifctl/coder-start.sh
+RUN chmod +x /saifctl/coder-start.sh
 ```
 
-The container entrypoint is `/saifac/coder-start.sh` (invoked by `leash`); it is not `openhands` directly.
+The container entrypoint is `/saifctl/coder-start.sh` (invoked by `leash`); it is not `openhands` directly.
 
 ### 3. `gate.sh` (per-profile default gate script)
 
@@ -89,7 +89,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 - **Loaded at runtime:** The CLI's `parseGateScript(ctx, profile)` calls `readSandboxGateScript(profile.id)` when `--gate-script` is not set.
 - **Profiles:** Every profile must have a `gate.sh`. Node has a no-op placeholder (warns to use `--gate-script`); Go and Rust have language-specific defaults (e.g. `go vet`+`go test`, `cargo check`+`clippy`+`test`).
 
-**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. With local coding (LocalEngine), `/workspace` does not exist on the host; use a custom gate that uses the current directory or `$SAIFAC_WORKSPACE_BASE`.
+**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. With local coding (LocalEngine), `/workspace` does not exist on the host; use a custom gate that uses the current directory or `$SAIFCTL_WORKSPACE_BASE`.
 
 ### 4. Sandbox (`sandbox.ts`)
 
@@ -102,23 +102,23 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 **`RunAgentOpts`:**
 
 - `sandboxBasePath` — used to locate `gate.sh`, `startup.sh`, and `agent.sh` for mounting
-- `agentPath` — absolute host path to `sandboxBasePath/agent.sh`; mounted `:ro` at `/saifac/agent.sh`
+- `agentPath` — absolute host path to `sandboxBasePath/agent.sh`; mounted `:ro` at `/saifctl/agent.sh`
 - `gateRetries` — max gate retries (required; caller supplies default)
 - `agentEnv` — extra env vars to forward into the container (reserved keys filtered out)
 
 **Leash mode:**
 
-- Mount `sandboxBasePath/gate.sh` at `/saifac/gate.sh` with `:ro` (read-only)
-- Mount `sandboxBasePath/agent.sh` at `/saifac/agent.sh` with `:ro` (read-only)
-- Pass `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_AGENT_SCRIPT`, `SAIFAC_WORKSPACE_BASE` as environment variables
-- Invoke `/saifac/coder-start.sh` as the container command (not the agent directly)
+- Mount `sandboxBasePath/gate.sh` at `/saifctl/gate.sh` with `:ro` (read-only)
+- Mount `sandboxBasePath/agent.sh` at `/saifctl/agent.sh` with `:ro` (read-only)
+- Pass `SAIFCTL_INITIAL_TASK`, `SAIFCTL_GATE_RETRIES`, `SAIFCTL_AGENT_SCRIPT`, `SAIFCTL_WORKSPACE_BASE` as environment variables
+- Invoke `/saifctl/coder-start.sh` as the container command (not the agent directly)
 
 **Dangerous-debug mode:**
 
 - Run `bash src/orchestrator/scripts/coder-start.sh` from the repo root on the host
 - Set `spawnCwd` to `codePath` (the sandbox code directory)
-- Set `SAIFAC_GATE_SCRIPT` to `sandboxBasePath/gate.sh` (host path)
-- Set `SAIFAC_AGENT_SCRIPT` to `sandboxBasePath/agent.sh` (host path)
+- Set `SAIFCTL_GATE_SCRIPT` to `sandboxBasePath/gate.sh` (host path)
+- Set `SAIFCTL_AGENT_SCRIPT` to `sandboxBasePath/agent.sh` (host path)
 - Same inner loop behaviour; the agent and the gate run on the host
 
 ### 6. Orchestrator (`modes.ts`)
@@ -146,19 +146,19 @@ For modes that need a full `OrchestratorOpts`, resolution is centralized in `src
 
 ### 7. CLI (citty — `src/cli/commands/feat.ts`, `src/cli/commands/run.ts`)
 
-**Flags for `saifac feat run` and `saifac run start`:**
+**Flags for `saifctl feat run` and `saifctl run start`:**
 
 | Flag                      | Description                                                                            | Default              |
 | ------------------------- | -------------------------------------------------------------------------------------- | -------------------- |
 | `--gate-script`           | Path to a shell script to use as the gate                                              | Profile's `gate.sh`  |
 | `--gate-retries`          | Max gate retries per run                                                               | 10                   |
-| `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$SAIFAC_TASK_PATH` | Built-in (OpenHands) |
+| `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$SAIFCTL_TASK_PATH` | Built-in (OpenHands) |
 | `--agent-env KEY=VALUE`   | Extra env var to forward into the agent container (repeatable)                         | —                    |
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
 
 **Parsing** (see `src/cli/utils.ts`; orchestration wiring in `feat.ts` / `run.ts`):
 
-- For **`saifac feat run`**, `parseRunArgs` builds CLI input + model delta, then **`resolveOrchestratorOpts`** applies defaults → artifact (none on fresh start) → CLI as described above.
+- For **`saifctl feat run`**, `parseRunArgs` builds CLI input + model delta, then **`resolveOrchestratorOpts`** applies defaults → artifact (none on fresh start) → CLI as described above.
 - `parseGateScript({ args, projectDir, config })`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)`. Otherwise reads the file from `projectDir`.
 - Gate retries, agent env, and other orchestrator fields used by the inner loop are resolved inside **`buildOrchestratorOptsFromFeatArgs`** / **`applyOrchestratorBaseline`** (`src/orchestrator/options.ts`, with defaults in `options.ts` + `constants.ts`) and **`buildOrchestratorCliInputFromFeatArgs`** (`src/cli/utils.ts`) (not duplicated ad hoc in `feat.ts`).
 - `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-install.sh` and `agent.sh` from the agent profile or from `--agent-install-script` / `--agent-script` paths.
@@ -170,14 +170,14 @@ For modes that need a full `OrchestratorOpts`, resolution is centralized in `src
 After sandbox creation:
 
 ```
-/tmp/saifac/sandboxes/{proj}-{feat}-{runId}/
-  gate.sh              ← written by createSandbox; mounted :ro at /saifac/gate.sh
-  startup.sh           ← written by createSandbox; mounted :ro at /saifac/startup.sh
-  agent.sh             ← written by createSandbox; mounted :ro at /saifac/agent.sh
+/tmp/saifctl/sandboxes/{proj}-{feat}-{runId}/
+  gate.sh              ← written by createSandbox; mounted :ro at /saifctl/gate.sh
+  startup.sh           ← written by createSandbox; mounted :ro at /saifctl/startup.sh
+  agent.sh             ← written by createSandbox; mounted :ro at /saifctl/agent.sh
   tests.full.json
   code/                ← rsync copy of repo; mounted as /workspace
     .git/
-    saifac/...
+    saifctl/...
     ...
 ```
 
@@ -190,7 +190,7 @@ After sandbox creation:
 - The gate runs inside the container with access to `/workspace` only — no host-side trust surface, no HTTP, no bind-mount race conditions.
 - The **Test Runner** (hidden tests) remains the authoritative enforcement layer. The gate is purely a cheap early-exit that catches deterministic failures before the expensive Docker build and test runner run.
 - The agent **can observe** gate output — it is fed back as task feedback. This is intentional: the feedback comes from the user's own public check, not from hidden tests.
-- **`agentEnv`** reserved-key filtering: factory internal variables (`SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*`) cannot be overridden by user-supplied `--agent-env` flags. The runner emits a warning and ignores them.
+- **`agentEnv`** reserved-key filtering: factory internal variables (`SAIFCTL_*`, `LLM_*`, `REVIEWER_LLM_*`) cannot be overridden by user-supplied `--agent-env` flags. The runner emits a warning and ignores them.
 
 ---
 
@@ -199,7 +199,7 @@ After sandbox creation:
 ### Default gate (built-in)
 
 ```bash
-saifac feat run
+saifctl feat run
 # Gate runs the default script (e.g. npm run check) inside the container after each OpenHands round
 ```
 
@@ -212,7 +212,7 @@ set -euo pipefail
 cd /workspace
 pnpm check && python -m pytest tests/unit/
 
-saifac feat run --gate-script ./my-gate.sh
+saifctl feat run --gate-script ./my-gate.sh
 ```
 
 ### Disable gate (pass-through)
@@ -221,13 +221,13 @@ saifac feat run --gate-script ./my-gate.sh
 # Create an empty script that exits 0
 echo '#!/bin/bash
 exit 0' > /tmp/noop-gate.sh
-saifac feat run --gate-script /tmp/noop-gate.sh
+saifctl feat run --gate-script /tmp/noop-gate.sh
 ```
 
 ### Tune gate retries
 
 ```bash
-saifac feat run --gate-retries 3
+saifctl feat run --gate-retries 3
 ```
 
 ### Custom agent script (Aider)
@@ -236,9 +236,9 @@ saifac feat run --gate-retries 3
 # aider-runner.sh
 #!/bin/bash
 set -euo pipefail
-aider --message-file "$SAIFAC_TASK_PATH" --yes
+aider --message-file "$SAIFCTL_TASK_PATH" --yes
 
-saifac feat run --agent-script ./aider-runner.sh
+saifctl feat run --agent-script ./aider-runner.sh
 ```
 
 ### Custom agent script (Claude Code)
@@ -247,28 +247,28 @@ saifac feat run --agent-script ./aider-runner.sh
 # claude-runner.sh
 #!/bin/bash
 set -euo pipefail
-claude --print "$(cat "$SAIFAC_TASK_PATH")"
+claude --print "$(cat "$SAIFCTL_TASK_PATH")"
 
-saifac feat run --agent-script ./claude-runner.sh
+saifctl feat run --agent-script ./claude-runner.sh
 ```
 
 ### Forwarding custom env vars
 
 ```bash
 # Pass individual vars
-saifac feat run --agent-env AIDER_MODEL=gpt-4o --agent-env AIDER_YES=1
+saifctl feat run --agent-env AIDER_MODEL=gpt-4o --agent-env AIDER_YES=1
 
 # Or use an env file
 # agent.env
 # AIDER_MODEL=gpt-4o
 # AIDER_YES=1
-saifac feat run --agent-env-file ./agent.env
+saifctl feat run --agent-env-file ./agent.env
 ```
 
 ### Dangerous-debug mode (host execution)
 
 ```bash
-saifac feat run --engine local
+saifctl feat run --engine local
 ```
 
 The inner loop runs on the host. The default gate assumes `/workspace`; for `--engine local`, use a custom gate that runs from the current directory (the spawn cwd is `codePath`).

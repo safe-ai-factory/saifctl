@@ -1,8 +1,8 @@
 #!/bin/bash
-# Kilo Code CLI agent script — runs kilo with the task read from $SAIFAC_TASK_PATH.
+# Kilo Code CLI agent script — runs kilo with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the kilocode agent profile. Selected via --agent kilocode.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Kilo CLI is a fork of OpenCode and inherits its config/provider model.
 # CLI reference:    https://kilocode.ai/docs/cli
@@ -99,17 +99,17 @@ _provider_sep=""
 
 export OPENCODE_CONFIG_CONTENT="{${_model_fragment}\"permission\":\"allow\",\"autoupdate\":false${_provider_sep}${_provider_block}}"
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _kilo_cfg_redacted="$(printf '%s' "$OPENCODE_CONFIG_CONTENT" | sed 's/"apiKey":"[^"]*"/"apiKey":"****"/g; s/"baseURL":"[^"]*"/"baseURL":"****"/g')"
-echo "[agent/kilocode] About to run: OPENCODE_CONFIG_CONTENT='${_kilo_cfg_redacted}' kilo run --auto \"${_SAIFAC_TASK_SNIP}\""
+echo "[agent/kilocode] About to run: OPENCODE_CONFIG_CONTENT='${_kilo_cfg_redacted}' kilo run --auto \"${_SAIFCTL_TASK_SNIP}\""
 
 _agent_exit=0
 kilo run \
   --auto \
-  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+  "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
 
 echo "[agent/kilocode] Finished agent kilocode in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

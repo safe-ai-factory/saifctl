@@ -40,7 +40,7 @@ The original design document contained several Critical and High vulnerabilities
 
 1. **Patch filter (`modes.ts`)** — `.git/hooks/**` is included in the default `patchExclude` rules passed to `extractIncrementalRoundPatch()`. The patch filtering stage in `sandbox.ts` strips any matching file section before the round diff is recorded (and before host apply via `run-commits.json`), so the hook never reaches the host.
 
-2. **Last-resort guard (`assertRunCommitsSafeForHost` in `phases/apply-patch.ts`)** — Before calling `git apply`, host apply scans the combined **`RunCommit`** diffs and throws hard if a `.git/hooks/` path is present. The same check runs in **`runApplyCore`** (`modes.ts`) before **`saifac run apply`** reconstructs the branch:
+2. **Last-resort guard (`assertRunCommitsSafeForHost` in `phases/apply-patch.ts`)** — Before calling `git apply`, host apply scans the combined **`RunCommit`** diffs and throws hard if a `.git/hooks/` path is present. The same check runs in **`runApplyCore`** (`modes.ts`) before **`saifctl run apply`** reconstructs the branch:
    ```typescript
    if (/^diff --git.*\.git\/hooks\//m.test(patchContent)) {
      throw new Error('[orchestrator] Patch rejected: contains changes to .git/hooks/. ...');
@@ -73,7 +73,7 @@ The original design document contained several Critical and High vulnerabilities
 **How it was fixed:**
 
 - `validateFeatureName()` in `src/cli/utils.ts` enforces kebab-case / safe path segments at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error.
-- This applies to all input paths: `--name`/`-n` flag and the interactive `saifac feat new` prompt (which already had the regex).
+- This applies to all input paths: `--name`/`-n` flag and the interactive `saifctl feat new` prompt (which already had the regex).
 - Shell commands that use `featureName` quote paths (e.g. `"${sandboxBasePath}"`) as a secondary layer, but the primary control is at the boundary.
 
 ---
@@ -106,7 +106,7 @@ Additional (postgres, redis, etc.) containers receive `SecurityOpt: ['no-new-pri
 **Original severity:** CRITICAL  
 **Current status:** ✅ Resolved
 
-**The flaw:** The agent runs inside the Leash container with write access to `/workspace` (which maps to the sandbox's `code` directory). The sandbox contains a `.git` directory initialized by the orchestrator. If the agent could modify `/workspace/.git/config` (e.g., setting `diff.external` or `core.fsmonitor` to a malicious script), those settings would be honored when the **orchestrator process** (on the machine running saifac) invokes `git` with `cwd` set to that sandbox `code/` tree — for example during `extractIncrementalRoundPatch()` (`git rev-list`, per-commit `git diff --binary`, `git add`, optional `git commit`). That would allow arbitrary command execution outside the agent container's intended trust boundary (the saifac host process).
+**The flaw:** The agent runs inside the Leash container with write access to `/workspace` (which maps to the sandbox's `code` directory). The sandbox contains a `.git` directory initialized by the orchestrator. If the agent could modify `/workspace/.git/config` (e.g., setting `diff.external` or `core.fsmonitor` to a malicious script), those settings would be honored when the **orchestrator process** (on the machine running saifctl) invokes `git` with `cwd` set to that sandbox `code/` tree — for example during `extractIncrementalRoundPatch()` (`git rev-list`, per-commit `git diff --binary`, `git add`, optional `git commit`). That would allow arbitrary command execution outside the agent container's intended trust boundary (the saifctl host process).
 
 **How it was fixed:**
 

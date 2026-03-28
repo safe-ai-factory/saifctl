@@ -27,10 +27,10 @@ The coding agent sees a grounded spec, not a one-liner. It ships better code on 
 
 ## Choosing a designer
 
-Use `--designer <id>` with `saifac feat design`:
+Use `--designer <id>` with `saifctl feat design`:
 
 ```bash
-saifac feat design --designer shotgun
+saifctl feat design --designer shotgun
 ```
 
 | ID                        | Name                | Project URL                                   |
@@ -41,25 +41,25 @@ saifac feat design --designer shotgun
 
 ## How to use it
 
-The designer runs as part of `saifac feat design`.
+The designer runs as part of `saifctl feat design`.
 
 ### 1. Create a proposal
 
 ```bash
-saifac feat new
+saifctl feat new
 ```
 
-Edit `saifac/features/add-login/proposal.md` with what you want to build. One paragraph is enough — the designer figures out the rest.
+Edit `saifctl/features/add-login/proposal.md` with what you want to build. One paragraph is enough — the designer figures out the rest.
 
-### 2. Run spec generation — `saifac feat design`
+### 2. Run spec generation — `saifctl feat design`
 
 ```bash
-saifac feat design
+saifctl feat design
 # or explicitly:
-saifac feat design --designer shotgun
+saifctl feat design --designer shotgun
 ```
 
-The designer reads your `proposal.md`, researches the codebase (via the active indexer), and writes the 4 spec files into `saifac/features/add-login/`.
+The designer reads your `proposal.md`, researches the codebase (via the active indexer), and writes the 4 spec files into `saifctl/features/add-login/`.
 
 If the spec files already exist, the CLI asks whether to redo them — so re-running is always safe. Use `-y`/`--yes` with `--name` to skip the prompt and assume redo (non-interactive mode).
 
@@ -68,7 +68,7 @@ If the spec files already exist, the CLI asks whether to redo them — so re-run
 Pass `--model` to override the LLM the designer uses:
 
 ```bash
-saifac feat design --model claude-opus-4-5
+saifctl feat design --model claude-opus-4-5
 ```
 
 ### 4. Disable the designer
@@ -76,21 +76,21 @@ saifac feat design --model claude-opus-4-5
 Pass `--designer none` to skip spec generation entirely and jump straight to tests generation — useful when you've already written your spec files manually:
 
 ```bash
-saifac feat design --designer none
+saifctl feat design --designer none
 ```
 
 ---
 
 ## Designer and indexer: how they work together
 
-The designer and indexer are complementary — they both run during `saifac feat design`, but they do different things.
+The designer and indexer are complementary — they both run during `saifctl feat design`, but they do different things.
 
 The designer uses the indexer to ground its spec in real code.
 
 | Who        | Indexer                                                                        | Designer                                                 |
 | ---------- | ------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | **What**   | Parses your repo into a semantic graph                                         | Researches your codebase and writes the spec             |
-| **When**   | Runs at `saifac init` (build index)<br/>and `saifac feat design` (query index) | Runs at `saifac feat design`                             |
+| **When**   | Runs at `saifctl init` (build index)<br/>and `saifctl feat design` (query index) | Runs at `saifctl feat design`                             |
 | **Output** | A queryable codebase index                                                     | `plan.md`, `specification.md`, `research.md`, `tasks.md` |
 | **Flag**   | `--indexer`                                                                    | `--designer`                                             |
 

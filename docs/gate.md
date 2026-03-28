@@ -15,10 +15,10 @@ The gate is **not** a replacement for the Test Runner or hidden tests; it is a c
 The gate script (`--gate-script`) runs right after the coding agent has finished its work.
 Gate script runs before the semantic reviewer.
 
-Commands that use this loop include `saifac feat run` and `saifac run start`.
+Commands that use this loop include `saifctl feat run` and `saifctl run start`.
 
 ```bash
-saifac feat run -n <feature> --gate-script ./scripts/my-gate.sh
+saifctl feat run -n <feature> --gate-script ./scripts/my-gate.sh
 ```
 
 Example gate script `my-gate.sh` (NodeJS):
@@ -53,12 +53,12 @@ When the gate script fails, the output of the script is appended to the AI agent
 Example:
 
 ```bash
-saifac feat run -n my-feature --gate-script ./scripts/my-gate.sh
+saifctl feat run -n my-feature --gate-script ./scripts/my-gate.sh
 ```
 
 ### Config file
 
-You can set all the settings above in the [config file](config.md) (e.g. `saifac/config.ts`).
+You can set all the settings above in the [config file](config.md) (e.g. `saifctl/config.ts`).
 
 CLI flags **override** the config file values.
 
@@ -98,5 +98,5 @@ The gate runs in the **coder container**, so anything your script invokes (linte
 - [Semantic Code Reviewer](reviewer.md) — reviewer step after the gate
 - [Sandbox profiles](sandbox-profiles.md) — `--profile` and overriding `gate-script`
 - [Configuration](config.md) — `defaults.gateScript`, `defaults.gateRetries`, `agentInstallScript`, `coderImage`
-- [`saifac feat run`](commands/feat-run.md) — `--gate-script`, `--agent-install-script`, `--coder-image`
+- [`saifctl feat run`](commands/feat-run.md) — `--gate-script`, `--agent-install-script`, `--coder-image`
 - [Agents](development/agents.md) — `agent-install.sh` and the agent loop

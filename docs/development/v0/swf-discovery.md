@@ -1,10 +1,10 @@
-# Software Factory Discovery Step (`saifac feat design-discovery`)
+# Software Factory Discovery Step (`saifctl feat design-discovery`)
 
 This document outlines the rationale behind the `design-discovery` step, what it does, and how it is implemented under the hood.
 
 ## Rationale: Why do we need a Discovery Step?
 
-Our standard design pipeline relies heavily on [Shotgun](https://github.com/shotgun-sh/shotgun) via the `saifac feat design-specs` command. Shotgun is excellent at analyzing _internal_ codebase state. It creates a vector index of the local repository, looks for relevant coding patterns, and uses that RAG context to enrich the user's `proposal.md` into comprehensive specifications (`specification.md`, `plan.md`, `tasks.md`).
+Our standard design pipeline relies heavily on [Shotgun](https://github.com/shotgun-sh/shotgun) via the `saifctl feat design-specs` command. Shotgun is excellent at analyzing _internal_ codebase state. It creates a vector index of the local repository, looks for relevant coding patterns, and uses that RAG context to enrich the user's `proposal.md` into comprehensive specifications (`specification.md`, `plan.md`, `tasks.md`).
 
 However, Shotgun is constrained to the _local codebase_. It cannot easily look outside the project boundary to gather external context.
 
@@ -19,7 +19,7 @@ We introduced **Design Discovery** to act as a generic bridge. It is an optional
 
 ## What it does
 
-When the user runs `saifac feat design` (or `saifac feat design-discovery`), the pipeline checks if any discovery tools (`discoveryMcps` or `discoveryTools`) are configured via CLI arguments or the project `config.json`.
+When the user runs `saifctl feat design` (or `saifctl feat design-discovery`), the pipeline checks if any discovery tools (`discoveryMcps` or `discoveryTools`) are configured via CLI arguments or the project `config.json`.
 
 If configured, the Orchestrator does the following:
 
@@ -27,9 +27,9 @@ If configured, the Orchestrator does the following:
 2. Reads the feature's `proposal.md`.
 3. Creates a [Mastra Agent](https://mastra.ai/docs/agents) provisioned with these tools.
 4. Instructs the agent to "Gather all necessary context using your tools, then output a structured markdown document with your findings." (An optional custom prompt can be appended here).
-5. Writes the agent's output to `saifac/features/<name>/discovery.md`.
+5. Writes the agent's output to `saifctl/features/<name>/discovery.md`.
 
-Once `discovery.md` exists, the subsequent `saifac feat design-specs` step automatically detects it and injects it into Shotgun alongside the original `proposal.md`. Shotgun treats this discovered context as part of the project reality, using it to inform the final specs and test plans.
+Once `discovery.md` exists, the subsequent `saifctl feat design-specs` step automatically detects it and injects it into Shotgun alongside the original `proposal.md`. Shotgun treats this discovered context as part of the project reality, using it to inform the final specs and test plans.
 
 ## Architecture and Implementation
 
@@ -56,7 +56,7 @@ The agent processes the proposal, calls tools autonomously using standard LLM fu
 
 ### 3. Pipeline Integration (`src/cli/commands/feat.ts`)
 
-The `design-discovery` command is cleanly separated but orchestrated into the larger `saifac feat design` flow.
+The `design-discovery` command is cleanly separated but orchestrated into the larger `saifctl feat design` flow.
 
 The pipeline executes sequentially:
 

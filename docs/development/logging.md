@@ -1,17 +1,17 @@
 # Logging architecture
 
-This document describes how saifac produces terminal output, the decisions
+This document describes how saifctl produces terminal output, the decisions
 behind each layer, and the rules to follow when adding new log statements.
 
 ---
 
 ## Overview
 
-saifac uses two distinct output paths:
+saifctl uses two distinct output paths:
 
 | Path                                                      | What it carries                                                                                            | How it works                                                   |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Structured logger** (`consola`)                         | Application-level messages — progress, warnings, errors, debug info produced by saifac's own code          | Level-filtered; respects `--verbose`, `CONSOLA_LEVEL`, `DEBUG` |
+| **Structured logger** (`consola`)                         | Application-level messages — progress, warnings, errors, debug info produced by saifctl's own code          | Level-filtered; respects `--verbose`, `CONSOLA_LEVEL`, `DEBUG` |
 | **Raw stream forwarding** (`process.stdout/stderr.write`) | Byte-for-byte output from external processes — Docker container logs, LLM thought tokens, agent tool calls | Not filtered; always printed immediately                       |
 
 These two paths are kept intentionally separate.
@@ -54,7 +54,7 @@ import { consola } from 'consola';
 
 The central module lives at `src/logger.ts`. It:
 
-1. Creates a `ConsolaInstance` with `tag: 'saifac'` so every message is
+1. Creates a `ConsolaInstance` with `tag: 'saifctl'` so every message is
    visually attributed.
 2. Captures the baseline log level (set by `CONSOLA_LEVEL` / `DEBUG` at
    startup) so that `setVerboseLogging(false)` restores it rather than
@@ -76,7 +76,7 @@ The central module lives at `src/logger.ts`. It:
 Default runtime level is `info` (3). Users who want more detail have two
 options:
 
-- **One-off:** `saifac feat run --verbose` — sets level to `debug` for that
+- **One-off:** `saifctl feat run --verbose` — sets level to `debug` for that
   process.
 - **Persistent:** `CONSOLA_LEVEL=5` in `.env` or the shell.
 
@@ -87,7 +87,7 @@ options:
 | `CONSOLA_LEVEL` | Sets the numeric minimum level. Takes precedence over `DEBUG`.                                 |
 | `DEBUG`         | If set (any non-empty value) and `CONSOLA_LEVEL` is absent, raises the level to `verbose` (4). |
 
-consola reads both on instance creation; saifac doesn't need to handle them
+consola reads both on instance creation; saifctl doesn't need to handle them
 manually.
 
 ### VS Code extension
@@ -97,9 +97,9 @@ there would render ANSI escape codes as raw characters in the Output panel.
 The extension therefore imports from `consola/basic`, which always uses the
 plain-text reporter regardless of environment.
 
-The extension duplicate lives at `vscode-ext/src/saifac-logger.ts` and mirrors
+The extension duplicate lives at `vscode-ext/src/saifctl-logger.ts` and mirrors
 the same API (`logger`, `consola`, `setVerboseLogging`, `LogLevels`). The
-verbose flag is controlled by the VS Code setting `saifac.verbose` (in
+verbose flag is controlled by the VS Code setting `saifctl.verbose` (in
 **Settings → Extensions → Safe AI Factory**) and applied live via
 `onDidChangeConfiguration`.
 
@@ -126,16 +126,16 @@ These writes are **stream forwarding**, not application logging:
    emitting them; that latency is acceptable for application messages but
    noticeable for live streaming.
 
-2. **Not owned by saifac.** The content originates from external processes
-   (Docker, the LLM API). Running it through a logger would imply saifac
+2. **Not owned by saifctl.** The content originates from external processes
+   (Docker, the LLM API). Running it through a logger would imply saifctl
    produced it, conflating two different sources.
 
 3. **Not subject to level filtering.** These streams are the primary user-facing
    output of a long-running agent job. Hiding them at lower log levels would
    make the tool feel broken. If a user wants less noise, they can adjust the
-   coding-agent profile or redirect stdio — not change saifac's log level.
+   coding-agent profile or redirect stdio — not change saifctl's log level.
 
 ### Rule of thumb
 
 > If the bytes originated outside this process, forward them raw.
-> If saifac itself generated the message, use `logger`.
+> If saifctl itself generated the message, use `logger`.

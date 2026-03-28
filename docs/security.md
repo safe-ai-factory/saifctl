@@ -2,14 +2,14 @@
 
 When you run agents in an autonomous loop, they will eventually try to cheat to get a green light. If an AI can hack your system, it will.
 
-`safe-ai-factory` (SAIFAC) is built around a **zero-trust** architecture. The coding agent's container is considered unsafe. Any code it generates is considered unsafe.
+`safe-ai-factory` (SaifCTL) is built around a **zero-trust** architecture. The coding agent's container is considered unsafe. Any code it generates is considered unsafe.
 
-SAIFAC enforces multiple layers of security to ensure the agent physically cannot cheat, reward-hack, or break out of its sandbox.
+SaifCTL enforces multiple layers of security to ensure the agent physically cannot cheat, reward-hack, or break out of its sandbox.
 
 ## The Ironclad Guarantee
 
 - **The AI builds _exactly_ what you asked for.** It is locked in a loop and physically cannot stop until your new TDD tests pass.
-- **The AI can't break previously-built features.** All features built with SAIFAC are protected by tests. AI can't break or change them. Regressions are mechanically impossible.
+- **The AI can't break previously-built features.** All features built with SaifCTL are protected by tests. AI can't break or change them. Regressions are mechanically impossible.
 - **The AI breaks _nothing_ on your machine.** It runs in a zero-trust, sandboxed Docker environment. Your existing codebase is untouchable until you approve the final, pristine PR.
 
 ## Five Degrees of Security
@@ -45,7 +45,7 @@ To ensure the AI cannot short-circuit or fake an implementation, it must never s
 
 **The Golden Rule:** The AI must NEVER see hidden tests.
 
-If the agent can see the tests, it will write code that perfectly hardcodes the expected responses, bypassing the actual implementation. SAIFAC prevents this entirely:
+If the agent can see the tests, it will write code that perfectly hardcodes the expected responses, bypassing the actual implementation. SaifCTL prevents this entirely:
 
 1. **Physical Separation:** Hidden tests are NEVER copied into the coding agent's container. Only public tests are available.
 2. **No Git History:** The agent does not have git access to the original repo, nor access to git history. It cannot `git checkout` to look for answers.

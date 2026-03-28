@@ -1,8 +1,8 @@
 #!/bin/bash
-# OpenCode agent script — runs OpenCode with the task read from $SAIFAC_TASK_PATH.
+# OpenCode agent script — runs OpenCode with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the opencode agent profile. Selected via --agent opencode.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # CLI reference:   https://opencode.ai/docs/cli/
 # Config ref:      https://opencode.ai/docs/config/
@@ -77,22 +77,22 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   fi
 fi
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _opencode_cfg_redacted=""
 if [ -n "${OPENCODE_CONFIG_CONTENT:-}" ]; then
   _opencode_cfg_redacted="$(printf '%s' "$OPENCODE_CONFIG_CONTENT" | sed 's/"baseURL":"[^"]*"/"baseURL":"****"/g')"
 fi
-echo "[agent/opencode] About to run: OPENCODE_PERMISSION='{\"*\":\"allow\"}' OPENCODE_CONFIG_CONTENT='${_opencode_cfg_redacted}' opencode run --model \"${LLM_MODEL}\" --format json \"${_SAIFAC_TASK_SNIP}\""
+echo "[agent/opencode] About to run: OPENCODE_PERMISSION='{\"*\":\"allow\"}' OPENCODE_CONFIG_CONTENT='${_opencode_cfg_redacted}' opencode run --model \"${LLM_MODEL}\" --format json \"${_SAIFCTL_TASK_SNIP}\""
 
 _agent_exit=0
 OPENCODE_PERMISSION='{"*":"allow"}' \
 opencode run \
   --model "$LLM_MODEL" \
   --format json \
-  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+  "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
 
 echo "[agent/opencode] Finished agent opencode in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

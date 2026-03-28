@@ -2,7 +2,7 @@
 
 [Shotgun](https://github.com/shotgun-sh/shotgun) is the default codebase indexer. It parses your repository into a semantic graph so the factory's agents can ask questions like "where is auth handled?" or "what ORM does this project use?" — and get back real file paths and code references instead of guesses.
 
-**Usage:** `saifac init` (default) or `saifac init --indexer shotgun`
+**Usage:** `saifctl init` (default) or `saifctl init --indexer shotgun`
 
 NOTE: Shotgun serves a dual role, but as indexer and designer. [See here how to use Shotgun as designer](../designer/shotgun.md).
 
@@ -22,17 +22,17 @@ uv sync
 
 ### Index your codebase
 
-The index is built automatically when you run `saifac init`:
+The index is built automatically when you run `saifctl init`:
 
 ```bash
-saifac init
+saifctl init
 ```
 
 This runs the full Shotgun setup: config wizard → (optional) Context7 integration → codebase indexing. Takes ~5 minutes on first run.
 
 ### Re-indexing
 
-Re-run `saifac init` whenever your codebase changes significantly. The graph ID is resolved automatically by project name — you don't need to track it.
+Re-run `saifctl init` whenever your codebase changes significantly. The graph ID is resolved automatically by project name — you don't need to track it.
 
 ---
 
@@ -102,9 +102,9 @@ The factory reads `SHOTGUN_PYTHON` and substitutes it wherever it would otherwis
 
 ## How Shotgun works
 
-1. **Index** — During `saifac init`, Shotgun uses [tree-sitter](https://tree-sitter.github.io) to parse your repository into an AST-aware codebase graph. It understands structure: classes, interfaces, function exports, imports, and dependency chains.
+1. **Index** — During `saifctl init`, Shotgun uses [tree-sitter](https://tree-sitter.github.io) to parse your repository into an AST-aware codebase graph. It understands structure: classes, interfaces, function exports, imports, and dependency chains.
 
-2. **Query** — During `saifac feat design`, the factory's agents call the index with natural-language questions. The graph returns specific code chunks, file paths, and relationships.
+2. **Query** — During `saifctl feat design`, the factory's agents call the index with natural-language questions. The graph returns specific code chunks, file paths, and relationships.
 
 3. **Ground the spec** — The Architect Agent uses those answers to write a `spec.md` and `plan.md` constrained strictly to your existing patterns. No invented imports, no phantom file paths.
 

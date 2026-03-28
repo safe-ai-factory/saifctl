@@ -1,8 +1,8 @@
 #!/bin/bash
-# Forge Code agent script — runs forge with the task read from $SAIFAC_TASK_PATH.
+# Forge Code agent script — runs forge with the task read from $SAIFCTL_TASK_PATH.
 #
 # Part of the forge agent profile. Selected via --agent forge.
-# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Forge is a compiled Rust binary that runs fully headlessly with no interactive prompts required.
 #
@@ -91,17 +91,17 @@ if [ -n "${LLM_MODEL:-}" ]; then
   forge config set model "$LLM_MODEL" 2>/dev/null || true
 fi
 
-_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
-if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
-  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+_SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
+  _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/forge] About to run: forge --agent forge --verbose -p \"${_SAIFAC_TASK_SNIP}\" (API keys from env, masked as ****)"
+echo "[agent/forge] About to run: forge --agent forge --verbose -p \"${_SAIFCTL_TASK_SNIP}\" (API keys from env, masked as ****)"
 
 _agent_exit=0
 forge \
   --agent forge \
   --verbose \
-  -p "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+  -p "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
 
 echo "[agent/forge] Finished agent forge in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

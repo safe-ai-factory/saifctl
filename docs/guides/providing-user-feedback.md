@@ -19,10 +19,10 @@ You can do this in two ways:
 
 ## Before you start
 
-- **Run ID** — Obtain from `saifac run list`, or printed when a run stops.
+- **Run ID** — Obtain from `saifctl run list`, or printed when a run stops.
 
 ```bash
-saifac run list
+saifctl run list
 
 1 run(s):
 
@@ -33,12 +33,12 @@ saifac run list
 Run ID also appears after `feat run` / `run start`:
 
 ```bash
-saifac feat run -n add-login
+saifctl feat run -n add-login
 
 ...
 
 Resume again with:
-  saifac run start eed5lz6
+  saifctl run start eed5lz6
 ```
 
 ## 1. Create a rule
@@ -48,13 +48,13 @@ Rules behave similarly to `AGENTS.md` - the contents are injected into the agent
 To create a rule, use `run rules create` with **either** `--content` **or** `--content-file`.
 
 ```bash
-saifac run rules create eed5lz6 --content "Use the shared validateEmail() in lib/email.ts; do not add a second validator."
+saifctl run rules create eed5lz6 --content "Use the shared validateEmail() in lib/email.ts; do not add a second validator."
 ```
 
 **Longer text from a file:**
 
 ```bash
-saifac run rules create eed5lz6 --content-file ./notes/agent-feedback.md
+saifctl run rules create eed5lz6 --content-file ./notes/agent-feedback.md
 ```
 
 On success you get a line like:
@@ -72,7 +72,7 @@ To make it persistent, use `--scope always`. (See [Run rules](../runs.md#run-rul
 **Same instruction every coding round** until you delete it:
 
 ```bash
-saifac run rules create <runId> --content "Do not touch vendor/." --scope always
+saifctl run rules create <runId> --content "Do not touch vendor/." --scope always
 ```
 
 ## 3. (Optional) Change or delete a rule
@@ -82,7 +82,7 @@ Whether **during** a live coding session or **before** resume — you can modify
 We'll do a quick sanity check of the rules we have on the run:
 
 ```bash
-saifac run rules list eed5lz6
+saifctl run rules list eed5lz6
 
 2 rule(s) (2 active in next prompt):
 
@@ -96,7 +96,7 @@ saifac run rules list eed5lz6
 Finally, once our rules are in place, we can resume the Run:
 
 ```bash
-saifac run start eed5lz6
+saifctl run start eed5lz6
 ```
 
 The agent continues from the saved run with your new text in the task.

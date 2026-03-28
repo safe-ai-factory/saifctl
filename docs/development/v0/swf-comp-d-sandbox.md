@@ -78,7 +78,7 @@ A simple HTTP test is easy to fake. To prevent the agent from hardcoding respons
 
 The agent must **never** have write access to the test files.
 
-- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our default `src/orchestrator/policies/default.cedar` allows read opens on `Dir::"/"`, `FileOpenReadWrite` under `/workspace/` and `/tmp/`, and forbids `FileOpenReadWrite` under `/workspace/saifac/` and `/workspace/.git/` (Leash `Dir::` paths), so Leash blocks those write opens in real time.
+- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our default `src/orchestrator/policies/default.cedar` allows read opens on `Dir::"/"`, `FileOpenReadWrite` under `/workspace/` and `/tmp/`, and forbids `FileOpenReadWrite` under `/workspace/saifctl/` and `/workspace/.git/` (Leash `Dir::` paths), so Leash blocks those write opens in real time.
 - **Patch filtering (belt-and-suspenders):** After each agent round, `extractIncrementalRoundPatch()` in `sandbox.ts` walks the first-parent chain from `preRoundHead` to `HEAD` and records **one filtered unified diff per commit** (plus one more if there is leftover staged work after those commits). Any hunks touching `openspec/` are stripped before those diffs are persisted / replayed / applied on the host. Dropped paths are logged. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
 
 ### 3. The Holdout Set (Hidden Tests)
@@ -86,7 +86,7 @@ The agent must **never** have write access to the test files.
 Borrowing from machine learning training principles, we use "Mutual Verification" (as seen in frameworks like SWE-Playground).
 
 - **Public Tests:** The agent is given a subset of tests it can read to understand the goal and debug its code.
-- **Hidden Tests:** The Orchestrator keeps a "Holdout Set" of tests completely hidden from the agent. Before the agent runs, _all_ `hidden/` directories under `saifac/features/` (for every feature, not just the current one) are removed from the code copy. The agent therefore never sees holdout tests from any feature.
+- **Hidden Tests:** The Orchestrator keeps a "Holdout Set" of tests completely hidden from the agent. Before the agent runs, _all_ `hidden/` directories under `saifctl/features/` (for every feature, not just the current one) are removed from the code copy. The agent therefore never sees holdout tests from any feature.
 - **Final Verification:** When the agent claims the public tests are passing, the Orchestrator steps in. It takes _only_ the agent's source code patch, applies it to a clean checkout of the `main` branch, and runs the hidden tests outside of the agent's container. If the agent hardcoded a fake response to pass the public test, it will instantly fail the hidden test.
 
 ---
@@ -112,21 +112,21 @@ We can leverage existing open-source evaluation infrastructure rather than build
 
 ### Integrating Leash with OpenHands
 
-**Our integration:** We use **Leash as a CLI wrapper** around a custom coder image (`saifac-coder-node-pnpm-python:latest` or profile-specific) that includes OpenHands. Instead of running `openhands ...` directly on the host, the Orchestrator runs:
+**Our integration:** We use **Leash as a CLI wrapper** around a custom coder image (`saifctl-coder-node-pnpm-python:latest` or profile-specific) that includes OpenHands. Instead of running `openhands ...` directly on the host, the Orchestrator runs:
 
 ```bash
-leash --no-interactive --image saifac-coder-node-pnpm-python:latest \
+leash --no-interactive --image saifctl-coder-node-pnpm-python:latest \
   --volume /path/to/sandbox:/workspace --policy policies/default.cedar \
   openhands --headless --always-approve -t "Implement plan.md"
 ```
 
 Leash manages its own containers; we never pull StrongDM images. Use `--engine local` (LocalEngine) to skip Leash and run OpenHands directly on the host (no container during the agent phase). See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for full details.
 
-**Alternative (Remote Sandbox):** OpenHands also supports `RUNTIME=remote` with `SANDBOX_REMOTE_RUNTIME_API_URL` for pluggable runtimes. That model would require a Leash-compatible Sandbox API; our current implementation runs the resolved Leash CLI with `--image saifac-coder-node-pnpm-python:latest ... /saifac/coder-start.sh`. See [Runtime Overview](https://docs.all-hands.dev/usage/runtimes/overview) for reference.
+**Alternative (Remote Sandbox):** OpenHands also supports `RUNTIME=remote` with `SANDBOX_REMOTE_RUNTIME_API_URL` for pluggable runtimes. That model would require a Leash-compatible Sandbox API; our current implementation runs the resolved Leash CLI with `--image saifctl-coder-node-pnpm-python:latest ... /saifctl/coder-start.sh`. See [Runtime Overview](https://docs.all-hands.dev/usage/runtimes/overview) for reference.
 
 ### Host-to-Docker Code Flow (Local vs Remote)
 
-**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/saifac/sandboxes/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifac/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with local coding (LocalEngine) it runs on the host.
+**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/saifctl/sandboxes/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifctl/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with local coding (LocalEngine) it runs on the host.
 
 **OpenHands' traditional flow (for reference):**
 
@@ -171,7 +171,7 @@ To realize the workflow we designed, we do not merely install SWE-Bench and clic
 
 1. Use **OpenHands** in headless mode as the Execution Sandbox and Coder Agent.
 2. Write a **custom orchestrator script** that:
-   - Copies the repo to a disposable sandbox via `rsync`; removes _all_ `hidden/` dirs under `saifac/features/` from the code copy before the agent runs, so holdout tests from every feature are physically absent from the agent's workspace.
+   - Copies the repo to a disposable sandbox via `rsync`; removes _all_ `hidden/` dirs under `saifctl/features/` from the code copy before the agent runs, so holdout tests from every feature are physically absent from the agent's workspace.
    - Triggers OpenHands with the task (`plan.md` contents).
    - Extracts the `patch.diff` when OpenHands finishes.
    - Runs the hidden tests via the three-container Black-Box flow (Test Runner over HTTP to Staging container) against a clean checkout with the patch applied (Mutual Verification).

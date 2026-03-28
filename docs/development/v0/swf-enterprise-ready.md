@@ -8,7 +8,7 @@ The project already delivers SOTA security boundaries (Cedar policies, Leash, ex
 
 ## 1. Integration & CI/CD Native Orchestration
 
-Currently, `safe-ai-factory` is heavily CLI-driven (`saifac feat run`), designed to run on a developer's machine or a single Docker host.
+Currently, `safe-ai-factory` is heavily CLI-driven (`saifctl feat run`), designed to run on a developer's machine or a single Docker host.
 
 **What's needed:**
 
