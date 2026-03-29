@@ -13,13 +13,13 @@ import { join } from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { saifLogger } from './logger';
+import { saifctlLogger } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
 
 /** Run artifact shape when reading from .saifctl/runs/*.json */
 interface RunArtifact {
   runId: string;
-  status: 'failed' | 'completed' | 'running';
+  status: 'failed' | 'completed' | 'running' | 'paused';
   config: { featureName: string; projectDir?: string; [k: string]: unknown };
   specRef?: string;
   updatedAt?: string;
@@ -50,25 +50,25 @@ export class SaifctlCliService {
    */
   private async executeInBackground(command: string, cwd: string): Promise<string> {
     try {
-      saifLogger.info(`Executing: ${command}`);
-      saifLogger.debug(`CWD: ${cwd}`);
+      saifctlLogger.info(`Executing: ${command}`);
+      saifctlLogger.debug(`CWD: ${cwd}`);
 
       const out = await spawnUserCmdCapture(command, { cwd });
-      saifLogger.trace(`Output: ${out}`);
+      saifctlLogger.trace(`Output: ${out}`);
       return out.trim();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      saifLogger.error(`Command failed: ${command}`);
-      saifLogger.error(`Error details: ${message}`);
-      if (stack) saifLogger.error(stack);
+      saifctlLogger.error(`Command failed: ${command}`);
+      saifctlLogger.error(`Error details: ${message}`);
+      if (stack) saifctlLogger.error(stack);
 
       const selection = await vscode.window.showErrorMessage(
         'SaifCTL error: Failed to execute command.',
         'View Logs',
       );
       if (selection === 'View Logs') {
-        saifLogger.show();
+        saifctlLogger.show();
       }
       throw error;
     }

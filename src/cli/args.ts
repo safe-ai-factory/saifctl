@@ -46,7 +46,7 @@ export const nameArg = {
   description: 'Feature name (kebab-case). Prompts with a list if omitted.',
 };
 
-export const saifDirArg = {
+export const saifctlDirArg = {
   type: 'string' as const,
   description: 'Path to saifctl directory (default: saifctl)',
 };
@@ -134,7 +134,7 @@ export const featAgentArgs = {
 
 // Args for `run test` — re-test a stored run's patch (no agent/coding flags).
 export const runTestArgs = {
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   project: projectArg,
   'test-profile': testProfileArg,

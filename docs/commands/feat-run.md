@@ -154,6 +154,7 @@ The Vague Specs Checker is implemented as a single LLM call that internally perf
 
 ## See also
 
+- [Guide: Run lifecycle](../guides/run-lifecycle.md) — Pause, resume, `run start`, test, apply
 - [`feat design`](feat-design.md) — Generate specs and tests (run first)
 - [`feat design-fail2pass`](feat-design-fail2pass.md) — Validate tests before running
 - [`run start`](run-start.md) — Resume a failed run from storage

@@ -11,7 +11,7 @@ import * as vscode from 'vscode';
 
 import { SaifctlCliService } from './cliService';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
-import { saifLogger } from './logger';
+import { saifctlLogger } from './logger';
 import { RunItem, RunProjectItem, RunsTreeProvider } from './RunsTreeProvider';
 import { consola, setVerboseLogging } from './saifctl-logger.js';
 
@@ -98,10 +98,10 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(watcher);
 
   // Watcher for saifctl dir creation/deletion to automatically pick up new projects
-  const saifWatcher = vscode.workspace.createFileSystemWatcher('**/saifctl');
-  saifWatcher.onDidCreate(() => featuresProvider.refresh());
-  saifWatcher.onDidDelete(() => featuresProvider.refresh());
-  context.subscriptions.push(saifWatcher);
+  const saifctlWatcher = vscode.workspace.createFileSystemWatcher('**/saifctl');
+  saifctlWatcher.onDidCreate(() => featuresProvider.refresh());
+  saifctlWatcher.onDidDelete(() => featuresProvider.refresh());
+  context.subscriptions.push(saifctlWatcher);
 
   const runsProvider = new RunsTreeProvider(workspaceRoot, cliService);
   vscode.window.registerTreeDataProvider('saifctl-runs', runsProvider);
@@ -282,7 +282,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   const showLogsCmd = vscode.commands.registerCommand('saifctl.showLogs', () => {
-    saifLogger.show();
+    saifctlLogger.show();
   });
 
   const recheckInstallCmd = vscode.commands.registerCommand('saifctl.recheckInstall', async () => {

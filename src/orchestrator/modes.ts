@@ -18,12 +18,14 @@ import { defaultEngineLog } from '../engines/logs.js';
 import {
   type AssertionSuiteResult,
   type CoderInspectSessionHandle,
+  type LiveInfra,
   type TestsResult,
 } from '../engines/types.js';
 import { parseJUnitXmlString } from '../engines/utils/test-parser.js';
 import { getHatchetClient } from '../hatchet/client.js';
 import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
 import {
+  type ConvergenceOutput,
   createFeatRunWorkflow,
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
@@ -34,6 +36,7 @@ import { type RunStorage } from '../runs/storage.js';
 import {
   type OuterAttemptSummary,
   RunAlreadyRunningError,
+  RunCannotStopError,
   type RunCommit,
   StaleArtifactError,
 } from '../runs/types.js';
@@ -42,7 +45,7 @@ import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
 import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
-import { writeUtf8 } from '../utils/io.js';
+import { pathExists, writeUtf8 } from '../utils/io.js';
 import { buildCoderContainerEnv } from './agent-env.js';
 import { buildTaskPrompt } from './agent-task.js';
 import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
@@ -68,6 +71,8 @@ import {
   destroySandbox,
   extractIncrementalRoundPatch,
   SAIFCTL_TEMP_ROOT,
+  type Sandbox,
+  sandboxFromPausedBasePath,
 } from './sandbox.js';
 import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 import {
@@ -176,6 +181,20 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
     artifactRevisionWhenFromArtifact?: number;
     /** Prior {@link RunArtifact#roundSummaries} when continuing from a stored run */
     seedRoundSummaries?: OuterAttemptSummary[];
+    /**
+     * `run resume` when paused sandbox still exists: reuse sandbox dir + Docker bridge from `run pause` (skips createSandbox).
+     *
+     * NOTE: Even if a run was paused, the sandbox may be lost if it's stored in /tmp/
+     * and the system reboots.
+     * */
+    pausedSandbox?: Sandbox;
+    /**
+     * Coding {@link LiveInfra} from the paused artifact (network, compose, containers).
+     *
+     * Set to a non-null value by `run resume` to skip {@link Engine.setup} on the first iterative loop round
+     * so the existing bridge/network is preserved. Always `null` for non-resume paths (`run start`, `fromArtifact`).
+     */
+    resumedCodingInfra: LiveInfra | null;
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -242,6 +261,7 @@ function withCleanupRegistry<T, R>(
 export const runFail2Pass = withCleanupRegistry(runFail2PassCore);
 export const runStart = withCleanupRegistry(runStartCore);
 export const fromArtifact = withCleanupRegistry(fromArtifactCore);
+export const runResume = withCleanupRegistry(runResumeCore);
 export const runTestsFromRun = withCleanupRegistry(runTestsFromRunCore);
 export const runApply = withCleanupRegistry(runApplyCore);
 
@@ -261,7 +281,7 @@ type Fail2PassOpts = Pick<
   | 'sandboxProfileId'
   | 'feature'
   | 'projectDir'
-  | 'saifDir'
+  | 'saifctlDir'
   | 'projectName'
   | 'sandboxBaseDir'
   | 'testImage'
@@ -284,7 +304,7 @@ async function runFail2PassCore(
     sandboxProfileId,
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     projectName,
     sandboxBaseDir,
     testImage,
@@ -302,7 +322,7 @@ async function runFail2PassCore(
   const sandbox = await createSandbox({
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     projectName,
     sandboxBaseDir,
     startupScript,
@@ -321,17 +341,34 @@ async function runFail2PassCore(
   });
 
   const stagingEngine = createEngine(stagingEnvironment);
-  registry.registerEngine(stagingEngine, sandbox.runId);
+
+  // Track latest live infra for this engine: SIGINT cleanup and teardown() need
+  // the same snapshot. Each operation like Engine.setup() may mutate the live infra shape.
+  let stagingInfra: LiveInfra | null = null;
+
+  // Register before setup so an early signal still sees infra once setup()
+  // has assigned stagingInfra.
+  registry.registerEngine({
+    engine: stagingEngine,
+    runId: sandbox.runId,
+    label: sandbox.runId,
+    projectDir,
+    getInfra: () => stagingInfra,
+  });
 
   try {
-    await stagingEngine.setup({
+    // Provision staging engine network (and optional compose) for fail2pass verification.
+    const { infra: afterSetup } = await stagingEngine.setup({
       runId: sandbox.runId,
       projectName,
       featureName: feature.name,
       projectDir,
     });
+    stagingInfra = afterSetup;
 
-    const stagingHandle = await stagingEngine.startStaging({
+    // Bring up the staging container (sidecar / app) against the sandbox workspace.
+    const { stagingHandle, infra: afterStaging } = await stagingEngine.startStaging({
+      runId: sandbox.runId,
       sandboxProfileId,
       codePath: sandbox.codePath,
       projectDir,
@@ -340,9 +377,12 @@ async function runFail2PassCore(
       projectName,
       saifctlPath: sandbox.saifctlPath,
       onLog: defaultEngineLog,
+      infra: afterSetup,
     });
+    stagingInfra = afterStaging;
 
-    const result = await stagingEngine.runTests({
+    // Execute the feature test suite inside the staging environment.
+    const { tests: result, infra: afterTests } = await stagingEngine.runTests({
       ...testRunnerOpts,
       stagingHandle,
       testImage,
@@ -350,8 +390,11 @@ async function runFail2PassCore(
       feature,
       projectName,
       onLog: defaultEngineLog,
+      infra: afterStaging,
     });
+    stagingInfra = afterTests;
 
+    // Process results
     if (result.runnerError) {
       throw new Error(
         `Test runner error (not a test failure): ${result.runnerError}\n` +
@@ -365,7 +408,7 @@ async function runFail2PassCore(
         '\n[orchestrator] ✓ FAIL2PASS CONFIRMED — feature tests correctly fail on current codebase',
       );
       return {
-        success: true,
+        status: 'success',
         attempts: 1,
         message: 'Tests correctly fail on current codebase. Ready to start the iterative loop.',
       };
@@ -375,22 +418,28 @@ async function runFail2PassCore(
       );
       consola.error('Either the feature already exists or the tests are invalid.');
       return {
-        success: false,
+        status: 'failed',
         attempts: 1,
         message:
           'No feature tests failed on current codebase — feature may already be implemented or tests are invalid.',
       };
     }
   } finally {
+    // Deregister first; then teardown when we have an infra snapshot
+    // (null ⇒ failed setup ⇒ teardown no-ops / warns).
     registry.deregisterEngine(stagingEngine);
-    await stagingEngine.teardown({ runId: sandbox.runId });
+    await stagingEngine.teardown({
+      runId: sandbox.runId,
+      infra: stagingInfra,
+      projectDir,
+    });
     await destroySandbox(sandbox.sandboxBasePath);
     registry.clearEmergencySandboxPath();
   }
 }
 
 // ---------------------------------------------------------------------------
-// Mode 2: start
+// Mode 2: start (fresh sandbox -> running)
 // ---------------------------------------------------------------------------
 
 /**
@@ -408,7 +457,7 @@ async function runStartCore(
   const {
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     projectName,
     sandboxBaseDir,
     gateScript,
@@ -452,8 +501,8 @@ async function runStartCore(
   // OrchestratorOpts is not JSON-serializable (contains gitProvider/testProfile class
   // instances, patchExclude RegExp), so we serialize it at dispatch and reconstruct it
   // on the worker via deserializeOrchestratorOpts — no ambient in-process state needed.
-  const hatchet = getHatchetClient();
-  if (hatchet) {
+  const { hatchet, isLocal } = getHatchetClient();
+  if (!isLocal) {
     consola.log('[orchestrator] Hatchet token detected — dispatching via Hatchet workflow.');
 
     const serializedOpts = serializeOrchestratorOpts(opts);
@@ -476,10 +525,11 @@ async function runStartCore(
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (await hatchet.run<FeatRunSerializedInput, any>(
+      const hatchetRaw = await hatchet.run<FeatRunSerializedInput, { [x: string]: any }>(
         featRunWorkflow.name,
         input,
-      )) as OrchestratorResult;
+      );
+      return orchestratorResultFromHatchetWorkflowOutput(hatchetRaw);
     } finally {
       // Note: There is finally, but not `catch` branch, so the error still throws
       // after the cleanup.
@@ -487,23 +537,31 @@ async function runStartCore(
     }
   }
 
-  const sandbox = await createSandbox({
-    feature,
-    projectDir: sandboxSourceDir,
-    codeSourceDir: opts.fromArtifact?.baseSnapshotPath ?? sandboxSourceDir,
-    saifDir,
-    projectName,
-    sandboxBaseDir,
-    gateScript,
-    startupScript,
-    agentInstallScript,
-    agentScript,
-    stageScript,
-    verbose: opts.verbose,
-    runCommits: opts.fromArtifact?.seedRunCommits ?? [],
-    runId: opts.fromArtifact?.persistedRunId,
-    includeDirty: opts.includeDirty,
-  });
+  ///////////////////////
+  // Non-hatchet branch
+  ///////////////////////
+
+  // When resuming, we reuse the existing sandbox
+  const pausedSandbox = opts.fromArtifact?.pausedSandbox;
+  const sandbox: Sandbox =
+    pausedSandbox ??
+    (await createSandbox({
+      feature,
+      projectDir: sandboxSourceDir,
+      codeSourceDir: opts.fromArtifact?.baseSnapshotPath ?? sandboxSourceDir,
+      saifctlDir,
+      projectName,
+      sandboxBaseDir,
+      gateScript,
+      startupScript,
+      agentInstallScript,
+      agentScript,
+      stageScript,
+      verbose: opts.verbose,
+      runCommits: opts.fromArtifact?.seedRunCommits ?? [],
+      runId: opts.fromArtifact?.persistedRunId,
+      includeDirty: opts.includeDirty,
+    }));
 
   const modeLabel = testOnly ? 'test' : opts.fromArtifact ? 'fromArtifact' : 'start';
   consola.log(`\n[orchestrator] MODE: ${modeLabel} — ${feature.name} (run ${sandbox.runId})`);
@@ -524,6 +582,14 @@ async function runStartCore(
         rules: runContext.rules,
         status: 'running',
         opts: loopOpts,
+        pausedSandboxBasePath: null,
+        controlSignal: null,
+        // On resume, keep the coding infra in the artifact so a SIGINT before the first round
+        // doesn't lose the live Docker resources. Non-resume paths start with null and let the
+        // iterative loop fill it in once infra is provisioned.
+        liveInfra: opts.fromArtifact?.resumedCodingInfra
+          ? { coding: opts.fromArtifact.resumedCodingInfra, staging: null }
+          : null,
       });
       runContext.expectedArtifactRevision = await runStorage.setStatusRunning(
         sandbox.runId,
@@ -555,7 +621,7 @@ async function runStartCore(
   // ─── Existing in-process path ──────────────────────────────────────────────
   return runIterativeLoop(sandbox, {
     ...opts,
-    saifDir,
+    saifctlDir,
     runStorage,
     runContext,
     initialErrorFeedback: opts.fromArtifact?.initialErrorFeedback ?? null,
@@ -565,14 +631,66 @@ async function runStartCore(
   });
 }
 
+/**
+ * Converts the raw output of the `feat-run` Hatchet workflow.
+ *
+ * Two possible output shapes:
+ *
+ * 1. Failure-hook shape (fast path)
+ * When the workflow errors out, Hatchet invokes the `onFailure` step from `feat-run.workflow.ts`.
+ * This step writes a normalized {@link OrchestratorResult}.
+ *
+ * 2. Normal-completion shape (step-keyed)
+ * When the workflow runs to completion without error, Hatchet merges step outputs under their step
+ * names. The relevant keys are:
+ * - `provision-sandbox` — sandbox-provisioning step, contains `runId`.
+ * - `convergence-loop`  — iterative agent loop, typed as {@link ConvergenceOutput}.
+ */
+function orchestratorResultFromHatchetWorkflowOutput(raw: unknown): OrchestratorResult {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Hatchet feat-run workflow returned no result.');
+  }
+  const o = raw as Record<string, unknown>;
+  const st = o.status;
+
+  // Fast path: the onFailure hook already produced a normalized OrchestratorResult.
+  if (st === 'success' || st === 'failed' || st === 'paused' || st === 'stopped') {
+    return o as unknown as OrchestratorResult;
+  }
+
+  // Normal completion path: map from step-keyed Hatchet output.
+  const conv = o['convergence-loop'];
+  if (conv && typeof conv === 'object') {
+    const c = conv as ConvergenceOutput;
+    const provision = o['provision-sandbox'] as { runId?: string } | undefined;
+    const runId = provision?.runId;
+    if (c.success) {
+      return {
+        status: 'success',
+        attempts: c.attempt,
+        runId,
+        patchPath: c.patchPath ?? undefined,
+        message: `Feature implemented successfully in ${c.attempt} attempt(s).`,
+      };
+    }
+    return {
+      status: 'failed',
+      attempts: c.attempt,
+      runId,
+      message: c.lastErrorFeedback ?? `Failed after ${c.attempt} run(s).`,
+    };
+  }
+  throw new Error(`Unexpected Hatchet feat-run workflow output shape: ${JSON.stringify(o)}`);
+}
+
 // ---------------------------------------------------------------------------
-// Mode 3: fromArtifact (from storage)
+// Mode 3: fromArtifact (existing (stopped/paused) -> running)
 // ---------------------------------------------------------------------------
 
 export interface FromArtifactOpts {
   runId: string;
   projectDir: string;
-  saifDir: string;
+  saifctlDir: string;
   config: SaifctlConfig;
   runStorage: RunStorage;
   cli: OrchestratorCliInput;
@@ -598,7 +716,7 @@ async function fromArtifactCore(
     cli,
     cliModelDelta,
     config,
-    saifDir,
+    saifctlDir,
     testOnly,
     engineCli,
   } = opts;
@@ -631,12 +749,12 @@ async function fromArtifactCore(
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
-    saifDir: deserialized.saifDir,
+    saifctlDir: deserialized.saifctlDir,
   });
 
   const mergedOpts = await resolveOrchestratorOpts({
     projectDir,
-    saifDir,
+    saifctlDir,
     config,
     feature,
     cli,
@@ -658,6 +776,7 @@ async function fromArtifactCore(
     initialErrorFeedback: artifact.lastFeedback,
     persistedRunId: runId,
     artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
+    resumedCodingInfra: null,
   };
 
   try {
@@ -669,6 +788,281 @@ async function fromArtifactCore(
       // Best-effort cleanup
     });
   }
+}
+
+/**
+ * Resume a paused run when the sandbox directory and Docker bridge (and coder container) still
+ * exist; otherwise clears pause metadata and continues via {@link fromArtifactCore} (same as `run start`).
+ */
+async function runResumeCore(
+  opts: FromArtifactOpts,
+  registry: CleanupRegistry,
+): Promise<OrchestratorResult> {
+  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifctlDir, engineCli } = opts;
+
+  const artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
+  }
+  if (artifact.status !== 'paused') {
+    throw new Error(
+      `Run "${runId}" is not paused (status: "${artifact.status}"). Use: saifctl run start ${runId}`,
+    );
+  }
+  const pausedPath = artifact.pausedSandboxBasePath?.trim();
+  if (!pausedPath) {
+    throw new Error(
+      `Run "${runId}" is missing pausedSandboxBasePath. Use: saifctl run start ${runId}`,
+    );
+  }
+
+  consola.log(`\n[orchestrator] MODE: runResume — ${artifact.config.featureName} (run ${runId})`);
+
+  const deserialized = deserializeArtifactConfig(artifact.config);
+  const feature = await resolveFeature({
+    input: deserialized.featureName,
+    projectDir,
+    saifctlDir: deserialized.saifctlDir,
+  });
+
+  const mergedOpts = await resolveOrchestratorOpts({
+    projectDir,
+    saifctlDir,
+    config,
+    feature,
+    cli,
+    cliModelDelta,
+    artifact,
+    engineCli,
+  });
+
+  const pathOk = await pathExists(pausedPath);
+
+  const codingEngine = createEngine(mergedOpts.codingEnvironment);
+  const engineType = mergedOpts.codingEnvironment.engine;
+  const resumedCodingInfra = artifact.liveInfra?.coding;
+  const resumedInfraMissing = !resumedCodingInfra;
+
+  let infraOk = false;
+  if (!resumedInfraMissing) {
+    // Guard: Engine mismatch → error.
+    if (resumedCodingInfra.engine !== engineType) {
+      throw new Error(
+        `Run "${runId}" cannot be resumed: stored coding infra uses engine "${resumedCodingInfra.engine}" ` +
+          `but the current config uses "${engineType}". ` +
+          `Align environments.coding (or CLI) with the paused run, or start fresh with: saifctl run start ${runId}`,
+      );
+    }
+
+    // Check whether the infra stored on the Run still exists
+    infraOk = await codingEngine.verifyInfraToResume({
+      projectName: mergedOpts.projectName,
+      featureName: feature.name,
+      runId: artifact.runId,
+      sandboxBasePath: pausedPath,
+      projectDir,
+      infra: resumedCodingInfra,
+    });
+  }
+
+  // Guard: missing sandbox, missing engine infra, or missing stored coding liveInfra → rebuild.
+  if (!pathOk || !infraOk || resumedInfraMissing) {
+    let reason = '';
+    if (!pathOk) {
+      reason = 'Paused run is missing sandbox directory';
+    } else if (!infraOk) {
+      reason = `Paused run defined infra (network / container) to resume but the infra is no longer present`;
+    } else if (resumedInfraMissing) {
+      reason = `Paused run has no defined infra (network / container) to resume`;
+    }
+    consola.warn(`[orchestrator] ${reason} — continuing like run start (rebuild from artifact).`);
+
+    const rev = artifact.artifactRevision ?? 0;
+    await runStorage.saveRun(
+      runId,
+      {
+        ...artifact,
+        pausedSandboxBasePath: null,
+        controlSignal: null,
+        updatedAt: new Date().toISOString(),
+      },
+      { ifRevisionEquals: rev },
+    );
+    return fromArtifactCore(opts, registry);
+  }
+
+  const resumeSandbox = sandboxFromPausedBasePath({
+    runId: artifact.runId,
+    sandboxBasePath: pausedPath,
+  });
+
+  // Finally, everything present, we can resume the infra (e.g. `docker compose up`)
+  await codingEngine.resumeInfra({
+    sandboxBasePath: resumeSandbox.sandboxBasePath,
+    runId: artifact.runId,
+    projectName: mergedOpts.projectName,
+    featureName: feature.name,
+    projectDir,
+  });
+
+  mergedOpts.fromArtifact = {
+    sandboxSourceDir: resumeSandbox.codePath,
+    runContext: {
+      baseCommitSha: artifact.baseCommitSha,
+      basePatchDiff: artifact.basePatchDiff,
+      rules: cloneRunRules(artifact.rules),
+    },
+    initialErrorFeedback: artifact.lastFeedback,
+    seedRunCommits: artifact.runCommits,
+    persistedRunId: runId,
+    artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
+    seedRoundSummaries: artifact.roundSummaries,
+    pausedSandbox: resumeSandbox,
+    resumedCodingInfra,
+  };
+
+  return runStartCore(mergedOpts, registry);
+}
+
+// ---------------------------------------------------------------------------
+// Pause: running → paused
+// ---------------------------------------------------------------------------
+
+/** Poll interval while waiting for a run to leave `"running"` (pause / stop). */
+const RUN_WAIT_POLL_MS = 1000;
+
+/** Default max wait when `run pause` / `run stop` await orchestrator teardown (seconds → ms at CLI). */
+const DEFAULT_RUN_WAIT_TIMEOUT_MS = 60_000;
+
+async function waitForRunNotRunning(opts: {
+  runStorage: RunStorage;
+  runId: string;
+  waitTimeoutMs: number;
+}): Promise<boolean> {
+  const { runStorage, runId, waitTimeoutMs } = opts;
+  const deadline = Date.now() + waitTimeoutMs;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, RUN_WAIT_POLL_MS));
+    const cur = await runStorage.getRun(runId);
+    if (!cur) return true;
+    if (cur.status !== 'running') return true;
+  }
+  return false;
+}
+
+/**
+ * Request pause and wait until the run leaves `"running"` (or `--timeout`).
+ */
+export async function runPause(opts: {
+  runId: string;
+  runStorage: RunStorage;
+  waitTimeoutMs?: number;
+}): Promise<void> {
+  const { runId, runStorage } = opts;
+  const waitTimeoutMs = opts.waitTimeoutMs ?? DEFAULT_RUN_WAIT_TIMEOUT_MS;
+
+  // Request run to be paused by changing state in storage
+  // The running Run polls the storage and that's how it finds about our
+  // pause request.
+  await runStorage.requestPause(runId);
+  consola.log(`Pause requested for run ${runId} — waiting for orchestrator to finish pausing...`);
+
+  const ok = await waitForRunNotRunning({ runStorage, runId, waitTimeoutMs });
+  if (!ok) {
+    consola.warn(
+      `[orchestrator] Timed out after ${waitTimeoutMs / 1000}s waiting for run "${runId}" to leave status "running". Check with: saifctl run ls`,
+    );
+    return;
+  }
+
+  // By now the run paused or we timed out
+  const run = await runStorage.getRun(runId);
+  consola.log(`Run ${runId} finished pausing (status: ${run?.status ?? 'unknown'}).`);
+}
+
+/**
+ * Stop a run: for `"running"`, sets {@link RunArtifact#controlSignal} `stop`
+ * and waits until status changes (polling storage);
+ * For `"paused"`, tears down Docker + sandbox synchronously and saves `failed`.
+ */
+export async function runStop(opts: {
+  runId: string;
+  projectDir: string;
+  runStorage: RunStorage;
+  waitTimeoutMs?: number;
+}): Promise<void> {
+  const { runId, projectDir, runStorage } = opts;
+  const waitTimeoutMs = opts.waitTimeoutMs ?? DEFAULT_RUN_WAIT_TIMEOUT_MS;
+
+  // Get run artifact from storage
+  const artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
+  }
+
+  // If the run is paused, tear down Docker + sandbox synchronously and save `failed`
+  if (artifact.status === 'paused') {
+    const pausedPath = artifact.pausedSandboxBasePath?.trim();
+    if (!pausedPath) {
+      throw new Error(
+        `Run "${runId}" is paused but missing pausedSandboxBasePath; cannot tear down resources.`,
+      );
+    }
+
+    // Tear down Docker (containers, docker-compose, networks, etc)
+    const codingEngine = createEngine(artifact.config.codingEnvironment);
+    const storedCoding = artifact.liveInfra?.coding ?? null;
+    await codingEngine.teardown({ runId: artifact.runId, infra: storedCoding, projectDir });
+
+    // Destroy sandbox
+    await destroySandbox(pausedPath);
+    const rev = artifact.artifactRevision ?? 0;
+    const t = new Date().toISOString();
+
+    // Mark as failed
+    await runStorage.saveRun(
+      runId,
+      {
+        ...artifact,
+        status: 'failed',
+        controlSignal: null,
+        pausedSandboxBasePath: null,
+        updatedAt: t,
+      },
+      { ifRevisionEquals: rev },
+    );
+    consola.log(
+      `[orchestrator] Stopped paused run ${runId} — artifact status: failed, sandbox removed.`,
+    );
+    return;
+  }
+
+  // The agent is running. To stop the process, we need to request stop.
+  // This is same logic as runPause.
+  if (artifact.status === 'running') {
+    // Request stop by changing state in storage
+    // The running Run polls the storage and that's how it finds about our
+    // stop request.
+    await runStorage.requestStop(runId);
+    consola.log(`Stop requested for run ${runId} — waiting for orchestrator to finish teardown...`);
+    const ok = await waitForRunNotRunning({ runStorage, runId, waitTimeoutMs });
+    if (!ok) {
+      consola.warn(
+        `[orchestrator] Timed out after ${waitTimeoutMs / 1000}s waiting for run "${runId}" to leave status "running". Check with: saifctl run ls`,
+      );
+      return;
+    }
+    // By now the run stopped or we timed out
+    const run = await runStorage.getRun(runId);
+    if (run) {
+      consola.log(`Run ${runId} finished stopping (status: ${run.status}).`);
+    }
+    return;
+  }
+
+  // Error: Neither running nor paused → cannot stop.
+  throw new RunCannotStopError(runId, artifact.status);
 }
 
 // ---------------------------------------------------------------------------
@@ -700,7 +1094,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     cli,
     cliModelDelta,
     config,
-    saifDir,
+    saifctlDir,
     inspectLeash,
     engineCli,
   } = opts;
@@ -740,12 +1134,12 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     const feature = await resolveFeature({
       input: deserialized.featureName,
       projectDir,
-      saifDir: deserialized.saifDir,
+      saifctlDir: deserialized.saifctlDir,
     });
 
     const mergedOpts = await resolveOrchestratorOpts({
       projectDir,
-      saifDir,
+      saifctlDir,
       config,
       feature,
       cli,
@@ -771,6 +1165,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         rules: cloneRunRules(artifact.rules),
       },
       initialErrorFeedback: artifact.lastFeedback,
+      resumedCodingInfra: null,
     };
 
     const sandboxSourceDir = getSandboxSourceDir(mergedOpts);
@@ -778,7 +1173,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       feature,
       projectDir: sandboxSourceDir,
       codeSourceDir: mergedOpts.fromArtifact?.baseSnapshotPath ?? sandboxSourceDir,
-      saifDir,
+      saifctlDir,
       projectName: mergedOpts.projectName,
       sandboxBaseDir: mergedOpts.sandboxBaseDir,
       gateScript: mergedOpts.gateScript,
@@ -797,7 +1192,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
     ).trim();
 
-    const patchExclude = buildPatchExcludeRules(saifDir, mergedOpts.patchExclude);
+    const patchExclude = buildPatchExcludeRules(saifctlDir, mergedOpts.patchExclude);
 
     const runContext = mergedOpts.fromArtifact.runContext;
     const inspectRunId = `${sandbox.runId}-inspect`;
@@ -805,7 +1200,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
     const task = await buildInitialTask({
       feature,
-      saifDir,
+      saifctlDir,
       rules: rulesForPrompt(runContext.rules),
     });
     const errorFeedback = artifact.lastFeedback ?? '';
@@ -818,14 +1213,16 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         }
       : null;
 
+    // Full task text: feature spec + rules + prior feedback (same shape as the coding agent).
     const taskPrompt = await buildTaskPrompt({
       codePath: sandbox.codePath,
       task,
-      saifDir,
+      saifctlDir,
       feature,
       errorFeedback,
     });
 
+    // Env vars and secrets passed into the inspect coder container.
     const inspectContainerEnv = await buildCoderContainerEnv({
       mode: { kind: 'container' },
       llmConfig: coderLlmConfig,
@@ -841,15 +1238,25 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
     let inspectHandle: CoderInspectSessionHandle | null = null;
 
+    // Track latest live infra for engine.teardown() after the inspect session stops.
+    // Each operation may mutate the live infra shape. There is no CleanupRegistry here:
+    // SIGINT ends the wait and this finally path runs teardown explicitly.
+    let inspectTeardownInfra: LiveInfra | null = null;
+
     try {
       try {
-        await codingEngine.setup({
+        // Provision network (and optional compose); Docker coding also includes
+        // the leash container for teardown.
+        const { infra: inspectSetupInfra } = await codingEngine.setup({
           runId: inspectRunId,
           projectName: mergedOpts.projectName,
           featureName: feature.name,
           projectDir: mergedOpts.projectDir,
+          sandboxBasePath: sandbox.sandboxBasePath,
         });
+        inspectTeardownInfra = inspectSetupInfra;
 
+        // Stream inspect stdout/stderr according to profile (e.g. tee vs line-buffered logs).
         const inspectAgentProfile = resolveAgentProfile(mergedOpts.agentProfileId);
         const inspectLogStrategy = inspectAgentProfile.stdoutStrategy;
         const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
@@ -860,7 +1267,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           }),
         });
 
-        inspectHandle = await codingEngine.startInspect({
+        // Idle coder container + workspace for manual editing; updates infra for teardown.
+        const { session, infra: afterInspect } = await codingEngine.startInspect({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
           containerEnv: inspectContainerEnv,
@@ -872,7 +1280,10 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           onAgentStdoutEnd,
           onLog: defaultEngineLog,
           reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
+          infra: inspectSetupInfra,
         });
+        inspectHandle = session;
+        inspectTeardownInfra = afterInspect;
 
         consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
         consola.log(`  Container: \`${inspectHandle.containerName}\``);
@@ -899,9 +1310,16 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
               consola.warn('[inspect] inspect session stop:', err);
             });
           }
-          await codingEngine.teardown({ runId: inspectRunId }).catch((err: unknown) => {
-            consola.warn('[inspect] engine teardown:', err);
-          });
+          // Teardown when we have an infra snapshot (null ⇒ failed setup ⇒ no-ops / warns).
+          await codingEngine
+            .teardown({
+              runId: inspectRunId,
+              infra: inspectTeardownInfra,
+              projectDir: mergedOpts.projectDir,
+            })
+            .catch((err: unknown) => {
+              consola.warn('[inspect] engine teardown:', err);
+            });
 
           // Extract any changes made in the container
           const { commits: inspectCommits } = await extractIncrementalRoundPatch(sandbox.codePath, {
@@ -927,7 +1345,10 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
               rules: runContext.rules,
               roundSummaries: artifact.roundSummaries,
               status: artifact.status,
+              controlSignal: artifact.controlSignal,
+              pausedSandboxBasePath: artifact.pausedSandboxBasePath,
               opts: artifactLoopOpts as BuildRunArtifactOpts,
+              liveInfra: artifact.liveInfra ?? null,
             });
             try {
               await runStorage.saveRun(runId, newArtifact, {
@@ -978,7 +1399,7 @@ async function runApplyCore(
   opts: FromArtifactOpts,
   _registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir, engineCli } = opts;
+  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifctlDir, engineCli } = opts;
   if (!runStorage) {
     throw new Error('Run storage is disabled (--storage none). Cannot apply a stored run.');
   }
@@ -991,7 +1412,7 @@ async function runApplyCore(
   const commits = artifact.runCommits;
   if (commits.length === 0) {
     return {
-      success: false,
+      status: 'failed',
       attempts: 0,
       runId,
       message: 'Run has no commits to apply to the host repository.',
@@ -1006,12 +1427,12 @@ async function runApplyCore(
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
-    saifDir: deserialized.saifDir,
+    saifctlDir: deserialized.saifctlDir,
   });
 
   const mergedOpts = await resolveOrchestratorOpts({
     projectDir,
-    saifDir,
+    saifctlDir,
     config,
     feature,
     cli,
@@ -1074,7 +1495,7 @@ async function runApplyCore(
   }
 
   return {
-    success: true,
+    status: 'success',
     attempts: 1,
     runId,
     message: `Patch applied on branch "${wtBranch}"${mergedOpts.push ? ' (pushed)' : ''}.`,
@@ -1101,7 +1522,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
     return {
-      success: false,
+      status: 'failed',
       attempts: 0,
       runId,
       message: `Run not found: ${runId}. List runs with: saifctl run ls`,
@@ -1111,7 +1532,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
   const commits = artifact.runCommits;
   if (!commits.length) {
     return {
-      success: false,
+      status: 'failed',
       attempts: 0,
       runId,
       message: `Run "${runId}" has no commits to export.`,
@@ -1162,7 +1583,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
   ].join('\n');
 
   return {
-    success: true,
+    status: 'success',
     attempts: 1,
     runId,
     message,
@@ -1200,8 +1621,11 @@ async function runTestsFromRunCore(
  */
 export function getSandboxSourceDir(opts: {
   projectDir: string;
-  fromArtifact: { sandboxSourceDir: string } | null;
+  fromArtifact: { sandboxSourceDir: string; pausedSandbox?: Sandbox } | null;
 }): string {
+  if (opts.fromArtifact?.pausedSandbox) {
+    return opts.fromArtifact.pausedSandbox.codePath;
+  }
   return opts.fromArtifact?.sandboxSourceDir ?? opts.projectDir;
 }
 

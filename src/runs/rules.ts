@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { consola } from '../logger.js';
 import { writeUtf8 } from '../utils/io.js';
 import type { RunStorage } from './storage.js';
-import type { RunRule, RunRuleScope } from './types.js';
+import type { RunControlAction, RunRule, RunRuleScope } from './types.js';
 
 /**
  * Host path for human feedback queued by the orchestrator between inner rounds.
@@ -199,6 +199,8 @@ export function startRulesWatcher(opts: {
    * can update the revision number and stay aligned with storage.
    */
   onArtifactRevision?: (rev: number) => void;
+  /** When {@link RunArtifact#controlSignal} is set (`run pause` / `run stop`), invoked once per watcher lifetime. */
+  onControlSignal?: (action: RunControlAction) => void | Promise<void>;
   pollIntervalMs?: number;
 }): RulesWatcher {
   const {
@@ -207,12 +209,14 @@ export function startRulesWatcher(opts: {
     knownRuleIds,
     onNewRules,
     onArtifactRevision,
+    onControlSignal,
     pollIntervalMs = 2000,
   } = opts;
 
   const deliveredIds = new Set<string>(knownRuleIds);
   let busy = false;
   let stopped = false;
+  let controlSignalNotified = false;
 
   const tick = async () => {
     if (stopped || busy) return;
@@ -222,6 +226,11 @@ export function startRulesWatcher(opts: {
       if (!artifact) return;
       if (artifact.artifactRevision !== undefined) {
         onArtifactRevision?.(artifact.artifactRevision);
+      }
+      if (artifact.controlSignal && onControlSignal && !controlSignalNotified) {
+        controlSignalNotified = true;
+        await Promise.resolve(onControlSignal(artifact.controlSignal.action));
+        return;
       }
       const rules = artifact.rules ?? [];
       const pending = rulesForPrompt(rules).filter((r) => !deliveredIds.has(r.id));

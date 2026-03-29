@@ -25,7 +25,7 @@ import {
 import { readUtf8, writeUtf8 } from '../../utils/io.js';
 import { resolveRunCommitAuthor } from '../patch.js';
 
-export type { OrchestratorResult } from '../loop.js';
+export type { OrchestratorOutcomeStatus, OrchestratorResult } from '../loop.js';
 
 /** Count of hex digits taken from SHA-256 for the branch suffix (`saifctl/...-<diffHash>`). */
 export const HOST_APPLY_DIFF_HASH_LEN = 6;

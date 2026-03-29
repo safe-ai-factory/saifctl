@@ -20,7 +20,7 @@ const minimalArtifact: RunArtifact = {
     projectDir: '/p',
     maxRuns: 3,
     overrides: {},
-    saifDir: 'saifctl',
+    saifctlDir: 'saifctl',
     projectName: 'proj',
     testImage: 'img',
     resolveAmbiguity: 'ai',
@@ -58,6 +58,9 @@ const minimalArtifact: RunArtifact = {
   status: 'failed',
   startedAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
+  controlSignal: null,
+  pausedSandboxBasePath: null,
+  liveInfra: null,
 };
 
 describe('toRunInfoJson', () => {

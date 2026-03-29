@@ -12,13 +12,13 @@ import { defineCommand, runMain } from 'citty';
 import { scaffoldSaifctlConfig } from '../../config/scaffold.js';
 import { resolveIndexerProfile } from '../../indexer-profiles/index.js';
 import { consola } from '../../logger.js';
-import { indexerArg, projectDirArg, saifDirArg } from '../args.js';
+import { indexerArg, projectDirArg, saifctlDirArg } from '../args.js';
 import {
   readProjectDirFromCli,
-  readSaifDirFromCli,
+  readSaifctlDirFromCli,
   resolveCliProjectDir,
   resolveProjectName,
-  resolveSaifDirRelative,
+  resolveSaifctlDirRelative,
 } from '../utils.js';
 
 const initCommand = defineCommand({
@@ -33,18 +33,18 @@ const initCommand = defineCommand({
       description: 'Project name override (default: package.json "name")',
     },
     'project-dir': projectDirArg,
-    'saifctl-dir': saifDirArg,
+    'saifctl-dir': saifctlDirArg,
     indexer: indexerArg,
   },
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
     const indexerProfile = resolveIndexerProfile(args.indexer);
     const projectName = await resolveProjectName({ project: args.project, projectDir });
 
-    const scaffolded = await scaffoldSaifctlConfig(saifDir, projectDir);
+    const scaffolded = await scaffoldSaifctlConfig(saifctlDir, projectDir);
     if (scaffolded) {
-      consola.log(`\nCreated ${saifDir}/config.ts (no config found).`);
+      consola.log(`\nCreated ${saifctlDir}/config.ts (no config found).`);
     }
 
     consola.log(

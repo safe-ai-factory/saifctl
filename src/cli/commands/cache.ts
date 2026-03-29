@@ -24,7 +24,7 @@ import {
   resolveProjectName,
 } from '../utils.js';
 
-function isSaifacTempRoot(dir: string): boolean {
+function isSaifctlTempRoot(dir: string): boolean {
   return normalize(resolve(dir)) === normalize(resolve(SAIFCTL_TEMP_ROOT));
 }
 
@@ -104,7 +104,7 @@ const clearCommand = defineCommand({
     const sandboxBase = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir();
     const clearAll = args.all === true;
 
-    if (clearAll && isSaifacTempRoot(sandboxBase)) {
+    if (clearAll && isSaifctlTempRoot(sandboxBase)) {
       throw new Error(
         `Refusing to clear the entire SAIF temp root (${SAIFCTL_TEMP_ROOT}): that would remove shared data such as bin/. ` +
           `Use the default sandbox base (${DEFAULT_SANDBOX_BASE_DIR}) or pass --sandbox-base-dir pointing at your sandboxes directory, not the temp root.`,

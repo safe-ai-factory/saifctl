@@ -203,8 +203,7 @@ export type FeatRunIterationSerializedInput = HatchetInput & {
 // ---------------------------------------------------------------------------
 
 export function createFeatRunIterationWorkflow() {
-  const hatchet = getHatchetClient();
-  if (!hatchet) throw new Error('Hatchet client is not configured');
+  const { hatchet } = getHatchetClient();
 
   const workflow = hatchet.workflow<
     FeatRunIterationSerializedInput,
@@ -225,8 +224,8 @@ export function createFeatRunIterationWorkflow() {
     fn: async (input, ctx) => {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
       const { sandbox, attempt, errorFeedback, task } = input;
-      const { saifDir } = opts;
-      const patchExclude = buildPatchExcludeRules(saifDir, opts.patchExclude);
+      const { saifctlDir } = opts;
+      const patchExclude = buildPatchExcludeRules(saifctlDir, opts.patchExclude);
 
       // Wire Hatchet step cancellation → container teardown (addresses step 1.7)
       const signal = ctx.abortController.signal;
@@ -252,7 +251,7 @@ export function createFeatRunIterationWorkflow() {
           agentProfileId: opts.agentProfileId,
           reviewerEnabled: opts.reviewerEnabled,
           codingEnvironment: opts.codingEnvironment,
-          saifDir,
+          saifctlDir,
         },
         // No CleanupRegistry in Hatchet path (step 1.7 — Hatchet owns the process)
         registry: null,
@@ -346,8 +345,7 @@ export function createFeatRunIterationWorkflow() {
 // ---------------------------------------------------------------------------
 
 export function createFeatRunWorkflow() {
-  const hatchet = getHatchetClient();
-  if (!hatchet) throw new Error('Hatchet client is not configured');
+  const { hatchet } = getHatchetClient();
 
   const featRunIterationWorkflow = createFeatRunIterationWorkflow();
 
@@ -372,7 +370,7 @@ export function createFeatRunWorkflow() {
         feature: opts.feature,
         projectDir: src,
         codeSourceDir: opts.fromArtifact?.baseSnapshotPath ?? src,
-        saifDir: opts.saifDir,
+        saifctlDir: opts.saifctlDir,
         projectName: opts.projectName,
         sandboxBaseDir: opts.sandboxBaseDir,
         gateScript: opts.gateScript,
@@ -401,6 +399,9 @@ export function createFeatRunWorkflow() {
             roundSummaries: opts.fromArtifact?.seedRoundSummaries,
             status: 'running',
             opts: loopOpts,
+            controlSignal: null,
+            pausedSandboxBasePath: null,
+            liveInfra: null,
           });
           sandboxRaw.runningArtifactRevision = await runStorage.setStatusRunning(
             sandboxRaw.runId,
@@ -425,7 +426,7 @@ export function createFeatRunWorkflow() {
     fn: async (input, ctx): Promise<ConvergenceOutput> => {
       const sandboxRaw = await ctx.parentOutput(provisionTask);
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
-      const { maxRuns, feature, saifDir, fromArtifact, testOnly } = opts;
+      const { maxRuns, feature, saifctlDir, fromArtifact, testOnly } = opts;
 
       const modeLabel = testOnly ? 'test' : fromArtifact ? 'fromArtifact' : 'start';
       consola.log(
@@ -513,7 +514,7 @@ export function createFeatRunWorkflow() {
         const onceIdsThisRound = activeOnceRuleIds(rulesState);
         const task = await buildInitialTask({
           feature,
-          saifDir,
+          saifctlDir,
           rules: rulesForPrompt(rulesState),
         });
 
@@ -733,6 +734,9 @@ export function createFeatRunWorkflow() {
             rules: loopResult.rules,
             roundSummaries: loopResult.roundSummaries,
             opts: loopOpts,
+            controlSignal: null,
+            pausedSandboxBasePath: null,
+            liveInfra: null,
           });
           const expectedArtifactRevision =
             sandboxRaw.runningArtifactRevision ??
@@ -806,6 +810,9 @@ export function createFeatRunWorkflow() {
             rules: loopResult?.rules ?? input.runContext.rules,
             roundSummaries: loopResult?.roundSummaries,
             opts: loopOpts,
+            controlSignal: null,
+            pausedSandboxBasePath: null,
+            liveInfra: null,
           });
           const expectedArtifactRevision =
             sandboxRaw.runningArtifactRevision ??

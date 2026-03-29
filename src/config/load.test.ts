@@ -31,17 +31,17 @@ describe('loadSaifctlConfig', () => {
   });
 
   it('returns empty config when saifctl dir exists but has no config file', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     const config = await loadSaifctlConfig('saifctl', projectDir);
     expect(config).toEqual({});
   });
 
   it('loads config.json and parses defaults', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     await writeUtf8(
-      join(saifDir, 'config.json'),
+      join(saifctlDir, 'config.json'),
       JSON.stringify({
         defaults: {
           maxRuns: 10,
@@ -61,11 +61,11 @@ describe('loadSaifctlConfig', () => {
   });
 
   it('loads config.js (CommonJS-style export)', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     // cosmiconfig loads .js; we use module.exports
     await writeUtf8(
-      join(saifDir, 'config.js'),
+      join(saifctlDir, 'config.js'),
       "module.exports = { defaults: { maxRuns: 7, globalStorage: 'memory' } };",
     );
 
@@ -75,10 +75,13 @@ describe('loadSaifctlConfig', () => {
   });
 
   it('prefers config.json when both config.json and config.js exist', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
-    await writeUtf8(join(saifDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
-    await writeUtf8(join(saifDir, 'config.js'), 'module.exports = { defaults: { maxRuns: 99 } };');
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
+    await writeUtf8(join(saifctlDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
+    await writeUtf8(
+      join(saifctlDir, 'config.js'),
+      'module.exports = { defaults: { maxRuns: 99 } };',
+    );
 
     const config = await loadSaifctlConfig('saifctl', projectDir);
     // cosmiconfig search order: config.json is typically before config.js in searchPlaces
@@ -86,10 +89,10 @@ describe('loadSaifctlConfig', () => {
   });
 
   it('parses storage as globalStorage and storages', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     await writeUtf8(
-      join(saifDir, 'config.json'),
+      join(saifctlDir, 'config.json'),
       JSON.stringify({
         defaults: {
           globalStorage: 's3',
@@ -104,10 +107,10 @@ describe('loadSaifctlConfig', () => {
   });
 
   it('parses agentEnv object', async () => {
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     await writeUtf8(
-      join(saifDir, 'config.json'),
+      join(saifctlDir, 'config.json'),
       JSON.stringify({
         defaults: {
           agentEnv: { OPENAI_API_KEY: 'sk-test', CUSTOM_VAR: 'value' },
@@ -126,10 +129,10 @@ describe('loadSaifctlConfig', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
     const consolaSpy = vi.spyOn(consola, 'error').mockImplementation(() => {});
 
-    const saifDir = join(projectDir, 'saifctl');
-    await mkdir(saifDir, { recursive: true });
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
     await writeUtf8(
-      join(saifDir, 'config.json'),
+      join(saifctlDir, 'config.json'),
       JSON.stringify({ defaults: { maxRuns: 'not-a-number' } }),
     );
 

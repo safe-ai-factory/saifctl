@@ -43,7 +43,7 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       projectDir: '/tmp',
       maxRuns: 5,
       overrides: {},
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       projectName: 'test',
       testImage: 'test:latest',
       resolveAmbiguity: 'ai',

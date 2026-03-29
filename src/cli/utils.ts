@@ -458,7 +458,7 @@ export function readReviewerEnabledFromCli(args: {
 }
 
 /** CLI-only: trimmed `--saifctl-dir`, or `undefined` if omitted / empty. */
-export function readSaifDirFromCli(args: { 'saifctl-dir'?: string }): string | undefined {
+export function readSaifctlDirFromCli(args: { 'saifctl-dir'?: string }): string | undefined {
   const raw = args['saifctl-dir'];
   if (typeof raw === 'string' && raw.trim()) return raw.trim();
   return undefined;
@@ -599,7 +599,7 @@ export function resolveCliProjectDir(cliSegment: string | undefined, cwd = proce
 }
 
 /** Relative saifctl config directory name; defaults to `saifctl`. */
-export function resolveSaifDirRelative(cliRaw: string | undefined): string {
+export function resolveSaifctlDirRelative(cliRaw: string | undefined): string {
   return cliRaw?.trim() ? cliRaw.trim() : 'saifctl';
 }
 
@@ -875,8 +875,8 @@ export async function getFeatOrPrompt(
   args: { name?: string; 'saifctl-dir'?: string },
   projectDir: string,
 ): Promise<Feature> {
-  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-  const featuresMap = await discoverFeatures(projectDir, saifDir);
+  const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+  const featuresMap = await discoverFeatures(projectDir, saifctlDir);
   const features = [...featuresMap.keys()];
 
   if (features.length === 0) {
@@ -885,7 +885,7 @@ export async function getFeatOrPrompt(
   }
 
   const fromArgs = getFeatNameFromArgs(args);
-  if (fromArgs) return await resolveFeature({ input: fromArgs, projectDir, saifDir });
+  if (fromArgs) return await resolveFeature({ input: fromArgs, projectDir, saifctlDir });
 
   features.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
@@ -899,7 +899,7 @@ export async function getFeatOrPrompt(
     cancel('Operation cancelled.');
     process.exit(1);
   }
-  return await resolveFeature({ input: result as string, projectDir, saifDir });
+  return await resolveFeature({ input: result as string, projectDir, saifctlDir });
 }
 
 async function readOrchestratorScriptPick(opts: {
@@ -1047,7 +1047,7 @@ export async function loadTestScriptFromPick(opts: {
  */
 export async function buildOrchestratorCliInputFromFeatArgs(
   args: FeatRunArgs,
-  ctx: { projectDir: string; saifDir: string; config: SaifctlConfig },
+  ctx: { projectDir: string; saifctlDir: string; config: SaifctlConfig },
 ): Promise<OrchestratorCliInput> {
   const { projectDir, config } = ctx;
   const runArgs = args;
@@ -1280,7 +1280,7 @@ export async function buildOrchestratorCliInputFromFeatArgs(
       ? resolveRunStorage(readStorageStringFromCli(runArgs), projectDir, config)
       : undefined;
 
-  const saifDirCli =
+  const saifctlDirCli =
     typeof runArgs['saifctl-dir'] === 'string' && runArgs['saifctl-dir'].trim()
       ? runArgs['saifctl-dir'].trim()
       : undefined;
@@ -1302,7 +1302,7 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     projectDir: undefined,
     maxRuns,
     overrides: undefined,
-    saifDir: saifDirCli,
+    saifctlDir: saifctlDirCli,
     sandboxBaseDir,
     projectName,
     testImage: testImageCli,

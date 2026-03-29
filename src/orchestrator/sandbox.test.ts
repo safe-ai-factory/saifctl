@@ -21,6 +21,7 @@ import {
   filterPatchHunks,
   listFilePathsInUnifiedDiff,
   removeAllHiddenDirs,
+  sandboxFromPausedBasePath,
 } from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
@@ -39,6 +40,17 @@ index 111aaaa..222bbbb 100644
 -{}
 +{"testCases":[]}
 `;
+
+describe('sandboxFromPausedBasePath', () => {
+  it('derives code, saifctl, and host-base paths', () => {
+    const s = sandboxFromPausedBasePath({ runId: 'rid', sandboxBasePath: '/tmp/sbx/p-q-r' });
+    expect(s.runId).toBe('rid');
+    expect(s.sandboxBasePath).toBe('/tmp/sbx/p-q-r');
+    expect(s.codePath).toBe(join('/tmp/sbx/p-q-r', 'code'));
+    expect(s.saifctlPath).toBe(join('/tmp/sbx/p-q-r', 'saifctl'));
+    expect(s.hostBasePatchPath).toBe(join('/tmp/sbx/p-q-r', 'host-base.patch'));
+  });
+});
 
 describe('listFilePathsInUnifiedDiff', () => {
   it('returns [] for empty or whitespace patch', () => {
@@ -371,8 +383,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifctl';
-      const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
+      const saifctlDir = 'saifctl';
+      const featureTests = join(projectDir, saifctlDir, 'features', 'my-feature', 'tests');
       await mkdir(join(featureTests, 'public'), { recursive: true });
       await mkdir(join(featureTests, 'hidden'), { recursive: true });
       await writeUtf8(join(featureTests, 'tests.json'), JSON.stringify(TEST_CATALOG, null, 2));
@@ -387,7 +399,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       const otherFeatureHidden = join(
         projectDir,
-        saifDir,
+        saifctlDir,
         'features',
         'other-feature',
         'tests',
@@ -416,12 +428,12 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const feature = await resolveFeature({
         input: 'my-feature',
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
       });
       const paths = await createSandbox({
         feature,
         projectDir,
-        saifDir,
+        saifctlDir,
         projectName: 'test-proj',
         sandboxBaseDir,
         runId: 'abc123',
@@ -438,18 +450,20 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 3. Assert hidden dirs are removed
       expect(
-        await pathExists(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'hidden')),
+        await pathExists(join(codePath, saifctlDir, 'features', 'my-feature', 'tests', 'hidden')),
       ).toBe(false);
       expect(
-        await pathExists(join(codePath, saifDir, 'features', 'other-feature', 'tests', 'hidden')),
+        await pathExists(
+          join(codePath, saifctlDir, 'features', 'other-feature', 'tests', 'hidden'),
+        ),
       ).toBe(false);
       expect(
-        await pathExists(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'public')),
+        await pathExists(join(codePath, saifctlDir, 'features', 'my-feature', 'tests', 'public')),
       ).toBe(true);
 
       // 4. Assert tests.json contains only public test cases
       const copiedCatalog = JSON.parse(
-        await readUtf8(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'tests.json')),
+        await readUtf8(join(codePath, saifctlDir, 'features', 'my-feature', 'tests', 'tests.json')),
       );
       expect(copiedCatalog.testCases).toHaveLength(1);
       expect(copiedCatalog.testCases[0].visibility).toBe('public');
@@ -467,20 +481,20 @@ describe('createSandbox + destroySandbox (integration)', () => {
       expect(await pathExists(join(codePath, '.git'))).toBe(true);
 
       // 7. Assert saifctl/ bundle scripts exist with correct content and are executable
-      const saif = paths.saifctlPath;
+      const saifctl = paths.saifctlPath;
       const scripts: [string, string][] = [
-        [join(saif, 'gate.sh'), GATE_SCRIPT],
-        [join(saif, 'startup.sh'), STARTUP_SCRIPT],
-        [join(saif, 'agent-install.sh'), AGENT_INSTALL_SCRIPT],
-        [join(saif, 'agent.sh'), AGENT_SCRIPT],
-        [join(saif, 'stage.sh'), STAGE_SCRIPT],
+        [join(saifctl, 'gate.sh'), GATE_SCRIPT],
+        [join(saifctl, 'startup.sh'), STARTUP_SCRIPT],
+        [join(saifctl, 'agent-install.sh'), AGENT_INSTALL_SCRIPT],
+        [join(saifctl, 'agent.sh'), AGENT_SCRIPT],
+        [join(saifctl, 'stage.sh'), STAGE_SCRIPT],
       ];
       for (const [p, content] of scripts) {
         expect(await readUtf8(p)).toBe(content);
         expect(((await stat(p)).mode & 0o111) !== 0).toBe(true);
       }
       for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
-        const p = join(saif, name);
+        const p = join(saifctl, name);
         expect(await pathExists(p)).toBe(true);
         expect(((await stat(p)).mode & 0o111) !== 0).toBe(true);
       }
@@ -518,8 +532,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifctl';
-      const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
+      const saifctlDir = 'saifctl';
+      const featureTests = join(projectDir, saifctlDir, 'features', 'my-feature', 'tests');
       await mkdir(join(featureTests, 'public'), { recursive: true });
       await mkdir(join(featureTests, 'hidden'), { recursive: true });
       await writeUtf8(join(featureTests, 'tests.json'), JSON.stringify(TEST_CATALOG, null, 2));
@@ -549,13 +563,13 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const feature = await resolveFeature({
         input: 'my-feature',
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
       });
 
       const baseOpts = {
         feature,
         projectDir,
-        saifDir,
+        saifctlDir,
         projectName: 'test-proj',
         sandboxBaseDir,
         runId: 'resume-lock-1',
@@ -602,7 +616,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         },
       });
 
-      const saifDir = 'saifctl';
+      const saifctlDir = 'saifctl';
       const NESTED_CATALOG = {
         ...TEST_CATALOG,
         featureName: '(auth)/login',
@@ -629,7 +643,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         ],
       };
 
-      const loginTests = join(projectDir, saifDir, 'features', '(auth)', 'login', 'tests');
+      const loginTests = join(projectDir, saifctlDir, 'features', '(auth)', 'login', 'tests');
       await mkdir(join(loginTests, 'public'), { recursive: true });
       await mkdir(join(loginTests, 'hidden'), { recursive: true });
       await writeUtf8(join(loginTests, 'tests.json'), JSON.stringify(NESTED_CATALOG, null, 2));
@@ -645,7 +659,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       // Another nested feature with hidden dir to verify removeAllHiddenDirs cleans all
       const profileHidden = join(
         projectDir,
-        saifDir,
+        saifctlDir,
         'features',
         '(core)',
         'profile',
@@ -672,12 +686,12 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const feature = await resolveFeature({
         input: '(auth)/login',
         projectDir,
-        saifDir,
+        saifctlDir,
       });
       const paths = await createSandbox({
         feature,
         projectDir,
-        saifDir,
+        saifctlDir,
         projectName: 'test-proj',
         sandboxBaseDir,
         runId: 'def456',
@@ -698,21 +712,25 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 3. Assert hidden dirs removed for nested features
       expect(
-        await pathExists(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'hidden')),
-      ).toBe(false);
-      expect(
         await pathExists(
-          join(codePath, saifDir, 'features', '(core)', 'profile', 'tests', 'hidden'),
+          join(codePath, saifctlDir, 'features', '(auth)', 'login', 'tests', 'hidden'),
         ),
       ).toBe(false);
       expect(
-        await pathExists(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'public')),
+        await pathExists(
+          join(codePath, saifctlDir, 'features', '(core)', 'profile', 'tests', 'hidden'),
+        ),
+      ).toBe(false);
+      expect(
+        await pathExists(
+          join(codePath, saifctlDir, 'features', '(auth)', 'login', 'tests', 'public'),
+        ),
       ).toBe(true);
 
       // 4. Assert tests.json contains only public test cases
       const copiedCatalog = JSON.parse(
         await readUtf8(
-          join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'tests.json'),
+          join(codePath, saifctlDir, 'features', '(auth)', 'login', 'tests', 'tests.json'),
         ),
       );
       expect(copiedCatalog.testCases).toHaveLength(1);

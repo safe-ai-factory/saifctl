@@ -34,7 +34,7 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     projectDir: '/tmp/proj',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifctl',
+    saifctlDir: 'saifctl',
     projectName: 'proj',
     sandboxBaseDir: '/tmp/sandboxes',
     testImage: 'test:latest',
@@ -95,7 +95,7 @@ const baseArtifact: RunArtifact = {
     projectDir: '/tmp/proj',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifctl',
+    saifctlDir: 'saifctl',
     projectName: 'proj',
     testImage: 'test:latest',
     resolveAmbiguity: 'ai',
@@ -136,6 +136,9 @@ const baseArtifact: RunArtifact = {
   status: 'failed',
   startedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+  controlSignal: null,
+  pausedSandboxBasePath: null,
+  liveInfra: null,
 };
 
 const sandbox: Sandbox = {
@@ -158,14 +161,27 @@ const {
   writeUtf8Mock,
   mockEngine,
 } = vi.hoisted(() => {
-  const setup = vi.fn().mockResolvedValue(undefined);
+  const mockInspectInfra = {
+    engine: 'docker' as const,
+    projectDir: '/tmp/proj',
+    networkName: 'saifctl-net',
+    composeProjectName: 'proj',
+    stagingImages: [] as string[],
+    containers: [] as string[],
+  };
+  const setup = vi.fn().mockResolvedValue({ infra: mockInspectInfra });
   const teardown = vi.fn().mockResolvedValue(undefined);
   const stop = vi.fn().mockResolvedValue(undefined);
-  const startInspect = vi.fn().mockResolvedValue({
-    containerName: 'leash-target-test',
-    workspacePath: '/workspace',
-    stop,
-  });
+  const startInspect = vi
+    .fn()
+    .mockImplementation(async (opts: { infra: typeof mockInspectInfra }) => ({
+      session: {
+        containerName: 'leash-target-test',
+        workspacePath: '/workspace',
+        stop,
+      },
+      infra: opts.infra,
+    }));
   const mockEngine = { setup, teardown, startInspect };
   return {
     createArtifactRunWorktreeMock: vi.fn(),
@@ -331,7 +347,7 @@ describe('runInspect', () => {
       runInspect({
         runId: 'x',
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
         config: {} as SaifctlConfig,
         runStorage: null as unknown as RunStorage,
         cli: {} as unknown as OrchestratorCliInput,
@@ -347,7 +363,7 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: baseArtifact.runId,
       projectDir,
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
@@ -370,7 +386,7 @@ describe('runInspect', () => {
       runInspect({
         runId: 'missing',
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
         config: {} as SaifctlConfig,
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
@@ -389,7 +405,7 @@ describe('runInspect', () => {
       runInspect({
         runId: baseArtifact.runId,
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
         config: {} as SaifctlConfig,
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
@@ -405,7 +421,7 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: baseArtifact.runId,
       projectDir,
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
@@ -450,7 +466,7 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
@@ -501,7 +517,7 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
@@ -537,7 +553,7 @@ describe('runInspect', () => {
     const p = runInspect({
       runId: artifact.runId,
       projectDir,
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,

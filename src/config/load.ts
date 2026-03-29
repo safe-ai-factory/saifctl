@@ -1,5 +1,5 @@
 /**
- * Load saifctl config from saifDir using cosmiconfig.
+ * Load saifctl config from saifctlDir using cosmiconfig.
  *
  * Config can be written as config.json, config.yml, config.js, config.ts, etc.
  * Returns empty defaults when no config file exists.
@@ -27,18 +27,18 @@ const EXPLORER = cosmiconfig('saifctl', {
 });
 
 /**
- * Load config from saifDir. Resolves saifDir relative to projectDir when saifDir
+ * Load config from saifctlDir. Resolves saifctlDir relative to projectDir when saifctlDir
  * is not absolute.
  *
- * @param saifDir - Path to saifctl directory (default "saifctl", can be relative to cwd or projectDir)
- * @param projectDir - Project root (for resolving relative saifDir when needed)
+ * @param saifctlDir - Path to saifctl directory (default "saifctl", can be relative to cwd or projectDir)
+ * @param projectDir - Project root (for resolving relative saifctlDir when needed)
  * @returns Parsed and validated config, or empty defaults if no file found
  */
 export async function loadSaifctlConfig(
-  saifDir: string,
+  saifctlDir: string,
   projectDir: string,
 ): Promise<SaifctlConfig> {
-  const configDir = resolve(projectDir, saifDir);
+  const configDir = resolve(projectDir, saifctlDir);
   if (!(await pathExists(configDir))) {
     return {};
   }

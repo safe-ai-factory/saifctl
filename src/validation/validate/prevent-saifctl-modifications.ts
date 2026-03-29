@@ -36,14 +36,14 @@ export default async function preventSpecModifications() {
   const lines = statusOutput.split('\n').filter((line) => line.trim().length > 0);
 
   // If any uncommitted change touches the saifctl/ directory
-  const saifModifications = lines.filter((line) => line.includes('saifctl/'));
+  const saifctlModifications = lines.filter((line) => line.includes('saifctl/'));
 
-  if (saifModifications.length > 0) {
+  if (saifctlModifications.length > 0) {
     consola.error(
       '❌ CRITICAL SECURITY BREACH: The Coder sidecar attempted to modify files in the saifctl/ directory.',
     );
     consola.error('   Uncommitted changes detected in saifctl/:');
-    for (const file of saifModifications) {
+    for (const file of saifctlModifications) {
       consola.error(`     - ${file.trim()}`);
     }
     consola.error(

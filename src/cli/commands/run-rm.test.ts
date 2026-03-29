@@ -26,7 +26,7 @@ async function withTempProject(fn: (projectDir: string) => Promise<void>): Promi
 async function writeRunJson(
   projectDir: string,
   runId: string,
-  row: { featureName: string; status: 'failed' | 'completed'; updatedAt: string },
+  row: { featureName: string; status: 'failed' | 'completed' | 'paused'; updatedAt: string },
 ): Promise<void> {
   const dir = join(projectDir, '.saifctl', 'runs');
   await mkdir(dir, { recursive: true });
@@ -142,6 +142,28 @@ describe('saifctl run rm', () => {
       expect(errors.some((e) => e.includes('Run not found: nope'))).toBe(true);
       expect(exitCode).toBe(1);
       expect(await runFileExists(projectDir, 'only')).toBe(true);
+    });
+  });
+
+  it('errors and exits 1 when run is paused', async () => {
+    await withTempProject(async (projectDir) => {
+      await writeRunJson(projectDir, 'paused-run', {
+        featureName: 'a',
+        status: 'paused',
+        updatedAt: '2026-03-20T10:00:00.000Z',
+      });
+
+      const { logs, errors, exitCode } = await runRunSubcommand([
+        'rm',
+        'paused-run',
+        '--project-dir',
+        projectDir,
+      ]);
+
+      expect(logs).toEqual([]);
+      expect(errors.some((e) => e.includes('paused'))).toBe(true);
+      expect(exitCode).toBe(1);
+      expect(await runFileExists(projectDir, 'paused-run')).toBe(true);
     });
   });
 

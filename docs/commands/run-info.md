@@ -56,7 +56,7 @@ Example of the default **pretty-printed** output:
     "projectDir": "/path/to/repo",
     "maxRuns": 5,
     "overrides": {},
-    "saifDir": "saifctl",
+    "saifctlDir": "saifctl",
     "projectName": "my-app",
     "testImage": "safe-ai-factory-test:latest",
     "resolveAmbiguity": "ai",

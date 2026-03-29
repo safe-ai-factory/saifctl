@@ -3,7 +3,15 @@
  */
 
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
-import type { OuterAttemptSummary, RunArtifact, RunCommit, RunRule, RunStatus } from '../types.js';
+import type {
+  OuterAttemptSummary,
+  RunArtifact,
+  RunCommit,
+  RunControlSignal,
+  RunLiveInfra,
+  RunRule,
+  RunStatus,
+} from '../types.js';
 import { type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
 
 export type BuildRunArtifactOpts = Omit<
@@ -26,6 +34,9 @@ export interface BuildRunArtifactParams {
   rules: RunRule[];
   opts: BuildRunArtifactOpts;
   roundSummaries?: OuterAttemptSummary[];
+  controlSignal: RunControlSignal | null;
+  pausedSandboxBasePath: string | null;
+  liveInfra: RunLiveInfra | null;
 }
 
 /**
@@ -35,7 +46,7 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
   const now = new Date().toISOString();
   const { initialErrorFeedback: _ignored, ...serializeOpts } = params.opts;
   const config = serializeArtifactConfig(serializeOpts);
-  return {
+  const art: RunArtifact = {
     runId: params.runId,
     baseCommitSha: params.baseCommitSha,
     basePatchDiff: params.basePatchDiff,
@@ -48,5 +59,9 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     updatedAt: now,
     rules: params.rules ?? [],
     roundSummaries: params.roundSummaries,
+    controlSignal: params.controlSignal ?? null,
+    pausedSandboxBasePath: params.pausedSandboxBasePath ?? null,
+    liveInfra: params.liveInfra ?? null,
   };
+  return art;
 }

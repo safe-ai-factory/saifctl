@@ -32,7 +32,7 @@ function makeSourceArtifact(runId: string): RunArtifact {
       projectDir: '/ignored-on-merge',
       maxRuns: 5,
       overrides: {},
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       projectName: 'proj',
       testImage: 'test:latest',
       resolveAmbiguity: 'ai',
@@ -70,6 +70,9 @@ function makeSourceArtifact(runId: string): RunArtifact {
     status: 'failed',
     startedAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
+    controlSignal: null,
+    pausedSandboxBasePath: null,
+    liveInfra: null,
   };
 }
 
@@ -87,14 +90,14 @@ describe('forkStoredRun', () => {
       const config = await loadSaifctlConfig('saifctl', projectDir);
       const cli = await buildOrchestratorCliInputFromFeatArgs({ 'max-runs': '17' } as FeatRunArgs, {
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
         config,
       });
 
       const { newRunId } = await forkStoredRun({
         runId: 'srcrun9',
         projectDir,
-        saifDir: 'saifctl',
+        saifctlDir: 'saifctl',
         config,
         runStorage: storage,
         cli,

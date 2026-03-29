@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createRunStorage } from './storage.js';
-import { RunAlreadyRunningError, type RunArtifact, StaleArtifactError } from './types.js';
+import {
+  RunAlreadyRunningError,
+  type RunArtifact,
+  RunCannotPauseError,
+  RunCannotStopError,
+  StaleArtifactError,
+} from './types.js';
 
 const dummyArtifact: RunArtifact = {
   runId: 'test-1',
@@ -22,7 +28,7 @@ const dummyArtifact: RunArtifact = {
     projectDir: '/tmp',
     maxRuns: 5,
     overrides: {},
-    saifDir: 'saifctl',
+    saifctlDir: 'saifctl',
     projectName: 'test',
     testImage: 'test:latest',
     resolveAmbiguity: 'ai',
@@ -62,6 +68,9 @@ const dummyArtifact: RunArtifact = {
   status: 'failed',
   startedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+  controlSignal: null,
+  pausedSandboxBasePath: null,
+  liveInfra: null,
 };
 
 describe('createRunStorage', () => {
@@ -235,6 +244,109 @@ describe('createRunStorage', () => {
       await storage!.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
       const got = await storage!.getRun('run-1');
       expect(got?.runId).toBe('run-1');
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestPause sets controlSignal pause when status is running', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      const t0 = '2026-01-01T12:00:00.000Z';
+      await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+        startedAt: t0,
+        updatedAt: t0,
+      });
+      await storage.requestPause('run-1');
+      const got = await storage.getRun('run-1');
+      expect(got?.controlSignal?.action).toBe('pause');
+      expect(got?.controlSignal?.requestedAt).toBeDefined();
+      expect(got?.status).toBe('running');
+      expect(got?.artifactRevision).toBe(2);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestPause throws RunCannotPauseError when not running', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'paused',
+      });
+      await expect(storage.requestPause('run-1')).rejects.toThrow(RunCannotPauseError);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestStop sets controlSignal stop when status is running', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+      });
+      await storage.requestStop('run-1');
+      const got = await storage.getRun('run-1');
+      expect(got?.controlSignal?.action).toBe('stop');
+      expect(got?.controlSignal?.requestedAt).toBeDefined();
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestStop sets controlSignal stop when status is paused', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'paused',
+        pausedSandboxBasePath: '/tmp/sandbox',
+      });
+      await storage.requestStop('run-1');
+      const got = await storage.getRun('run-1');
+      expect(got?.controlSignal?.action).toBe('stop');
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestStop throws RunCannotStopError when completed', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1', status: 'completed' });
+      await expect(storage.requestStop('run-1')).rejects.toThrow(RunCannotStopError);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('requestStop overwrites requestPause (last write wins)', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+      });
+      await storage.requestPause('run-1');
+      await storage.requestStop('run-1');
+      const got = await storage.getRun('run-1');
+      expect(got?.controlSignal?.action).toBe('stop');
     } finally {
       await rm(tmp, { recursive: true, force: true });
     }

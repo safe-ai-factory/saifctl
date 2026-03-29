@@ -14,17 +14,17 @@ import { type SaifctlCliService } from './cliService';
 /** Raw artifact shape from .saifctl/runs/*.json (subset of full RunArtifact) */
 interface RunArtifactRaw {
   runId: string;
-  status: 'failed' | 'completed' | 'running';
+  status: 'failed' | 'completed' | 'running' | 'paused';
   config?: { featureName: string; projectDir?: string; [k: string]: unknown };
   specRef?: string;
   updatedAt?: string;
 }
 
-export interface SaifRunData {
+export interface SaifctlRunData {
   id: string;
   name: string;
   project: string;
-  status: 'success' | 'failed' | 'running';
+  status: RunArtifactRaw['status'];
   specRef: string;
   config: Record<string, string>;
 }
@@ -36,7 +36,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   readonly onDidChangeTreeData: vscode.Event<RunTreeElement | undefined | void> =
     this._onDidChangeTreeData.event;
 
-  private runsCache: SaifRunData[] = [];
+  private runsCache: SaifctlRunData[] = [];
 
   constructor(
     private readonly workspaceRoot: string,
@@ -59,7 +59,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     if (!element) {
       try {
         const raw = await this.cliService.listRuns(this.workspaceRoot);
-        this.runsCache = raw.map((a) => toSaifRunData(a as RunArtifactRaw, this.workspaceRoot));
+        this.runsCache = raw.map((a) => toSaifctlRunData(a as RunArtifactRaw, this.workspaceRoot));
         return this.getProjectGroups();
       } catch {
         vscode.window.showErrorMessage('Failed to fetch SaifCTL runs.');
@@ -87,7 +87,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     return projectNames.map((name) => new RunProjectItem(name));
   }
 
-  private getRunMetadata(run: SaifRunData): MetadataItem[] {
+  private getRunMetadata(run: SaifctlRunData): MetadataItem[] {
     const metadata: MetadataItem[] = [];
     metadata.push(new MetadataItem(`Status: ${run.status}`, 'status'));
     metadata.push(new MetadataItem(`Feature: ${run.specRef || 'None'}`, 'specRef'));
@@ -103,7 +103,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   }
 }
 
-function toSaifRunData(a: RunArtifactRaw, workspaceRoot: string): SaifRunData {
+function toSaifctlRunData(a: RunArtifactRaw, workspaceRoot: string): SaifctlRunData {
   const cfg = a.config ?? ({} as NonNullable<RunArtifactRaw['config']>);
   const projectDir = typeof cfg.projectDir === 'string' ? cfg.projectDir : workspaceRoot;
   const project =
@@ -126,13 +126,11 @@ function toSaifRunData(a: RunArtifactRaw, workspaceRoot: string): SaifRunData {
     }
   }
 
-  const status: SaifRunData['status'] =
-    a.status === 'completed' ? 'success' : a.status === 'running' ? 'running' : 'failed';
   return {
     id: a.runId,
     name: featureName,
     project,
-    status,
+    status: a.status,
     specRef: specName,
     config,
   };
@@ -155,7 +153,7 @@ export class RunItem extends vscode.TreeItem {
   public readonly projectPath: string;
 
   constructor(
-    public readonly runData: SaifRunData,
+    public readonly runData: SaifctlRunData,
     projectPath: string,
   ) {
     super(`${runData.name} (${runData.id})`, vscode.TreeItemCollapsibleState.Collapsed);
@@ -164,10 +162,12 @@ export class RunItem extends vscode.TreeItem {
     this.tooltip = `Run ID: ${runData.id}\nStatus: ${runData.status}\nProject: ${projectPath}`;
     this.contextValue = `run_${runData.status}`;
 
-    if (runData.status === 'success') {
+    if (runData.status === 'completed') {
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
     } else if (runData.status === 'failed') {
       this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
+    } else if (runData.status === 'paused') {
+      this.iconPath = new vscode.ThemeIcon('debug-pause');
     } else {
       this.iconPath = new vscode.ThemeIcon(
         'sync~spin',

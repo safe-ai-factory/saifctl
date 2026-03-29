@@ -7,7 +7,7 @@
 
 import { createEngine } from '../../engines/index.js';
 import { defaultEngineLog } from '../../engines/logs.js';
-import type { TestsResult } from '../../engines/types.js';
+import type { LiveInfra, TestsResult } from '../../engines/types.js';
 import { consola } from '../../logger.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { type IterativeLoopOpts, prepareTestRunnerOpts } from '../loop.js';
@@ -68,11 +68,35 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
     );
 
     const stagingEngine = createEngine(stagingEnvironment);
-    registry?.registerEngine(stagingEngine, testRunId);
+
+    // Track latest live infra for this engine: SIGINT cleanup and teardown() need
+    // the same snapshot. Each operation like Engine.setup() may mutate the live infra shape.
+    let stagingInfraRef: LiveInfra | null = null;
+
+    // Register before setup so an early signal still sees infra once setup()
+    // has assigned stagingInfraRef.
+    registry?.registerEngine({
+      engine: stagingEngine,
+      runId: testRunId,
+      label: testRunId,
+      projectDir,
+      getInfra: () => stagingInfraRef,
+    });
 
     lastResult = await (async (): Promise<TestsResult> => {
       try {
-        const stagingHandle = await stagingEngine.startStaging({
+        // Provision staging engine network (and optional compose) for this test attempt.
+        const { infra: stAfterSetup } = await stagingEngine.setup({
+          runId: testRunId,
+          projectName,
+          featureName: feature.name,
+          projectDir,
+        });
+        stagingInfraRef = stAfterSetup;
+
+        // Bring up the staging profile (sidecar / app) against the sandbox workspace.
+        const { stagingHandle, infra: stAfterStaging } = await stagingEngine.startStaging({
+          runId: testRunId,
           sandboxProfileId,
           codePath: sandbox.codePath,
           projectDir,
@@ -81,9 +105,12 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           projectName,
           saifctlPath: sandbox.saifctlPath,
           onLog: defaultEngineLog,
+          infra: stagingInfraRef!,
         });
+        stagingInfraRef = stAfterStaging;
 
-        return await stagingEngine.runTests({
+        // Execute the feature test suite inside the staging environment.
+        const { tests, infra: stAfterTests } = await stagingEngine.runTests({
           ...testRunnerOpts,
           stagingHandle,
           testImage,
@@ -92,10 +119,19 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           projectName,
           signal,
           onLog: defaultEngineLog,
+          infra: stAfterStaging,
         });
+        stagingInfraRef = stAfterTests;
+        return tests;
       } finally {
+        // Deregister first; then teardown when we have an infra snapshot
+        // (null ⇒ failed setup ⇒ teardown no-ops / warns).
         registry?.deregisterEngine(stagingEngine);
-        await stagingEngine.teardown({ runId: testRunId });
+        await stagingEngine.teardown({
+          runId: testRunId,
+          infra: stagingInfraRef,
+          projectDir,
+        });
       }
     })();
 
@@ -110,5 +146,6 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
     if (lastResult.status === 'passed' || lastResult.status === 'aborted') break;
   }
 
+  // These vars come from the last loop of the test-retry loop.
   return { result: lastResult, testRunId };
 }

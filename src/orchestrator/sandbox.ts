@@ -80,6 +80,21 @@ export interface Sandbox {
   hostBasePatchPath: string;
 }
 
+/** Rebuild {@link Sandbox} from the artifact field `pausedSandboxBasePath` after `run pause`. */
+export function sandboxFromPausedBasePath(opts: {
+  runId: string;
+  sandboxBasePath: string;
+}): Sandbox {
+  const { runId, sandboxBasePath } = opts;
+  return {
+    runId,
+    sandboxBasePath,
+    codePath: join(sandboxBasePath, 'code'),
+    saifctlPath: join(sandboxBasePath, 'saifctl'),
+    hostBasePatchPath: join(sandboxBasePath, 'host-base.patch'),
+  };
+}
+
 /**
  * Host root for factory temp files (e.g. Argus under `{SAIFCTL_TEMP_ROOT}/bin/`).
  * Not the sandbox directory — use {@link DEFAULT_SANDBOX_BASE_DIR} for disposable run copies.
@@ -107,7 +122,7 @@ export interface CreateSandboxOpts {
   /**
    * Path to the saifctl directory, relative to project directory.
    */
-  saifDir: string;
+  saifctlDir: string;
   /**
    * Base directory where sandbox entries are created.
    * Defaults to `/tmp/saifctl/sandboxes` (see {@link DEFAULT_SANDBOX_BASE_DIR}).
@@ -278,7 +293,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const {
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     projectName,
     sandboxBaseDir,
     gateScript,
@@ -394,8 +409,8 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 
   // Remove ALL hidden/ dirs from saifctl/features so the agent
   // cannot see holdout tests from any feature (current or others).
-  const saifBase = join(codePath, saifDir);
-  const featuresHidden = await removeAllHiddenDirs(join(saifBase, 'features'));
+  const saifctlBase = join(codePath, saifctlDir);
+  const featuresHidden = await removeAllHiddenDirs(join(saifctlBase, 'features'));
   if (featuresHidden > 0) {
     consola.log(
       `[sandbox] Removed ${featuresHidden} hidden/ dir(s) from code copy (agent cannot see holdout tests)`,

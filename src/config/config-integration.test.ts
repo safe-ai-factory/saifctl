@@ -37,10 +37,10 @@ describe('config integration', () => {
 
   describe('config.json', () => {
     it('resolveStorageOverrides uses globalStorage and storages from config', async () => {
-      const saifDir = join(projectDir, 'saifctl');
-      await mkdir(saifDir, { recursive: true });
+      const saifctlDir = join(projectDir, 'saifctl');
+      await mkdir(saifctlDir, { recursive: true });
       await writeUtf8(
-        join(saifDir, 'config.json'),
+        join(saifctlDir, 'config.json'),
         JSON.stringify({
           defaults: {
             globalStorage: 'memory',
@@ -57,10 +57,10 @@ describe('config integration', () => {
     });
 
     it('resolveStorageOverrides: CLI overrides config', async () => {
-      const saifDir = join(projectDir, 'saifctl');
-      await mkdir(saifDir, { recursive: true });
+      const saifctlDir = join(projectDir, 'saifctl');
+      await mkdir(saifctlDir, { recursive: true });
       await writeUtf8(
-        join(saifDir, 'config.json'),
+        join(saifctlDir, 'config.json'),
         JSON.stringify({
           defaults: {
             globalStorage: 'memory',
@@ -80,10 +80,10 @@ describe('config integration', () => {
     });
 
     it('mergeModelOverridesLayers uses globalModel and agentModels from config', async () => {
-      const saifDir = join(projectDir, 'saifctl');
-      await mkdir(saifDir, { recursive: true });
+      const saifctlDir = join(projectDir, 'saifctl');
+      await mkdir(saifctlDir, { recursive: true });
       await writeUtf8(
-        join(saifDir, 'config.json'),
+        join(saifctlDir, 'config.json'),
         JSON.stringify({
           defaults: {
             globalModel: 'anthropic/claude-sonnet-4',
@@ -109,11 +109,11 @@ describe('config integration', () => {
 
   describe('config.js', () => {
     it('loads config.js and resolveStorageOverrides uses values', async () => {
-      const saifDir = join(projectDir, 'saifctl');
-      await mkdir(saifDir, { recursive: true });
+      const saifctlDir = join(projectDir, 'saifctl');
+      await mkdir(saifctlDir, { recursive: true });
       // Use config.js (no config.json) so cosmiconfig picks .js
       await writeUtf8(
-        join(saifDir, 'config.js'),
+        join(saifctlDir, 'config.js'),
         "module.exports = { defaults: { globalStorage: 'memory', storages: { runs: 'local' } } };",
       );
 

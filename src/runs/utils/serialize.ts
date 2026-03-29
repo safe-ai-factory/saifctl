@@ -52,7 +52,7 @@ export type SerializedLoopOpts = {
   projectDir: string;
   maxRuns: number;
   overrides: ModelOverrides;
-  saifDir: string;
+  saifctlDir: string;
   projectName: string;
   testImage: string;
   resolveAmbiguity: 'off' | 'prompt' | 'ai';

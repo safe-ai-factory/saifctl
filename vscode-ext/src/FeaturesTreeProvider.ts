@@ -10,11 +10,11 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-export type SaifTreeItem = ProjectItem | FeatureItem | FileItem | DirItem;
+export type SaifctlTreeItem = ProjectItem | FeatureItem | FileItem | DirItem;
 
-export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifTreeItem> {
-  private _onDidChangeTreeData = new vscode.EventEmitter<SaifTreeItem | undefined | void>();
-  readonly onDidChangeTreeData: vscode.Event<SaifTreeItem | undefined | void> =
+export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTreeItem> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<SaifctlTreeItem | undefined | void>();
+  readonly onDidChangeTreeData: vscode.Event<SaifctlTreeItem | undefined | void> =
     this._onDidChangeTreeData.event;
 
   constructor(private readonly workspaceRoot: string) {}
@@ -23,11 +23,11 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifTreeIte
     this._onDidChangeTreeData.fire();
   }
 
-  getTreeItem(element: SaifTreeItem): vscode.TreeItem {
+  getTreeItem(element: SaifctlTreeItem): vscode.TreeItem {
     return element;
   }
 
-  async getChildren(element?: SaifTreeItem): Promise<SaifTreeItem[]> {
+  async getChildren(element?: SaifctlTreeItem): Promise<SaifctlTreeItem[]> {
     if (!this.workspaceRoot) {
       return [];
     }
@@ -50,8 +50,8 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifTreeIte
     return [];
   }
 
-  private async getDirectoryContents(dirPath: string): Promise<SaifTreeItem[]> {
-    const items: SaifTreeItem[] = [];
+  private async getDirectoryContents(dirPath: string): Promise<SaifctlTreeItem[]> {
+    const items: SaifctlTreeItem[] = [];
     let entries: fs.Dirent[];
     try {
       entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
@@ -128,8 +128,8 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifTreeIte
   }
 
   private async getFeatures(projectPath: string): Promise<FeatureItem[]> {
-    const saifBase = path.join(projectPath, 'saifctl');
-    const featuresDirPath = path.join(saifBase, 'features');
+    const saifctlBase = path.join(projectPath, 'saifctl');
+    const featuresDirPath = path.join(saifctlBase, 'features');
     try {
       await fs.promises.access(featuresDirPath);
     } catch {

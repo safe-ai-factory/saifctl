@@ -21,15 +21,15 @@ import {
   StaleArtifactError,
 } from '../../runs/types.js';
 import { readUtf8 } from '../../utils/io.js';
-import { projectDirArg, saifDirArg, storageArg } from '../args.js';
+import { projectDirArg, saifctlDirArg, storageArg } from '../args.js';
 import {
   parseRunId,
   readProjectDirFromCli,
-  readSaifDirFromCli,
+  readSaifctlDirFromCli,
   readStorageStringFromCli,
   resolveCliProjectDir,
   resolveRunStorage,
-  resolveSaifDirRelative,
+  resolveSaifctlDirRelative,
 } from '../utils.js';
 
 type ContentCliArgs = {
@@ -102,7 +102,7 @@ async function resolveContentExclusive(
 
 const commonRunArgs = {
   'project-dir': projectDirArg,
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   storage: storageArg,
 };
 
@@ -126,8 +126,8 @@ async function withRunArtifact(
   fn: (artifact: RunArtifact, save: (nextRules: RunRule[]) => Promise<void>) => Promise<void>,
 ): Promise<void> {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-  const config = await loadSaifctlConfig(saifDir, projectDir);
+  const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+  const config = await loadSaifctlConfig(saifctlDir, projectDir);
   const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
   if (!storage) {
     consola.error('Run storage is disabled (--storage none).');

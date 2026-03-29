@@ -10,46 +10,76 @@ import { join } from 'node:path';
 
 import { consola } from '../../logger.js';
 import type {
-  AgentResult,
-  CoderInspectSessionHandle,
   Engine,
+  EnginePauseInfraOpts,
+  EngineResumeInfraOpts,
   EngineSetupOpts,
+  EngineSetupResult,
   EngineTeardownOpts,
+  RunAgentEngineResult,
   RunAgentOpts,
+  RunTestsEngineResult,
   RunTestsOpts,
-  StagingHandle,
   StartInspectOpts,
+  StartInspectResult,
   StartStagingOpts,
-  TestsResult,
+  StartStagingResult,
 } from '../types.js';
 
+const LOCAL_INFRA = { engine: 'local' as const };
+
 export class LocalEngine implements Engine {
-  /** Set in {@link setup}; used for logs matching {@link DockerEngine.runAgent}. */
-  private runId = '';
+  readonly name = 'local' as const;
 
-  async setup(opts: EngineSetupOpts): Promise<void> {
-    this.runId = opts.runId;
+  async setup(_opts: EngineSetupOpts): Promise<EngineSetupResult> {
+    return { infra: LOCAL_INFRA };
   }
 
-  async teardown(_opts: EngineTeardownOpts): Promise<void> {
-    // Nothing to tear down.
+  async teardown(opts: EngineTeardownOpts): Promise<void> {
+    if (opts.infra === null) {
+      // If we got here, setup() failed before returning infra.
+      // Which obviously is irrelevant for local engine.
+      return;
+    }
+    // Nothing else to tear down for host coding.
   }
 
-  async startStaging(_opts: StartStagingOpts): Promise<StagingHandle> {
+  async pauseInfra(_opts: EnginePauseInfraOpts): Promise<void> {
+    // noop
+  }
+
+  async resumeInfra(_opts: EngineResumeInfraOpts): Promise<void> {
+    // Host coding — no compose stack to unpause (orchestrator still calls this on fromArtifact resume).
+  }
+
+  async verifyInfraToResume(_opts: EngineResumeInfraOpts): Promise<boolean> {
+    // Host coding has no external infra; the sandbox directory check in runResumeCore is sufficient.
+    return true;
+  }
+
+  async startStaging(_opts: StartStagingOpts): Promise<StartStagingResult> {
     throw new Error(
       '[engine] LocalEngine does not support staging. Use docker or helm for environments.staging.',
     );
   }
 
-  async runTests(_opts: RunTestsOpts): Promise<TestsResult> {
+  async runTests(_opts: RunTestsOpts): Promise<RunTestsEngineResult> {
     throw new Error(
       '[engine] LocalEngine does not support tests. Use docker or helm for environments.staging.',
     );
   }
 
-  async runAgent(opts: RunAgentOpts): Promise<AgentResult> {
-    const { codePath, containerEnv, saifctlPath, signal, onAgentStdout, onAgentStdoutEnd, onLog } =
-      opts;
+  async runAgent(opts: RunAgentOpts): Promise<RunAgentEngineResult> {
+    const {
+      codePath,
+      containerEnv,
+      saifctlPath,
+      signal,
+      onAgentStdout,
+      onAgentStdoutEnd,
+      onLog,
+      runId,
+    } = opts;
 
     const coderStartHost = join(saifctlPath, 'coder-start.sh');
     const cmd = 'bash';
@@ -63,7 +93,7 @@ export class LocalEngine implements Engine {
       `[agent-runner] containerEnv.secret keys: ${Object.keys(containerEnv.secretEnv).sort().join(', ')}`,
     );
 
-    consola.log(`[agent-runner] Starting agent (run ID: ${this.runId})`);
+    consola.log(`[agent-runner] Starting agent (run ID: ${runId})`);
     consola.log(
       `[agent-runner] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
     );
@@ -141,10 +171,13 @@ export class LocalEngine implements Engine {
     });
 
     consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
-    return { success: exitCode === 0, exitCode, output };
+    return {
+      agent: { success: exitCode === 0, exitCode, output },
+      infra: opts.infra,
+    };
   }
 
-  async startInspect(_opts: StartInspectOpts): Promise<CoderInspectSessionHandle> {
+  async startInspect(_opts: StartInspectOpts): Promise<StartInspectResult> {
     throw new Error(
       '[engine] run inspect needs a container coding engine. Use --engine coding=docker (or omit --engine local) for inspect.',
     );

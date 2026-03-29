@@ -2,12 +2,32 @@
 // Cleanup registry — tracks live infra engines for graceful shutdown
 // ---------------------------------------------------------------------------
 
+import type { LiveInfra } from '../engines/types.js';
 import { consola } from '../logger.js';
 import { destroySandbox } from '../orchestrator/sandbox.js';
 
 /** Minimal engine interface used by CleanupRegistry (avoids circular deps). */
 export interface EngineRef {
-  teardown(opts: { runId: string }): Promise<void>;
+  teardown(opts: { runId: string; infra: LiveInfra | null; projectDir: string }): Promise<void>;
+}
+
+export interface RegisterEngineOpts {
+  engine: EngineRef;
+  /**
+   * Same run id passed to {@link Engine.setup} / {@link Engine.teardown} for this engine
+   * (authoritative for Docker resources and teardown).
+   */
+  runId: string;
+  /**
+   * Human-readable registration label for logs (may differ from `runId`, e.g. `${runId}-coding-1`).
+   */
+  label: string;
+  projectDir: string;
+  /**
+   * Latest live infra for this engine. `null` until the first successful `setup()` assigns it.
+   * Passed through to `engine.teardown()`; Docker logs and no-ops when still `null`.
+   */
+  getInfra: () => LiveInfra | null;
 }
 
 /**
@@ -15,11 +35,12 @@ export interface EngineRef {
  * SIGINT/SIGTERM handlers can tear them down even if the mode function is
  * mid-await when the signal fires.
  *
- * Mode functions call `register` immediately after each resource is created.
+ * Call sites register **before** `Engine.setup()` so an early signal still sees infra once
+ * `getInfra()` reflects the latest snapshot (see `run-agent-phase`, iterative loop, test phases).
  * The signal handler calls `cleanup()` which tears down everything in reverse order.
  */
 export class CleanupRegistry {
-  private engines: Array<{ engine: EngineRef; runId: string }> = [];
+  private engines: Array<RegisterEngineOpts> = [];
   private beforeCleanupHook?: () => Promise<void>;
   /**
    * Sandbox dir to remove on SIGINT/SIGTERM. The iterative loop normally destroys the sandbox in
@@ -44,8 +65,8 @@ export class CleanupRegistry {
   }
 
   /** Register an engine so it is torn down on SIGINT/SIGTERM. */
-  registerEngine(engine: EngineRef, runId: string): void {
-    this.engines.push({ engine, runId });
+  registerEngine(opts: RegisterEngineOpts): void {
+    this.engines.push(opts);
   }
 
   /** Deregister an engine after it has been explicitly torn down. */
@@ -64,8 +85,10 @@ export class CleanupRegistry {
     const enginesToDown = [...this.engines];
     this.engines = [];
 
-    for (const { engine, runId } of enginesToDown) {
-      await engine.teardown({ runId });
+    for (const { engine, runId, projectDir, getInfra } of enginesToDown) {
+      // `infra === null` => failed setup ⇒ teardown no-ops / warns.
+      // This is handled inside each engine's teardown (Docker warns; local no-ops).
+      await engine.teardown({ runId, infra: getInfra(), projectDir });
     }
 
     if (this.emergencySandboxPath) {

@@ -23,7 +23,7 @@ describe('buildOrchestratorCliInputFromFeatArgs', () => {
   it('loads bundled agent scripts for --agent when install/script paths omitted', async () => {
     const cli = await buildOrchestratorCliInputFromFeatArgs({ agent: 'debug' } as FeatRunArgs, {
       projectDir: process.cwd(),
-      saifDir: 'saifctl',
+      saifctlDir: 'saifctl',
       config: {} as SaifctlConfig,
     });
     expect(cli.agentProfileId).toBe('debug');

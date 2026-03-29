@@ -7,11 +7,11 @@ Setting `HATCHET_CLIENT_TOKEN` opts into the Hatchet orchestrator, which adds:
 - **Durability** — runs survive process crashes and can be resumed from where they left off.
 - **Local dashboard** — `http://localhost:8888` shows step graphs, logs, and retry history.
 - **Foundation for distributed workers** — same config points at Hatchet Cloud or a self-hosted
-  cluster when you're ready (Phase 2).
+  cluster when you're ready.
 
 When the token is absent the entire agentic run is executed in-process. If part of the workflow fails, the entire run stops.
 
-## Quick start (local dashboard)
+## Quick start
 
 ```sh
 # 1. Install the Hatchet CLI
@@ -52,7 +52,7 @@ See [Environment variables](env-vars.md) for the full variable reference.
 ## How it works
 
 When `HATCHET_CLIENT_TOKEN` is set, `saifctl feat run` submits the run to a
-**`feat-run` Hatchet workflow** instead of driving the loop directly.
+**Hatchet workflow** instead of driving the loop directly.
 The workflow mirrors the same phases:
 
 ```

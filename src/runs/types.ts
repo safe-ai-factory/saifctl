@@ -4,9 +4,58 @@
  * Persisted for every run when storage is enabled for `run ls`, `run start`, and tests.
  */
 
+import type { LiveInfra } from '../engines/types.js';
 import type { SerializedLoopOpts } from './utils/serialize.js';
 
-export type RunStatus = 'failed' | 'completed' | 'running';
+export type { DockerLiveInfra, LiveInfra, LocalLiveInfra } from '../engines/types.js';
+
+export type RunStatus = 'failed' | 'completed' | 'running' | 'paused';
+
+/** Passed to `AbortController.abort()` when `run pause` requests a cooperative stop. */
+export const SAIFCTL_PAUSE_ABORT_REASON = 'saifctl-pause';
+
+/** Passed to `AbortController.abort()` when `run stop` requests immediate teardown. */
+export const SAIFCTL_STOP_ABORT_REASON = 'saifctl-stop';
+
+export type RunControlAction = 'pause' | 'stop';
+
+/**
+ * Last-write-wins control from `run pause` / `run stop` while an orchestrator is active.
+ * Cleared when the run leaves {@link RunStatus} `"running"` or the signal is consumed.
+ */
+export interface RunControlSignal {
+  action: RunControlAction;
+  requestedAt: string;
+}
+
+/** Thrown by {@link RunStorage.requestPause} when the run is not active. */
+export class RunCannotPauseError extends Error {
+  override readonly name = 'RunCannotPauseError';
+
+  constructor(
+    readonly runId: string,
+    readonly status: RunStatus,
+  ) {
+    super(
+      `Run "${runId}" cannot be paused (status: "${status}"). Only a run with status "running" can be paused.`,
+    );
+  }
+}
+
+/** Thrown by {@link RunStorage.requestStop} when the run cannot be stopped. */
+export class RunCannotStopError extends Error {
+  override readonly name = 'RunCannotStopError';
+
+  constructor(
+    readonly runId: string,
+    readonly status: RunStatus,
+  ) {
+    super(
+      `Run "${runId}" cannot be stopped (status: "${status}"). ` +
+        `Only runs with status "running" or "paused" can be stopped.`,
+    );
+  }
+}
 
 /**
  * One-off rules apply only until the coding round finishes;
@@ -113,6 +162,15 @@ export class RunAlreadyRunningError extends Error {
   }
 }
 
+/**
+ * Live infra keyed by environment. Stores infra-specific details.
+ * Written incrementally as resources are created; cleared after teardown.
+ */
+export interface RunLiveInfra {
+  coding: LiveInfra | null;
+  staging: LiveInfra | null;
+}
+
 export interface RunArtifact {
   runId: string;
   taskId?: string;
@@ -150,4 +208,22 @@ export interface RunArtifact {
    * Saved incrementally while status is `"running"` when run storage is enabled.
    */
   roundSummaries?: OuterAttemptSummary[];
+
+  /**
+   * Set by `run pause` / `run stop` while the orchestrator polls storage. Last write wins.
+   * Cleared when the run is no longer `"running"` or the signal has been applied.
+   */
+  controlSignal: RunControlSignal | null;
+
+  /**
+   * Host sandbox directory preserved across `run pause` / `run resume` (same bind mounts).
+   * Set when entering `"paused"`; cleared when resuming via the `run start` path or on completion.
+   */
+  pausedSandboxBasePath: string | null;
+
+  /**
+   * Resources currently provisioned for this run (containers, networks, compose project, images).
+   * Populated in later phases; `null` until tracking is wired or after full teardown.
+   */
+  liveInfra: RunLiveInfra | null;
 }

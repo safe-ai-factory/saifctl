@@ -59,14 +59,17 @@ const SEARCH_PLACES = [
 
 /**
  * Scaffold saifctl/config.ts if the saifctl directory has no config file.
- * Creates saifDir when it does not exist.
+ * Creates saifctlDir when it does not exist.
  *
- * @param saifDir - Path to saifctl directory (e.g. "saifctl")
+ * @param saifctlDir - Path to saifctl directory (e.g. "saifctl")
  * @param projectDir - Project root
  * @returns true if a config was scaffolded, false if one already existed
  */
-export async function scaffoldSaifctlConfig(saifDir: string, projectDir: string): Promise<boolean> {
-  const configDir = resolve(projectDir, saifDir);
+export async function scaffoldSaifctlConfig(
+  saifctlDir: string,
+  projectDir: string,
+): Promise<boolean> {
+  const configDir = resolve(projectDir, saifctlDir);
 
   for (const name of SEARCH_PLACES) {
     if (await pathExists(resolve(configDir, name))) {

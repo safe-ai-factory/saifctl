@@ -74,17 +74,17 @@ function imperativeCatalog(extra: object = {}): string {
 describe('generateTests', () => {
   let projectDir: string;
   let feature: Awaited<ReturnType<typeof resolveFeature>>;
-  const saifDir = 'saifctl';
+  const saifctlDir = 'saifctl';
   const featureName = 'test-feature';
 
   beforeEach(async () => {
     projectDir = await makeTempDir();
-    const featureDir = join(projectDir, saifDir, 'features', featureName);
+    const featureDir = join(projectDir, saifctlDir, 'features', featureName);
     await mkdir(featureDir, { recursive: true });
     const testsDir = join(featureDir, 'tests');
     await mkdir(testsDir, { recursive: true });
     await writeUtf8(join(testsDir, 'tests.json'), imperativeCatalog());
-    feature = await resolveFeature({ input: featureName, projectDir, saifDir });
+    feature = await resolveFeature({ input: featureName, projectDir, saifctlDir });
   });
 
   it('writes helpers.ts', async () => {
@@ -207,7 +207,7 @@ describe('generateTests (error cases)', () => {
     const projectDir = await makeTempDir();
     const featureDir = join(projectDir, 'saifctl', 'features', 'missing');
     await mkdir(featureDir, { recursive: true });
-    const feature = await resolveFeature({ input: 'missing', projectDir, saifDir: 'saifctl' });
+    const feature = await resolveFeature({ input: 'missing', projectDir, saifctlDir: 'saifctl' });
     await expect(
       generateTests({
         feature,
@@ -223,7 +223,11 @@ describe('generateTests (error cases)', () => {
     const testsDir = join(featureDir, 'tests');
     await mkdir(testsDir, { recursive: true });
     await writeUtf8(join(testsDir, 'tests.json'), '{"invalid": true}');
-    const feature = await resolveFeature({ input: 'bad-feature', projectDir, saifDir: 'saifctl' });
+    const feature = await resolveFeature({
+      input: 'bad-feature',
+      projectDir,
+      saifctlDir: 'saifctl',
+    });
     await expect(
       generateTests({
         feature,

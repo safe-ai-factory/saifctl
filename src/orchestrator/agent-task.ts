@@ -10,13 +10,13 @@ import { pathExists, readUtf8 } from '../utils/io.js';
 export interface BuildTaskPromptOpts {
   codePath: string;
   task: string;
-  saifDir: string;
+  saifctlDir: string;
   feature?: Feature;
   errorFeedback?: string;
 }
 
 export async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string> {
-  const { codePath, task, saifDir, feature, errorFeedback } = opts;
+  const { codePath, task, saifctlDir, feature, errorFeedback } = opts;
   let planContent = '';
 
   const planCandidates: string[] = [];
@@ -41,7 +41,7 @@ export async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string
       errorFeedback.trim(),
       '```',
       '',
-      `Analyze the errors above and fix the code. Do NOT modify files in the /${saifDir}/ directory.`,
+      `Analyze the errors above and fix the code. Do NOT modify files in the /${saifctlDir}/ directory.`,
     );
   }
 

@@ -220,6 +220,182 @@ describe('startRulesWatcher', () => {
     }
   });
 
+  it('invokes onControlSignal once when controlSignal pause is set', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-watch-pause-'));
+    try {
+      const onControlSignal = vi.fn();
+      const artifact: RunArtifact = {
+        runId: 'r',
+        baseCommitSha: 'a',
+        runCommits: [],
+        specRef: 's',
+        rules: [],
+        config: {
+          featureName: 'x',
+          gitProviderId: 'github',
+          testProfileId: 'vitest',
+          sandboxProfileId: 'vitest',
+          agentProfileId: 'openhands',
+          projectDir: '/tmp',
+          maxRuns: 5,
+          overrides: {},
+          saifctlDir: 'saifctl',
+          projectName: 'test',
+          testImage: 'test:latest',
+          resolveAmbiguity: 'ai',
+          dangerousNoLeash: false,
+          cedarPolicyPath: '',
+          coderImage: '',
+          push: null,
+          pr: false,
+          includeDirty: false,
+          gateRetries: 10,
+          reviewerEnabled: true,
+          agentEnv: {},
+          agentSecretKeys: [],
+          agentSecretFiles: [],
+          testScript: 'test',
+          gateScript: '#',
+          startupScript: '#',
+          agentInstallScript: '#',
+          agentScript: '#',
+          stageScript: '#',
+          startupScriptFile: 's/startup.sh',
+          gateScriptFile: 's/gate.sh',
+          stageScriptFile: 's/stage.sh',
+          testScriptFile: 's/test.sh',
+          agentInstallScriptFile: 's/agent-install.sh',
+          agentScriptFile: 's/agent.sh',
+          testRetries: 1,
+          stagingEnvironment: {
+            engine: 'docker',
+            app: { sidecarPort: 8080, sidecarPath: '/exec' },
+            appEnvironment: {},
+          },
+          codingEnvironment: { engine: 'docker' },
+        },
+        status: 'running',
+        startedAt: '2025-01-01T00:00:00.000Z',
+        updatedAt: '2025-01-01T00:00:00.000Z',
+        controlSignal: { action: 'pause', requestedAt: '2025-01-02T00:00:00.000Z' },
+        pausedSandboxBasePath: null,
+        liveInfra: null,
+      };
+      const storage: Pick<RunStorage, 'getRun'> = {
+        async getRun() {
+          return artifact;
+        },
+      };
+
+      const watcher = startRulesWatcher({
+        runStorage: storage as RunStorage,
+        runId: 'r',
+        knownRuleIds: new Set<string>(),
+        onNewRules: vi.fn(),
+        onControlSignal,
+        pollIntervalMs: 30,
+      });
+
+      for (let i = 0; i < 80 && onControlSignal.mock.calls.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      watcher.stop();
+
+      expect(onControlSignal).toHaveBeenCalledTimes(1);
+      expect(onControlSignal).toHaveBeenCalledWith('pause');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('invokes onControlSignal with stop when controlSignal stop is set', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'saifctl-watch-stop-'));
+    try {
+      const onControlSignal = vi.fn();
+      const artifact: RunArtifact = {
+        runId: 'r',
+        baseCommitSha: 'a',
+        runCommits: [],
+        specRef: 's',
+        rules: [],
+        config: {
+          featureName: 'x',
+          gitProviderId: 'github',
+          testProfileId: 'vitest',
+          sandboxProfileId: 'vitest',
+          agentProfileId: 'openhands',
+          projectDir: '/tmp',
+          maxRuns: 5,
+          overrides: {},
+          saifctlDir: 'saifctl',
+          projectName: 'test',
+          testImage: 'test:latest',
+          resolveAmbiguity: 'ai',
+          dangerousNoLeash: false,
+          cedarPolicyPath: '',
+          coderImage: '',
+          push: null,
+          pr: false,
+          includeDirty: false,
+          gateRetries: 10,
+          reviewerEnabled: true,
+          agentEnv: {},
+          agentSecretKeys: [],
+          agentSecretFiles: [],
+          testScript: 'test',
+          gateScript: '#',
+          startupScript: '#',
+          agentInstallScript: '#',
+          agentScript: '#',
+          stageScript: '#',
+          startupScriptFile: 's/startup.sh',
+          gateScriptFile: 's/gate.sh',
+          stageScriptFile: 's/stage.sh',
+          testScriptFile: 's/test.sh',
+          agentInstallScriptFile: 's/agent-install.sh',
+          agentScriptFile: 's/agent.sh',
+          testRetries: 1,
+          stagingEnvironment: {
+            engine: 'docker',
+            app: { sidecarPort: 8080, sidecarPath: '/exec' },
+            appEnvironment: {},
+          },
+          codingEnvironment: { engine: 'docker' },
+        },
+        status: 'running',
+        startedAt: '2025-01-01T00:00:00.000Z',
+        updatedAt: '2025-01-01T00:00:00.000Z',
+        controlSignal: { action: 'stop', requestedAt: '2025-01-02T00:00:00.000Z' },
+        pausedSandboxBasePath: null,
+        liveInfra: null,
+      };
+      const storage: Pick<RunStorage, 'getRun'> = {
+        async getRun() {
+          return artifact;
+        },
+      };
+
+      const watcher = startRulesWatcher({
+        runStorage: storage as RunStorage,
+        runId: 'r',
+        knownRuleIds: new Set<string>(),
+        onNewRules: vi.fn(),
+        onControlSignal,
+        pollIntervalMs: 30,
+      });
+
+      for (let i = 0; i < 80 && onControlSignal.mock.calls.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      watcher.stop();
+
+      expect(onControlSignal).toHaveBeenCalledTimes(1);
+      expect(onControlSignal).toHaveBeenCalledWith('stop');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('skips rules already in knownRuleIds', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'saifctl-watch2-'));
     try {

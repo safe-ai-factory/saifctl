@@ -176,7 +176,7 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'feature',
   'projectDir',
   'maxRuns',
-  'saifDir',
+  'saifctlDir',
   'sandboxBaseDir',
   'projectName',
   'testImage',
@@ -246,7 +246,7 @@ function mergeDefinedOrchestratorOpts(
 export interface OrchestratorBaselineContext {
   feature: Feature;
   projectDir: string;
-  saifDir: string;
+  saifctlDir: string;
   config: SaifctlConfig;
 }
 
@@ -257,7 +257,7 @@ export interface OrchestratorBaselineContext {
 async function applyOrchestratorBaseline(
   ctx: OrchestratorBaselineContext,
 ): Promise<OrchestratorOpts> {
-  const { feature, projectDir, saifDir, config } = ctx;
+  const { feature, projectDir, saifctlDir, config } = ctx;
   const noCli = undefined;
 
   const maxRuns = config?.defaults?.maxRuns ?? DEFAULT_ORCHESTRATOR_MAX_RUNS;
@@ -334,7 +334,7 @@ async function applyOrchestratorBaseline(
     projectDir,
     maxRuns,
     overrides,
-    saifDir,
+    saifctlDir,
     sandboxBaseDir,
     projectName,
     testImage,
@@ -381,7 +381,7 @@ async function applyOrchestratorBaseline(
 
 export interface ResolveOrchestratorOptsParams {
   projectDir: string;
-  saifDir: string;
+  saifctlDir: string;
   config: SaifctlConfig;
   /** Resolved feature (prompt/CLI for start; from artifact for from-artifact/test-from-run). */
   feature: Feature;
@@ -403,12 +403,13 @@ export interface ResolveOrchestratorOptsParams {
 export async function resolveOrchestratorOpts(
   params: ResolveOrchestratorOptsParams,
 ): Promise<OrchestratorOpts> {
-  const { projectDir, saifDir, config, feature, cli, cliModelDelta, artifact, engineCli } = params;
+  const { projectDir, saifctlDir, config, feature, cli, cliModelDelta, artifact, engineCli } =
+    params;
 
   const defaults = await applyOrchestratorBaseline({
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     config,
   });
 
@@ -442,6 +443,7 @@ export async function resolveOrchestratorOpts(
 
   if (merged.codingEnvironment.engine === 'local') {
     merged.dangerousNoLeash = false;
+    merged.reviewerEnabled = false;
   }
 
   if (merged.pr && !merged.push) {
@@ -464,7 +466,7 @@ async function mergeArtifactOntoDefaults(
     ...d,
     feature: ctx.feature,
     projectDir: ctx.projectDir,
-    saifDir: d.saifDir,
+    saifctlDir: d.saifctlDir,
     fromArtifact: null,
     testOnly: false,
     runStorage: defaults.runStorage,
@@ -737,16 +739,15 @@ export function pickCodingEnvironmentForEngineCli(
   target: EngineCliCodingKind,
   config: SaifctlConfig,
 ): NormalizedCodingEnvironment {
+  // If the config has a coding environment that matches the target engine,
+  // (e.g. 'docker'), use it.
   const fromFile = config.environments?.coding;
   if (fromFile && fromFile.engine === target) {
     return { ...fromFile };
   }
-  if (target === 'docker') return { engine: 'docker' };
-  if (target === 'local') return { engine: 'local' };
-  consola.error(
-    'Error: --engine coding=helm requires environments.coding with engine "helm" and chart in saifctl config.',
-  );
-  process.exit(1);
+  // If user has e.g. 'docker' in config, but they want to run 'local',
+  // use a minimal object (e.g. { engine: 'local' })
+  return { engine: target };
 }
 
 /**

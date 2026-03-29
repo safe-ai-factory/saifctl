@@ -31,7 +31,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
   const {
     runId: sourceRunId,
     projectDir,
-    saifDir,
+    saifctlDir,
     runStorage,
     cli,
     cliModelDelta,
@@ -48,12 +48,12 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
-    saifDir: deserialized.saifDir,
+    saifctlDir: deserialized.saifctlDir,
   });
 
   const mergedOpts = await resolveOrchestratorOpts({
     projectDir,
-    saifDir,
+    saifctlDir,
     config,
     feature,
     cli,
@@ -75,6 +75,9 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
     rules: cloneRunRules(source.rules),
     roundSummaries: source.roundSummaries,
     status: 'failed',
+    controlSignal: source.controlSignal ?? null,
+    pausedSandboxBasePath: source.pausedSandboxBasePath ?? null,
+    liveInfra: source.liveInfra ?? null,
     opts: artifactLoopOpts as BuildRunArtifactOpts,
   });
 

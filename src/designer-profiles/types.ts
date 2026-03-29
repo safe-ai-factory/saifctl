@@ -34,7 +34,7 @@ export interface DesignerBaseOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;
   /** Saifctl directory name relative to repo root (e.g. "saifctl"). */
-  saifDir: string;
+  saifctlDir: string;
 }
 
 export interface DesignerRunOpts extends DesignerBaseOpts {

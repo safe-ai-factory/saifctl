@@ -14,7 +14,7 @@
 import { defineCommand, runMain } from 'citty';
 import { colors } from 'consola/utils';
 
-import { resolveLeashCliPath } from '../../engines/docker/resolve-leash-cli.js';
+import { resolveLeashCliPath } from '../../engines/docker/index.js';
 import { consola } from '../../logger.js';
 import { pathExists, spawnCapture } from '../../utils/io.js';
 
@@ -74,9 +74,9 @@ async function checkHatchet(): Promise<boolean> {
   try {
     // Lazy-import so users without the SDK installed still see the other checks.
     const { getHatchetClient } = await import('../../hatchet/client.js');
-    const hatchet = getHatchetClient();
-    if (!hatchet) {
-      fail('Hatchet client could not be initialized (token set but SDK returned null).');
+    const { isLocal } = getHatchetClient();
+    if (isLocal) {
+      fail('Hatchet local mode initialized. Expected Hatchet server mode.');
       return false;
     }
     ok(`Hatchet client initialized (server: ${serverUrl})`);

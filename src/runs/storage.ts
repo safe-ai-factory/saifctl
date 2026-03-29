@@ -8,6 +8,8 @@ import type { StorageFilter, StorageImpl } from '../storage/types.js';
 import {
   RunAlreadyRunningError,
   type RunArtifact,
+  RunCannotPauseError,
+  RunCannotStopError,
   type RunSaveOptions,
   type RunStatus,
   StaleArtifactError,
@@ -70,6 +72,7 @@ export class RunStorage {
       taskId: artifact.taskId ?? existing?.taskId,
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
+      liveInfra: artifact.liveInfra,
     };
 
     await this.storage.save(runId, merged);
@@ -90,6 +93,7 @@ export class RunStorage {
       taskId: artifact.taskId ?? existing?.taskId,
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
+      liveInfra: artifact.liveInfra,
     };
     await this.storage.save(runId, merged);
     return merged.artifactRevision!;
@@ -102,6 +106,56 @@ export class RunStorage {
   async listRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<RunArtifact[]> {
     const filters = buildFilters(filter);
     return this.storage.list(filters.length > 0 ? filters : undefined);
+  }
+
+  /**
+   * Sets {@link RunArtifact#controlSignal} to `pause` so a live orchestrator (polling storage) can pause
+   * without tearing down the sandbox or Docker network/compose stack. Last-write-wins with {@link requestStop}.
+   *
+   * @throws {@link RunCannotPauseError} when the stored run is not {@link RunStatus} `"running"`.
+   */
+  async requestPause(runId: string): Promise<void> {
+    const existing = await this.storage.get(runId);
+    if (!existing) {
+      throw new Error(`Run not found: ${runId}`);
+    }
+    if (existing.status !== 'running') {
+      throw new RunCannotPauseError(runId, existing.status);
+    }
+    const currentRev = existing.artifactRevision ?? 0;
+    const t = new Date().toISOString();
+    const next: RunArtifact = {
+      ...existing,
+      controlSignal: { action: 'pause', requestedAt: t },
+      updatedAt: t,
+      liveInfra: existing.liveInfra,
+    };
+    await this.saveRun(runId, next, { ifRevisionEquals: currentRev });
+  }
+
+  /**
+   * Sets {@link RunArtifact#controlSignal} to `stop` so a live orchestrator tears down like a normal
+   * failed exit, or (when already {@link RunStatus} `"paused"`) the caller runs synchronous cleanup.
+   * Last-write-wins with {@link requestPause}.
+   *
+   * @throws {@link RunCannotStopError} when the stored run is not `"running"` or `"paused"`.
+   */
+  async requestStop(runId: string): Promise<void> {
+    const existing = await this.storage.get(runId);
+    if (!existing) {
+      throw new Error(`Run not found: ${runId}`);
+    }
+    if (existing.status !== 'running' && existing.status !== 'paused') {
+      throw new RunCannotStopError(runId, existing.status);
+    }
+    const currentRev = existing.artifactRevision ?? 0;
+    const t = new Date().toISOString();
+    const next: RunArtifact = {
+      ...existing,
+      controlSignal: { action: 'stop', requestedAt: t },
+      updatedAt: t,
+    };
+    await this.saveRun(runId, next, { ifRevisionEquals: currentRev });
   }
 
   async deleteRun(runId: string): Promise<void> {

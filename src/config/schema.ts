@@ -177,7 +177,7 @@ export const saifctlConfigDefaultsSchema = z.object({
   sandboxProfile: z.string().optional(),
 
   // Paths and project
-  // NOTE: projectDir/saifDir are NOT in config - required to find the config file
+  // NOTE: projectDir/saifctlDir are NOT in config - required to find the config file
   project: z.string().optional(),
   sandboxBaseDir: z.string().optional(),
 

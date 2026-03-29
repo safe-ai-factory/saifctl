@@ -78,6 +78,7 @@ saifctl run apply pwc2l1j --branch saifctl/my-feature-retry-2
 
 ## See also
 
+- [Guide: Run lifecycle](../guides/run-lifecycle.md) — When to use `run apply` vs `run test`
 - [Runs](../runs.md) — Artifact fields (`runCommits`, `baseCommitSha`, `basePatchDiff`)
 - [`run test`](run-test.md) — Re-test a stored run, then apply on success
 - [`run start`](run-start.md) — Continue the agent loop from a failed run

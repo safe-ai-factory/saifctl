@@ -56,7 +56,7 @@ import {
   nameArg,
   projectArg,
   projectDirArg,
-  saifDirArg,
+  saifctlDirArg,
   testProfileArg,
 } from '../args.js';
 import type { ParsedArgsFromCommand } from '../types.js';
@@ -82,7 +82,7 @@ import {
   readGateScriptPathFromCli,
   readIndexerProfileIdFromCli,
   readProjectDirFromCli,
-  readSaifDirFromCli,
+  readSaifctlDirFromCli,
   readSandboxBaseDirFromCli,
   readSandboxProfileIdFromCli,
   readStageScriptPathFromCli,
@@ -93,7 +93,7 @@ import {
   resolveCliProjectDir,
   resolveDiscoveryOptions,
   resolveProjectName,
-  resolveSaifDirRelative,
+  resolveSaifctlDirRelative,
   shouldRunDiscovery,
 } from '../utils.js';
 
@@ -134,7 +134,7 @@ const newCommand = defineCommand({
       description: 'Feature name (kebab-case, e.g. add-greeting-cmd)',
     },
     yes: yesArg,
-    'saifctl-dir': saifDirArg,
+    'saifctl-dir': saifctlDirArg,
     'project-dir': projectDirArg,
     desc: {
       type: 'string',
@@ -146,7 +146,7 @@ const newCommand = defineCommand({
     const nonInteractive = args.yes === true;
     const namePreFill = getFeatNameFromArgs(args);
 
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
 
     if (nonInteractive && !namePreFill) {
       consola.error('Error: --name/-n is required when using --yes/-y');
@@ -197,7 +197,7 @@ const newCommand = defineCommand({
     // Create feature directory
     if (!nonInteractive) outro('Creating feature…');
 
-    const featureDir = join(projectDir, saifDir, 'features', featName);
+    const featureDir = join(projectDir, saifctlDir, 'features', featName);
     await mkdir(featureDir, { recursive: true });
 
     // Write proposal.md if description is provided
@@ -225,14 +225,14 @@ const designSpecsArgs = {
   },
   ...modelOverrideArgs,
   designer: designerArg,
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
 };
 
 const designDiscoveryArgs = {
   name: nameArg,
   yes: yesArg,
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   ...modelOverrideArgs,
   'discovery-mcp': {
@@ -268,8 +268,8 @@ async function _runDesignDiscovery(args: {
   [key: string]: unknown;
 }) {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-  const config = await loadSaifctlConfig(saifDir, projectDir);
+  const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+  const config = await loadSaifctlConfig(saifctlDir, projectDir);
   const feature = await getFeatOrPrompt(args, projectDir);
   const discovery = resolveDiscoveryOptions(readDiscoveryCliReads(args), projectDir, config);
   if (!shouldRunDiscovery(discovery)) {
@@ -290,7 +290,7 @@ async function _runDesignDiscovery(args: {
     discovery,
     overrides,
   });
-  return { feature, projectDir, saifDir };
+  return { feature, projectDir, saifctlDir };
 }
 
 async function _runDesignSpecs(args: {
@@ -305,8 +305,8 @@ async function _runDesignSpecs(args: {
   [key: string]: unknown;
 }) {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-  const config = await loadSaifctlConfig(saifDir, projectDir);
+  const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+  const config = await loadSaifctlConfig(saifctlDir, projectDir);
   const nonInteractive = args.yes === true;
   const force = args.force === true;
   if (nonInteractive && !getFeatNameFromArgs(args)) {
@@ -321,7 +321,7 @@ async function _runDesignSpecs(args: {
     parseModelOverridesCliDelta(args),
   );
 
-  const designerBaseOpts = { cwd: projectDir, feature, saifDir };
+  const designerBaseOpts = { cwd: projectDir, feature, saifctlDir };
 
   // 1. Generate full specs and plan from user's proposal (and discovery.md when present).
   // 1a. Check if the designer has already run
@@ -375,7 +375,7 @@ async function _runDesignSpecs(args: {
   return {
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     overrides,
     config,
   };
@@ -408,7 +408,7 @@ const designDiscoveryCommand = defineCommand({
 
 const designTestsArgs = {
   name: nameArg,
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   'test-profile': testProfileArg,
   indexer: indexerArg,
@@ -510,8 +510,8 @@ const designTestsCommand = defineCommand({
   args: designTestsArgs,
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-    const config = await loadSaifctlConfig(saifDir, projectDir);
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+    const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     const overrides = mergeModelOverridesLayers(
       modelOverridesFromSaifctlConfig(config),
@@ -541,7 +541,7 @@ const designTestsCommand = defineCommand({
 
 const designFail2passArgs = {
   name: nameArg,
-  'saifctl-dir': saifDirArg,
+  'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   project: projectArg,
   'test-profile': testProfileArg,
@@ -557,11 +557,11 @@ type DesignFail2passArgs = OrchestratorArgs & {
 async function _runDesignFail2pass(opts: {
   feature: Feature;
   projectDir: string;
-  saifDir: string;
+  saifctlDir: string;
   config?: SaifctlConfig;
   args: DesignFail2passArgs;
 }): Promise<void> {
-  const { feature, projectDir, saifDir, config, args } = opts;
+  const { feature, projectDir, saifctlDir, config, args } = opts;
   const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
 
   const projectName = await resolveProjectName({ project: args.project, projectDir, config });
@@ -617,7 +617,7 @@ async function _runDesignFail2pass(opts: {
     sandboxProfileId: sandboxProfile.id,
     feature,
     projectDir,
-    saifDir,
+    saifctlDir,
     sandboxBaseDir,
     projectName,
     testImage,
@@ -632,7 +632,7 @@ async function _runDesignFail2pass(opts: {
   });
 
   consola.log(`\n${result.message}`);
-  if (!result.success) process.exit(1);
+  if (result.status !== 'success') process.exit(1);
 }
 
 const designFail2passCommand = defineCommand({
@@ -644,13 +644,13 @@ const designFail2passCommand = defineCommand({
   args: designFail2passArgs,
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-    const config = await loadSaifctlConfig(saifDir, projectDir);
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+    const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     await _runDesignFail2pass({
       feature,
       projectDir,
-      saifDir,
+      saifctlDir,
       config,
       args: args as DesignFail2passArgs,
     });
@@ -674,8 +674,8 @@ const designCommand = defineCommand({
   },
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-    const config = await loadSaifctlConfig(saifDir, projectDir);
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+    const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const discovery = resolveDiscoveryOptions(readDiscoveryCliReads(args), projectDir, config);
 
     // 0. Design-discovery (when mcps or tools configured)
@@ -700,7 +700,7 @@ const designCommand = defineCommand({
     await _runDesignFail2pass({
       feature,
       projectDir,
-      saifDir,
+      saifctlDir,
       config,
       args: args as DesignFail2passArgs,
     });
@@ -726,31 +726,36 @@ const runCommand = defineCommand({
     });
 
     consola.log(`\n${result.message}`);
-    if (result.runId && runArgs.runStorage && !result.success) {
+    if (result.runId && runArgs.runStorage && result.status !== 'success') {
       consola.log(`\nStart again with:`);
       consola.log(`  saifctl run start ${result.runId}`);
     }
-    if (!result.success) process.exit(1);
+    // User-driven pause/stop are not CLI failures: exit 0 like success; only true run failures exit 1.
+    if (result.status === 'failed') process.exit(1);
   },
 });
 
 export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand>) => {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-  const config = await loadSaifctlConfig(saifDir, projectDir);
+  const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+  const config = await loadSaifctlConfig(saifctlDir, projectDir);
 
   const feature = await getFeatOrPrompt(args, projectDir);
   const runArgs = args as FeatRunArgs;
   setVerboseLogging(runArgs.verbose === true);
 
-  const cli = await buildOrchestratorCliInputFromFeatArgs(runArgs, { projectDir, saifDir, config });
+  const cli = await buildOrchestratorCliInputFromFeatArgs(runArgs, {
+    projectDir,
+    saifctlDir,
+    config,
+  });
   const cliModelDelta = parseModelOverridesCliDelta(runArgs);
 
   const engineCli = readEngineCliFromCli(runArgs);
 
   const orchestratorOpts = await resolveOrchestratorOpts({
     projectDir,
-    saifDir,
+    saifctlDir,
     config,
     feature,
     cli,

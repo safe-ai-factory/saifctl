@@ -27,7 +27,7 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   projectDir: string;
   maxRuns: number;
   overrides: Record<string, unknown>;
-  saifDir: string;
+  saifctlDir: string;
   projectName: string;
   testImage: string;
   resolveAmbiguity: 'off' | 'prompt' | 'ai';
@@ -152,7 +152,7 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     projectDir: s.projectDir,
     maxRuns: s.maxRuns,
     overrides: s.overrides as OrchestratorOpts['overrides'],
-    saifDir: s.saifDir,
+    saifctlDir: s.saifctlDir,
     projectName: s.projectName,
     testImage: s.testImage,
     resolveAmbiguity: s.resolveAmbiguity,
@@ -199,6 +199,10 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
             ...s.fromArtifact.runContext,
             rules: s.fromArtifact.runContext.rules ?? [],
           },
+          // NOTE: The stored "infra" is not passed through here.
+          // It's serialized as part of the RunArtifact and deserialized separately.
+          // This field is included only for completeness.
+          resumedCodingInfra: null,
         }
       : null,
     runStorage: s.runStorageUri ? createRunStorage(s.runStorageUri, s.projectDir) : null,

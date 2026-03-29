@@ -354,6 +354,9 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
     rules: runContext.rules,
     roundSummaries: existingArtifact?.roundSummaries,
     status: 'failed',
+    controlSignal: null,
+    pausedSandboxBasePath: existingArtifact?.pausedSandboxBasePath ?? null,
+    liveInfra: existingArtifact?.liveInfra ?? null,
     opts,
   });
 

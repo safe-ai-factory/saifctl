@@ -1,36 +1,42 @@
 /**
- * Hatchet client — opt-in for Phase 1.
+ * Hatchet client — remove server or in-memory mock
  *
- * Returns a configured HatchetClient when HATCHET_CLIENT_TOKEN is set, or null
- * when it is not. Callers that receive null fall back to the existing in-process
- * orchestrator loop, so there is zero regression for users who have not yet set
- * up a Hatchet server.
+ * - When `HATCHET_CLIENT_TOKEN` is set → real `HatchetClient` (remote server).
+ * - When it is not set → `LocalHatchetRunner` (same workflow code path, in-process).
  *
  * Usage:
- *   const hatchet = getHatchetClient();
- *   if (hatchet) { // use Hatchet path } else { // use existing loop }
+ *   const { hatchet, isLocal } = getHatchetClient();
  */
 
 import { HatchetClient } from '@hatchet-dev/typescript-sdk/v1/client/client.js';
 
-export type { HatchetClient };
+import { createLocalHatchetRunner, type HatchetLike } from './utils/local.js';
 
-let _cachedClient: HatchetClient | null | undefined = undefined;
+export type { HatchetClient, HatchetLike };
+
+interface HatchetPayload {
+  hatchet: HatchetLike;
+  isLocal: boolean;
+}
+
+let _cachedClient: HatchetPayload | undefined = undefined;
 
 /**
- * Returns a configured Hatchet client if HATCHET_CLIENT_TOKEN is set, otherwise null.
- * The result is memoized for the lifetime of the process.
+ * Returns a Hatchet-compatible client. Memoized for the process lifetime.
  */
-export function getHatchetClient(): HatchetClient | null {
+export function getHatchetClient(): HatchetPayload {
   if (_cachedClient !== undefined) return _cachedClient;
 
   const token = process.env.HATCHET_CLIENT_TOKEN;
   if (!token) {
-    _cachedClient = null;
-    return null;
+    _cachedClient = { hatchet: createLocalHatchetRunner(), isLocal: true };
+    return _cachedClient;
   }
 
-  _cachedClient = HatchetClient.init();
+  // Cast: HatchetClient satisfies HatchetLike at runtime (same .workflow / .worker / .run
+  // surface), but its SDK WorkflowDeclaration type is structurally incompatible with ours.
+  // The cast is safe because feat-run.workflow.ts only calls methods present in both.
+  _cachedClient = { hatchet: HatchetClient.init() as unknown as HatchetLike, isLocal: false };
   return _cachedClient;
 }
 
