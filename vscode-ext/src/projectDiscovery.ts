@@ -25,6 +25,20 @@ const IGNORE_DIRS = new Set([
 ]);
 
 /**
+ * A real saifctl/ config directory contains a `features/` subdirectory.
+ * This distinguishes it from npm packages (e.g. tombstone packages) that happen
+ * to be named `saifctl` and live alongside project code.
+ */
+async function isSaifctlConfigDir(saifctlPath: string): Promise<boolean> {
+  try {
+    const inner = await fs.promises.readdir(saifctlPath, { withFileTypes: true });
+    return inner.some((e) => e.isDirectory() && e.name === 'features');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Returns all SaifCTL project roots under `workspaceRoot`, sorted by `name`.
  */
 export async function discoverSaifctlProjects(workspaceRoot: string): Promise<SaifctlProject[]> {
@@ -44,7 +58,7 @@ export async function discoverSaifctlProjects(workspaceRoot: string): Promise<Sa
       if (!entry.isDirectory()) continue;
 
       if (entry.name === 'saifctl') {
-        if (!isProjectRoot) {
+        if (!isProjectRoot && (await isSaifctlConfigDir(path.join(currentDir, 'saifctl')))) {
           const name =
             currentDir === workspaceRoot
               ? path.basename(currentDir) || 'Workspace'

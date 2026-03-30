@@ -15,10 +15,12 @@ import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
 import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
+import { RunDiffContentProvider, runDiffUri } from './runDiffContentProvider';
 import {
   formatRunConfigAsPrettyJson,
   RunConfigGroupItem,
   RunConfigKeyItem,
+  RunDiffFileItem,
   RunFeatureItem,
   RunItem,
   RunProjectItem,
@@ -204,6 +206,10 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!item) return undefined;
     return typeof item.label === 'string' ? item.label : item.label?.label;
   };
+
+  /** SaifCTL run id for CLI commands — not the same as {@link vscode.TreeItem.id} (which is scoped for tree uniqueness). */
+  const getRunId = (item?: vscode.TreeItem): string | undefined =>
+    item instanceof RunItem ? item.runData.id : undefined;
 
   // ============================================================================
   // 3. Feature Management Commands
@@ -442,7 +448,7 @@ export async function activate(context: vscode.ExtensionContext) {
     item instanceof RunItem ? item.projectPath : workspaceRoot;
 
   const logDetailRunCommand = (item?: vscode.TreeItem): string => {
-    const runId = item?.id ?? getItemName(item);
+    const runId = getRunId(item) ?? getItemName(item);
     return `runId=${runId ?? '(none)'} cwd=${getCwdForRun(item)}`;
   };
 
@@ -455,7 +461,7 @@ export async function activate(context: vscode.ExtensionContext) {
       loggedCommand(
         { commandId: 'saifctl.fromArtifact', startDetail: logDetailRunCommand },
         async (item?: vscode.TreeItem) => {
-          const runId = item?.id ?? getItemName(item);
+          const runId = getRunId(item);
           const cwd = getCwdForRun(item);
           if (runId) void cliService.fromArtifact(runId, cwd);
         },
@@ -469,7 +475,7 @@ export async function activate(context: vscode.ExtensionContext) {
       loggedCommand(
         { commandId: 'saifctl.removeRun', startDetail: logDetailRunCommand },
         async (item?: vscode.TreeItem) => {
-          const runId = item?.id ?? getItemName(item);
+          const runId = getRunId(item);
           const cwd = getCwdForRun(item);
           if (runId) {
             await cliService.removeRun(runId, cwd);
@@ -501,7 +507,7 @@ export async function activate(context: vscode.ExtensionContext) {
     loggedCommand(
       { commandId: 'saifctl.revealRunInFinder', startDetail: logDetailRunCommand },
       (item?: vscode.TreeItem) => {
-        const runId = item?.id ?? getItemName(item);
+        const runId = getRunId(item);
         const cwd = getCwdForRun(item);
         if (runId) {
           const runFilePath = vscode.Uri.file(path.join(cwd, '.saifctl', 'runs', `${runId}.json`));
@@ -514,7 +520,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const copyRunIdCmd = vscode.commands.registerCommand(
     'saifctl.copyRunId',
     loggedCommand('saifctl.copyRunId', async (item?: vscode.TreeItem) => {
-      const runId = item?.id ?? getItemName(item);
+      const runId = getRunId(item);
       if (runId) {
         await vscode.env.clipboard.writeText(runId);
         vscode.window.showInformationMessage(`Copied Run ID: ${runId}`);
@@ -594,6 +600,37 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Run file diff: `saifctl-diff:` virtual docs hold full-file before/after (git show + apply patches).
+  const runDiffContentProvider = new RunDiffContentProvider();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider('saifctl-diff', runDiffContentProvider),
+  );
+
+  const openRunFileDiffCmd = vscode.commands.registerCommand(
+    'saifctl.openRunFileDiff',
+    loggedCommand('saifctl.openRunFileDiff', async (item?: vscode.TreeItem) => {
+      if (!(item instanceof RunDiffFileItem)) return;
+      // Async git work: populate the provider cache, then open the built-in diff editor.
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Window, title: 'Preparing diff…' },
+        async () => {
+          await runDiffContentProvider.prepareSides({
+            runId: item.runId,
+            projectPath: item.projectPath,
+            baseCommitSha: item.baseCommitSha,
+            basePatchSection: item.basePatchSection,
+            runCommitSections: item.runCommitSections,
+            stat: item.stat,
+          });
+        },
+      );
+      const left = runDiffUri({ runId: item.runId, filePath: item.stat.path, side: 'base' });
+      const right = runDiffUri({ runId: item.runId, filePath: item.stat.path, side: 'changed' });
+      const title = `${path.basename(item.stat.path)} (${item.featureLabel})`;
+      await vscode.commands.executeCommand('vscode.diff', left, right, title);
+    }),
+  );
+
   const showLogsCmd = vscode.commands.registerCommand(
     'saifctl.showLogs',
     loggedCommand('saifctl.showLogs', () => {
@@ -658,6 +695,7 @@ export async function activate(context: vscode.ExtensionContext) {
     copyRunConfigValueCmd,
     copyRunConfigJsonCmd,
     copyRunConfigCliCmd,
+    openRunFileDiffCmd,
     showLogsCmd,
     recheckInstallCmd,
   );

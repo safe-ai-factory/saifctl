@@ -83,6 +83,7 @@
     "saifctl:feat:design-fail2pass": "tsx src/cli/commands/feat.ts design-fail2pass",
     "saifctl:feat:run": "tsx src/cli/commands/feat.ts run",
     "saifctl:run:list": "tsx src/cli/commands/run.ts list",
+    "saifctl:run:get": "tsx src/cli/commands/run.ts get",
     "saifctl:run:start": "tsx src/cli/commands/run.ts start",
     "saifctl:run:pause": "tsx src/cli/commands/run.ts pause",
     "saifctl:run:stop": "tsx src/cli/commands/run.ts stop",

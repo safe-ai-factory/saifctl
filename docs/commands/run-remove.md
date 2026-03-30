@@ -18,7 +18,7 @@ saifctl run rm <runId> [options]
 | Argument        | Alias | Type   | Description                                                                                      |
 | --------------- | ----- | ------ | ------------------------------------------------------------------------------------------------ |
 | `runId`         | —     | string | Run ID to delete (positional, required)                                                          |
-| `--project-dir` | —     | string | Project directory (default: current working directory)                                         |
+| `--project-dir` | —     | string | Project directory (default: current directory)                                         |
 | `--saifctl-dir`  | —     | string | Saifctl config directory relative to project (default: `saifctl`)                                  |
 | `--storage`     | —     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 

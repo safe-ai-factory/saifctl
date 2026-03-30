@@ -8,8 +8,7 @@
  *   design, validate. User sees streaming output and can interact.
  */
 
-import { readdir, readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -17,13 +16,65 @@ import { resolveCliInvocation, type ResolverLog } from './binaryResolver';
 import { logger, saifctlOutputChannel } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
 
-/** Run artifact shape when reading from .saifctl/runs/*.json */
-interface RunArtifact {
+/** One row from `saifctl run list --format json` */
+export interface RunListEntry {
   runId: string;
+  featureName: string;
+  specRef: string;
   status: 'failed' | 'completed' | 'running' | 'paused';
-  config: { featureName: string; projectDir?: string; [k: string]: unknown };
+  startedAt: string;
+  updatedAt: string;
+  taskId?: string;
+}
+
+/** Full artifact from `saifctl run get` (includes runCommits[].diff). */
+export interface RunFullArtifact {
+  runId: string;
+  /** Git commit the run started from (file blobs via `git show <sha>:path`). */
+  baseCommitSha?: string;
+  runCommits: Array<{ message: string; diff: string; author?: string }>;
+  config?: Record<string, unknown>;
   specRef?: string;
-  updatedAt?: string;
+  status?: string;
+  basePatchDiff?: string;
+  [k: string]: unknown;
+}
+
+type MockRunRow = RunListEntry & { onlyBasename?: string };
+
+const MOCK_RUN_ROWS: MockRunRow[] = [
+  {
+    runId: 'run-abc-123',
+    featureName: 'Agent_Auth_Attempt_1',
+    specRef: 'add-authentication',
+    status: 'completed',
+    startedAt: '2026-03-20T08:00:00.000Z',
+    updatedAt: '2026-03-20T09:15:30.000Z',
+    onlyBasename: 'project-alpha',
+  },
+  {
+    runId: 'run-def-456',
+    featureName: 'Agent_Auth_Attempt_2',
+    specRef: 'add-authentication',
+    status: 'failed',
+    startedAt: '2026-03-19T17:00:00.000Z',
+    updatedAt: '2026-03-19T18:00:00.000Z',
+    onlyBasename: 'project-alpha',
+  },
+  {
+    runId: 'run-xyz-789',
+    featureName: 'Memory_Refactor',
+    specRef: 'add-memory-module',
+    status: 'running',
+    startedAt: '2026-03-21T12:00:00.000Z',
+    updatedAt: '2026-03-21T14:02:00.000Z',
+    onlyBasename: 'project-agents',
+  },
+];
+
+function stripMockFilter(r: MockRunRow): RunListEntry {
+  const { onlyBasename: _b, ...e } = r;
+  return e;
 }
 
 export class SaifctlCliService {
@@ -127,6 +178,19 @@ export class SaifctlCliService {
     }
   }
 
+  /** Like {@link executeInBackground} but no UI error dialog — for optional fetches (tree expand). */
+  private async executeInBackgroundSilent(command: string, cwd: string): Promise<string | null> {
+    try {
+      logger.info(`Executing (silent): ${command}`);
+      const out = await spawnUserCmdCapture(command, { cwd });
+      return out.trim();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Command failed (silent): ${command} — ${message}`);
+      return null;
+    }
+  }
+
   /**
    * Executes a command in a visible VS Code Terminal.
    * Use for long-running agent processes (run, design, validate).
@@ -196,83 +260,114 @@ export class SaifctlCliService {
   // ============================================================================
 
   /**
-   * Lists Runs by reading .saifctl/runs/*.json directly.
-   * Avoids relying on CLI --json output.
-   *
-   * When SAIF_MOCK_RUNS=1, returns hardcoded mock data for UI testing without
-   * the saifctl CLI or .saifctl/runs/ present.
+   * Lists runs via `saifctl run list --format json` (works with any configured storage).
+   * When SAIF_MOCK_RUNS=1, returns mock list entries for UI testing.
    */
-  public async listRuns(cwd: string): Promise<RunArtifact[]> {
+  public async listRuns(cwd: string): Promise<RunListEntry[]> {
     if (process.env.SAIF_MOCK_RUNS === '1') {
-      return this.getMockRuns(cwd);
+      return this.getMockRunList(cwd);
     }
 
-    const runsDir = join(cwd, '.saifctl', 'runs');
-    let files: string[];
+    const out = await this.executeInBackground(
+      await this.cliCommand(cwd, 'run list --format json --no-pretty'),
+      cwd,
+    );
+    let parsed: unknown;
     try {
-      files = await readdir(runsDir);
+      parsed = JSON.parse(out) as RunListEntry[] | null;
     } catch {
+      logger.warn('run list --format json returned non-JSON');
       return [];
     }
-
-    const results: RunArtifact[] = [];
-    for (const f of files) {
-      if (!f.endsWith('.json')) continue;
-      try {
-        const filePath = join(runsDir, f);
-        const raw = await readFile(filePath, 'utf8');
-        const artifact = JSON.parse(raw) as RunArtifact;
-        if (artifact.runId && artifact.config?.featureName != null) {
-          results.push(artifact);
-        }
-      } catch {
-        // Skip malformed files
-      }
-    }
-    return results.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    if (parsed === null) return [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed as RunListEntry[];
   }
 
-  /** TEMP: Mock runs for UI testing. Use SAIF_MOCK_RUNS=1 when launching. */
-  private getMockRuns(cwd: string): RunArtifact[] {
-    const all = [
-      {
-        runId: 'run-abc-123',
-        status: 'completed' as const,
-        config: {
-          featureName: 'Agent_Auth_Attempt_1',
-          projectDir: 'project-alpha',
-          model: 'gpt-4o',
-          temp: '0.7',
-          agents: '2',
-        },
-        specRef: 'add-authentication',
-      },
-      {
-        runId: 'run-def-456',
-        status: 'failed' as const,
-        config: {
-          featureName: 'Agent_Auth_Attempt_2',
-          projectDir: 'project-alpha',
-          model: 'claude-3-5-sonnet',
-          temp: '0.2',
-        },
-        specRef: 'add-authentication',
-      },
-      {
-        runId: 'run-xyz-789',
-        status: 'running' as const,
-        config: {
-          featureName: 'Memory_Refactor',
-          projectDir: 'project-agents',
-          model: 'gpt-4o',
-          agents: '5',
-        },
-        specRef: 'add-memory-module',
-      },
-    ] satisfies RunArtifact[];
+  /** Subset JSON from `saifctl run info` (no commit diffs). */
+  public async getRunInfo(runId: string, cwd: string): Promise<Record<string, unknown> | null> {
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return this.getMockRunInfo(runId);
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(cwd, `run info ${escapeArg(runId)} --no-pretty`),
+      cwd,
+    );
+    if (out === null) return null;
+    try {
+      return JSON.parse(out) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
 
+  /** Full artifact from `saifctl run get` (includes runCommits[].diff). */
+  public async getRunFull(runId: string, cwd: string): Promise<RunFullArtifact | null> {
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return this.getMockRunFull(runId);
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(cwd, `run get ${escapeArg(runId)} --no-pretty`),
+      cwd,
+    );
+    if (out === null) return null;
+    try {
+      return JSON.parse(out) as RunFullArtifact;
+    } catch {
+      return null;
+    }
+  }
+
+  private getMockRunList(cwd: string): RunListEntry[] {
     const key = basename(cwd);
-    return all.filter((r) => r.config.projectDir === key);
+    return MOCK_RUN_ROWS.filter((r) => !r.onlyBasename || r.onlyBasename === key).map(
+      stripMockFilter,
+    );
+  }
+
+  private getMockRunInfo(runId: string): Record<string, unknown> | null {
+    const row = MOCK_RUN_ROWS.map(stripMockFilter).find((r) => r.runId === runId);
+    if (!row) return null;
+    return {
+      runId: row.runId,
+      status: row.status,
+      specRef: row.specRef,
+      config: {
+        featureName: row.featureName,
+        model: 'gpt-4o',
+        projectDir: row.runId.includes('abc') ? '/tmp/project-alpha' : '/tmp/project-agents',
+      },
+    };
+  }
+
+  private getMockRunFull(runId: string): RunFullArtifact | null {
+    const info = this.getMockRunInfo(runId);
+    if (!info) return null;
+    const samplePatch = `diff --git a/src/mock.ts b/src/mock.ts
+index 111..222 100644
+--- a/src/mock.ts
++++ b/src/mock.ts
+@@ -1,2 +1,3 @@
+ export const x = 1;
++export const y = 2;
+ unchanged
+diff --git /dev/null b/readme-mock.md
+new file mode 100644
+index 0000000..abc
+--- /dev/null
++++ b/readme-mock.md
+@@ -0,0 +1,1 @@
++# mock
+`;
+    return {
+      runId,
+      baseCommitSha: 'HEAD',
+      basePatchDiff: '',
+      runCommits: [{ message: 'mock commit', diff: samplePatch }],
+      config: (info.config as Record<string, unknown>) ?? {},
+      specRef: String(info.specRef ?? ''),
+      status: String(info.status ?? ''),
+    };
   }
 
   public async fromArtifact(runId: string, cwd: string): Promise<void> {

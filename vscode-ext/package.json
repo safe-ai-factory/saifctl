@@ -261,6 +261,11 @@
         "icon": "$(terminal)"
       },
       {
+        "command": "saifctl.openRunFileDiff",
+        "title": "Open Diff",
+        "icon": "$(diff)"
+      },
+      {
         "command": "saifctl.showLogs",
         "title": "Show SaifCTL logs",
         "icon": "$(output)"

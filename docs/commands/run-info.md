@@ -92,6 +92,7 @@ Example of the default **pretty-printed** output:
 
 - [Runs](../runs.md) — Run storage overview
 - [`run list`](run-list.md) — List run IDs
+- [`run get`](run-get.md) — Full run object JSON
 - [`run remove`](run-remove.md) — Delete a Run
 - [`run clear`](run-clear.md) — Bulk delete runs
 - [`run start`](run-start.md) — Resume a failed run

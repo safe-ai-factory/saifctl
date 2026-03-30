@@ -1,7 +1,7 @@
 /**
  * Tree provider for the Runs view.
  *
- * Hierarchy: Projects -> Runs -> Status / Feature / Config (collapsible) -> config keys.
+ * Hierarchy: Projects -> Runs -> Status / Feature / Config / Changes -> …
  * Uses ThemeIcon with ThemeColor for status dots (green/red).
  */
 
@@ -9,8 +9,17 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { type SaifctlCliService } from './cliService';
+import { type RunListEntry, type SaifctlCliService } from './cliService';
 import { discoverSaifctlProjects } from './projectDiscovery';
+import {
+  buildDiffDirTrie,
+  type DiffDirTrieNode,
+  type DiffFileChange,
+  type DiffFileStat,
+  parseCombinedPatch,
+  parsePatchUnmerged,
+  sectionForFilePath,
+} from './runDiffParser';
 
 /** Config keys omitted from the tree (large script/policy bodies only; *File paths stay visible). */
 const HIDDEN_CONFIG_KEYS = new Set([
@@ -25,15 +34,6 @@ const HIDDEN_CONFIG_KEYS = new Set([
 
 export type RunStatus = 'failed' | 'completed' | 'running' | 'paused';
 
-/** Raw artifact shape from .saifctl/runs/*.json (subset of full RunArtifact) */
-interface RunArtifactRaw {
-  runId: string;
-  status: RunStatus;
-  config?: { featureName: string; projectDir?: string; [k: string]: unknown };
-  specRef?: string;
-  updatedAt?: string;
-}
-
 export interface SaifctlRunData {
   id: string;
   name: string;
@@ -43,7 +43,7 @@ export interface SaifctlRunData {
   projectLabel: string;
   status: RunStatus;
   specRef: string;
-  /** Deep clone of artifact `config` (SerializedLoopOpts-shaped JSON). */
+  /** From `run info` after expanding the run (starts empty). */
   artifactConfig: Record<string, unknown>;
 }
 
@@ -53,7 +53,18 @@ export type RunTreeElement =
   | RunStatusItem
   | RunFeatureItem
   | RunConfigGroupItem
-  | RunConfigKeyItem;
+  | RunConfigKeyItem
+  | RunDiffGroupItem
+  | RunDiffDirItem
+  | RunDiffFileItem
+  | RunDiffMessageItem;
+
+/** Cached with diff list so full-file diff can use baseCommitSha + basePatchDiff + per-commit patches. */
+interface RunDiffArtifactContext {
+  baseCommitSha: string;
+  basePatchDiff: string;
+  runCommits: Array<{ diff?: string }>;
+}
 
 export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<RunTreeElement | undefined | void>();
@@ -63,6 +74,11 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   private runsCache: SaifctlRunData[] = [];
   private _filterText = '';
   private _filterStatuses = new Set<RunStatus>();
+  /** Parsed file stats per run after expanding Changes (lazy). */
+  private readonly diffCache = new Map<string, DiffFileStat[]>();
+  /** True when `run get` failed for this runId. */
+  private readonly diffLoadFailed = new Set<string>();
+  private readonly diffArtifactCache = new Map<string, RunDiffArtifactContext>();
 
   constructor(
     private readonly workspaceRoot: string,
@@ -94,6 +110,13 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this._onDidChangeTreeData.fire();
   }
 
+  refresh(): void {
+    this.diffCache.clear();
+    this.diffArtifactCache.clear();
+    this.diffLoadFailed.clear();
+    this._onDidChangeTreeData.fire();
+  }
+
   private matchesFilter(run: SaifctlRunData): boolean {
     const needle = this._filterText.trim().toLowerCase();
     const textOk =
@@ -104,19 +127,17 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     return textOk && statusOk;
   }
 
-  refresh(): void {
-    this._onDidChangeTreeData.fire();
-  }
-
   getTreeItem(element: RunTreeElement): vscode.TreeItem {
     return element;
   }
 
   async getChildren(element?: RunTreeElement): Promise<RunTreeElement[]> {
+    // No workspace folder open — nothing to list.
     if (!this.workspaceRoot) {
       return [];
     }
 
+    // Tree root: discover SaifCTL projects, merge runs from each via CLI, show project rows.
     if (!element) {
       try {
         // Single VSCode workspace may contain directories,
@@ -129,7 +150,8 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           const raw = await this.cliService.listRuns(p.projectPath);
           for (const a of raw) {
             merged.push(
-              toSaifctlRunData(a as RunArtifactRaw, {
+              toSaifctlRunData({
+                entry: a,
                 projectPath: p.projectPath,
                 projectLabel: p.name,
               }),
@@ -151,6 +173,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       }
     }
 
+    // One project expanded: its runs (filtered).
     if (element instanceof RunProjectItem) {
       const projectRuns = this.runsCache.filter(
         (run) => run.projectPath === element.projectPath && this.matchesFilter(run),
@@ -158,15 +181,126 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       return projectRuns.map((run) => new RunItem(run, run.projectPath));
     }
 
+    // One run expanded: hydrate artifact config if needed, then metadata + Changes group.
     if (element instanceof RunItem) {
+      const idx = this.runsCache.findIndex(
+        (r) => r.id === element.runData.id && r.projectPath === element.runData.projectPath,
+      );
+      // Run list only has rows with minimal data (`run list`).
+      // Each Run's config is filled on first expand via `run info`.
+      if (idx >= 0 && Object.keys(this.runsCache[idx]!.artifactConfig).length === 0) {
+        const info = await this.cliService.getRunInfo(
+          element.runData.id,
+          element.runData.projectPath,
+        );
+        const cfg = info?.config;
+        if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
+          this.runsCache[idx] = {
+            ...this.runsCache[idx]!,
+            artifactConfig: cfg as Record<string, unknown>,
+          };
+          // Keep the tree item in sync so later commands see the hydrated config.
+          element.runData = this.runsCache[idx]!;
+        }
+      }
       return this.getRunMetadata(element.runData);
     }
 
+    // Config group expanded: one row per visible config key.
     if (element instanceof RunConfigGroupItem) {
       return element.entries.map(([key, value]) => new RunConfigKeyItem(key, value));
     }
 
+    // Changes expanded: lazy fetch run get, parse patches, nested folder tree of files.
+    if (element instanceof RunDiffGroupItem) {
+      return this.getDiffChildren(element);
+    }
+
+    // Directory node under Changes: pre-built child dirs and files.
+    if (element instanceof RunDiffDirItem) {
+      return element.childElements;
+    }
+
+    // Leaves (status, feature, config keys, diff files, messages) have no children.
     return [];
+  }
+
+  /**
+   * Children of the **Changes** node for one run: loads the full artifact once (`run get`),
+   * caches parsed file stats + base SHA / patches for the diff editor, then returns a nested
+   * folder tree of changed files (or placeholder rows on error / empty patch).
+   */
+  private async getDiffChildren(group: RunDiffGroupItem): Promise<RunTreeElement[]> {
+    const { runId, projectPath, featureLabel } = group;
+
+    // First expansion only: fetch artifact, or record failure so we do not retry every paint.
+    if (!this.diffCache.has(runId) && !this.diffLoadFailed.has(runId)) {
+      const full = await this.cliService.getRunFull(runId, projectPath);
+      if (!full) {
+        this.diffLoadFailed.add(runId);
+        group.description = 'error';
+        group.tooltip = 'Could not load run (run get failed). Is saifctl up to date?';
+        this._onDidChangeTreeData.fire(group);
+        return [
+          new RunDiffMessageItem(
+            'Could not load changes (run get failed)',
+            'Is the CLI recent enough? Try: saifctl run get ' + runId,
+          ),
+        ];
+      }
+
+      // Concatenate all commit diffs for the tree (per-file stats + merged sections).
+      const combined = (full.runCommits ?? [])
+        .map((c) => c.diff)
+        .filter(Boolean)
+        .join('');
+      const stats = parseCombinedPatch(combined);
+      this.diffCache.set(runId, stats);
+      // Needed when opening a file diff: git show / apply uses baseCommitSha, basePatchDiff, per-commit hunks.
+      this.diffArtifactCache.set(runId, {
+        baseCommitSha: typeof full.baseCommitSha === 'string' ? full.baseCommitSha : '',
+        basePatchDiff: typeof full.basePatchDiff === 'string' ? full.basePatchDiff : '',
+        runCommits: full.runCommits ?? [],
+      });
+      group.description = stats.length === 0 ? '0 files' : `${stats.length} file(s)`;
+      group.tooltip =
+        stats.length === 0
+          ? 'No committed diffs on this run'
+          : `Combined patch from ${stats.length} file(s)`;
+      this._onDidChangeTreeData.fire(group);
+    }
+
+    // Subsequent expansions after a failed first load: show a stable error row (no re-fetch).
+    if (this.diffLoadFailed.has(runId)) {
+      return [
+        new RunDiffMessageItem(
+          'Could not load changes (run get failed)',
+          'Is the CLI recent enough?',
+        ),
+      ];
+    }
+
+    // Successful load but no file hunks in runCommits (e.g. empty commits).
+    const stats = this.diffCache.get(runId) ?? [];
+    if (stats.length === 0) {
+      return [new RunDiffMessageItem('No file changes', '')];
+    }
+
+    // Build nested folders and file rows; each file carries slices of base/run patches for vscode.diff.
+    const trie = buildDiffDirTrie(stats);
+    const diffCtx = this.diffArtifactCache.get(runId) ?? {
+      baseCommitSha: '',
+      basePatchDiff: '',
+      runCommits: [],
+    };
+    return trieToRunElements({
+      node: trie,
+      runId,
+      projectPath,
+      featureLabel,
+      parentPath: '',
+      diffCtx,
+    });
   }
 
   private getRunMetadata(run: SaifctlRunData): RunTreeElement[] {
@@ -176,8 +310,65 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       artifactConfig: run.artifactConfig,
       projectPath: run.projectPath,
     });
-    return [new RunStatusItem(run.status), new RunFeatureItem(run.specRef), configGroup];
+    const diffGroup = new RunDiffGroupItem({
+      runId: run.id,
+      projectPath: run.projectPath,
+      featureLabel: run.name,
+    });
+    return [new RunStatusItem(run.status), new RunFeatureItem(run.specRef), configGroup, diffGroup];
   }
+}
+
+/**
+ * Turn one trie node into VS Code tree rows: child folders (recursive) then files at this level.
+ * Each {@link RunDiffFileItem} gets the per-file hunks needed to reconstruct full before/after text.
+ */
+function trieToRunElements(opts: {
+  node: DiffDirTrieNode;
+  runId: string;
+  projectPath: string;
+  featureLabel: string;
+  parentPath: string;
+  diffCtx: RunDiffArtifactContext;
+}): RunTreeElement[] {
+  const { node, runId, projectPath, featureLabel, parentPath, diffCtx } = opts;
+
+  // Subdirectories: recurse; `parentPath` threads the trie path (labels use a single segment per row).
+  const dirItems: RunDiffDirItem[] = node.dirs.map((d) => {
+    const full = parentPath ? `${parentPath}/${d.segment}` : d.segment;
+    const inner = trieToRunElements({
+      node: d,
+      runId,
+      projectPath,
+      featureLabel,
+      parentPath: full,
+      diffCtx,
+    });
+    return new RunDiffDirItem(d.segment, inner);
+  });
+
+  // Files at this level: split combined patches into this path’s sections for `RunDiffContentProvider`.
+  const fileItems = node.files.map((s) => {
+    const basePatchSection =
+      sectionForFilePath(parsePatchUnmerged(diffCtx.basePatchDiff), s.path) ?? '';
+    const runCommitSections = diffCtx.runCommits.map(
+      (c) => sectionForFilePath(parsePatchUnmerged(c.diff ?? ''), s.path) ?? '',
+    );
+    return new RunDiffFileItem({
+      runId,
+      projectPath,
+      featureLabel,
+      stat: s,
+      baseCommitSha: diffCtx.baseCommitSha,
+      basePatchSection,
+      runCommitSections,
+    });
+  });
+
+  // Folders first (sorted), then files (sorted); matches common file-tree UX.
+  dirItems.sort((a, b) => a.segment.localeCompare(b.segment));
+  fileItems.sort((a, b) => a.stat.path.localeCompare(b.stat.path));
+  return [...dirItems, ...fileItems];
 }
 
 function visibleConfigEntries(config: Record<string, unknown>): [string, string][] {
@@ -204,34 +395,23 @@ export function formatRunConfigAsPrettyJson(config: Record<string, unknown>): st
   return JSON.stringify(config, null, 2);
 }
 
-function cloneArtifactConfig(cfg: unknown): Record<string, unknown> {
-  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) {
-    return {};
-  }
-  try {
-    return JSON.parse(JSON.stringify(cfg)) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function toSaifctlRunData(
-  a: RunArtifactRaw,
-  project: { projectPath: string; projectLabel: string },
-): SaifctlRunData {
-  const cfg = a.config ?? ({} as NonNullable<RunArtifactRaw['config']>);
-  const featureName = typeof cfg.featureName === 'string' ? cfg.featureName : a.runId;
-  const specRef = a.specRef ?? '';
-  const specName = specRef ? path.basename(specRef) : featureName;
+function toSaifctlRunData(opts: {
+  entry: RunListEntry;
+  projectPath: string;
+  projectLabel: string;
+}): SaifctlRunData {
+  const { entry, projectPath, projectLabel } = opts;
+  const specRef = entry.specRef ?? '';
+  const specName = specRef ? path.basename(specRef) : entry.featureName;
 
   return {
-    id: a.runId,
-    name: featureName,
-    projectPath: project.projectPath,
-    projectLabel: project.projectLabel,
-    status: a.status,
+    id: entry.runId,
+    name: entry.featureName,
+    projectPath,
+    projectLabel,
+    status: entry.status,
     specRef: specName,
-    artifactConfig: cloneArtifactConfig(cfg),
+    artifactConfig: {},
   };
 }
 
@@ -246,6 +426,32 @@ function statusIconPath(status: SaifctlRunData['status']): vscode.ThemeIcon {
     return new vscode.ThemeIcon('debug-pause');
   }
   return new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('testing.iconQueued'));
+}
+
+// Reuse the same colors for diff icons as VS Code uses for git diffs.
+function diffChangeIcon(change: DiffFileChange): vscode.ThemeIcon {
+  switch (change) {
+    case 'added':
+      return new vscode.ThemeIcon(
+        'diff-added',
+        new vscode.ThemeColor('gitDecoration.addedResourceForeground'),
+      );
+    case 'deleted':
+      return new vscode.ThemeIcon(
+        'diff-removed',
+        new vscode.ThemeColor('gitDecoration.deletedResourceForeground'),
+      );
+    case 'renamed':
+      return new vscode.ThemeIcon(
+        'diff-renamed',
+        new vscode.ThemeColor('gitDecoration.renamedResourceForeground'),
+      );
+    default:
+      return new vscode.ThemeIcon(
+        'diff-modified',
+        new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'),
+      );
+  }
 }
 
 // ============================================================================
@@ -264,15 +470,20 @@ export class RunProjectItem extends vscode.TreeItem {
   }
 }
 
+/** Stable tree id: must be unique across the whole Runs view (same runId can exist under different projects). */
+export function runItemTreeId(projectPath: string, runId: string): string {
+  return `saifctl-run:${encodeURIComponent(projectPath)}:${encodeURIComponent(runId)}`;
+}
+
 export class RunItem extends vscode.TreeItem {
   public readonly projectPath: string;
 
   constructor(
-    public readonly runData: SaifctlRunData,
+    public runData: SaifctlRunData,
     projectPath: string,
   ) {
     super(`${runData.name} (${runData.id})`, vscode.TreeItemCollapsibleState.Collapsed);
-    this.id = runData.id;
+    this.id = runItemTreeId(projectPath, runData.id);
     this.projectPath = projectPath;
     this.tooltip = `Run ID: ${runData.id}\nStatus: ${runData.status}\nProject: ${projectPath}`;
     this.contextValue = `run_${runData.status}`;
@@ -337,5 +548,101 @@ export class RunConfigKeyItem extends vscode.TreeItem {
     this.tooltip = `${configKey}: ${configValue}`;
     this.contextValue = 'runMeta_configKey';
     this.iconPath = new vscode.ThemeIcon('symbol-field');
+  }
+}
+
+/**
+ * Collapsible **Changes** row under a run. First expand triggers `run get` and fills the diff trie
+ * (`getDiffChildren`); description updates to file count.
+ */
+export class RunDiffGroupItem extends vscode.TreeItem {
+  public readonly runId: string;
+  public readonly projectPath: string;
+  public readonly featureLabel: string;
+
+  constructor(opts: { runId: string; projectPath: string; featureLabel: string }) {
+    super('Changes', vscode.TreeItemCollapsibleState.Collapsed);
+    this.runId = opts.runId;
+    this.projectPath = opts.projectPath;
+    this.featureLabel = opts.featureLabel;
+    this.description = '…';
+    this.tooltip = 'Expand to load file list from run get (combined runCommits diffs)';
+    this.contextValue = 'runDiffGroup';
+    this.iconPath = new vscode.ThemeIcon('diff');
+  }
+}
+
+/** One directory segment in the Changes tree; children are further dirs and/or {@link RunDiffFileItem}s. */
+export class RunDiffDirItem extends vscode.TreeItem {
+  constructor(
+    public readonly segment: string,
+    public readonly childElements: RunTreeElement[],
+  ) {
+    super(segment, vscode.TreeItemCollapsibleState.Collapsed);
+    this.contextValue = 'runDiffDir';
+    this.iconPath = new vscode.ThemeIcon('folder');
+  }
+}
+
+/**
+ * One changed file (basename label). Holds merged diff stats for the row and per-hunk strings
+ * for {@link RunDiffContentProvider}; activating runs `saifctl.openRunFileDiff`.
+ */
+export class RunDiffFileItem extends vscode.TreeItem {
+  public readonly runId: string;
+  public readonly projectPath: string;
+  public readonly featureLabel: string;
+  public readonly stat: DiffFileStat;
+  public readonly baseCommitSha: string;
+  public readonly basePatchSection: string;
+  public readonly runCommitSections: string[];
+
+  constructor(opts: {
+    runId: string;
+    projectPath: string;
+    featureLabel: string;
+    stat: DiffFileStat;
+    baseCommitSha: string;
+    basePatchSection: string;
+    runCommitSections: string[];
+  }) {
+    const baseName = path.basename(opts.stat.path);
+    super(baseName, vscode.TreeItemCollapsibleState.None);
+    this.runId = opts.runId;
+    this.projectPath = opts.projectPath;
+    this.featureLabel = opts.featureLabel;
+    this.stat = opts.stat;
+    this.baseCommitSha = opts.baseCommitSha;
+    this.basePatchSection = opts.basePatchSection;
+    this.runCommitSections = opts.runCommitSections;
+    const stat = opts.stat;
+    // Line counts from parsed unified diff (may aggregate multiple commits for the same path).
+    const parts: string[] = [];
+    if (stat.added > 0) parts.push(`+${stat.added}`);
+    if (stat.removed > 0) parts.push(`-${stat.removed}`);
+    this.description = parts.length > 0 ? parts.join(' ') : '0';
+    if (stat.change === 'renamed' && stat.fromPath) {
+      this.tooltip = `${stat.fromPath} → ${stat.path}`;
+    } else {
+      this.tooltip = stat.path;
+    }
+    this.contextValue = 'runDiffFile';
+    this.iconPath = diffChangeIcon(stat.change);
+    // Default action: same as the command palette entry for this row.
+    this.command = {
+      command: 'saifctl.openRunFileDiff',
+      title: 'Open Diff',
+      arguments: [this],
+    };
+  }
+}
+
+/** Non-interactive row under Changes (empty list, load error, or hint text). */
+export class RunDiffMessageItem extends vscode.TreeItem {
+  constructor(message: string, detail: string) {
+    super(message, vscode.TreeItemCollapsibleState.None);
+    this.description = detail;
+    this.contextValue = 'runDiffMessage';
+    this.iconPath = new vscode.ThemeIcon('info');
   }
 }

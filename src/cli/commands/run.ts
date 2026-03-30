@@ -6,6 +6,7 @@
  *   ls, list      List Runs
  *   rm, remove    Delete a run
  *   info          Print Run as JSON
+ *   get           Print full Run artifact as JSON (for tooling)
  *   clear         Clear Runs (optionally filtered)
  *   fork          Clone a Run to a new ID
  *   start         Start again from a Run (artifact)
@@ -123,14 +124,36 @@ const lsCommand = defineCommand({
       type: 'string' as const,
       description: 'Filter by status (failed, completed, running, paused, etc.)',
     },
+    format: {
+      type: 'string' as const,
+      default: 'table',
+      description: 'Output format: table (default) or json',
+    },
+    pretty: {
+      type: 'boolean' as const,
+      default: true,
+      description:
+        'When --format json: pretty-print (default: true). Use --no-pretty for one line.',
+    },
   },
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
+
+    const formatRaw = (args.format ?? 'table').trim().toLowerCase();
+    if (formatRaw !== 'table' && formatRaw !== 'json') {
+      consola.error(`Invalid --format: expected "table" or "json", got "${args.format}"`);
+      process.exit(1);
+    }
+
     if (!storage) {
-      outputCliData('Run storage is disabled (--storage none).');
+      if (formatRaw === 'json') {
+        outputCliData(JSON.stringify(null));
+      } else {
+        outputCliData('Run storage is disabled (--storage none).');
+      }
       return;
     }
 
@@ -145,6 +168,22 @@ const lsCommand = defineCommand({
       if (byUpdated !== 0) return byUpdated;
       return a.runId.localeCompare(b.runId);
     });
+
+    if (formatRaw === 'json') {
+      const rows = runs.map((r) => ({
+        runId: r.runId,
+        featureName: r.config.featureName,
+        specRef: r.specRef,
+        status: r.status,
+        startedAt: r.startedAt,
+        updatedAt: r.updatedAt,
+        ...(r.taskId != null && r.taskId !== '' ? { taskId: r.taskId } : {}),
+      }));
+      const pretty = args.pretty !== false;
+      outputCliData(JSON.stringify(rows, null, pretty ? 2 : undefined));
+      return;
+    }
+
     if (runs.length === 0) {
       outputCliData('No Runs found.');
       return;
@@ -257,6 +296,46 @@ const infoCommand = defineCommand({
     const view = toRunInfoJson(artifact);
     const pretty = args.pretty !== false;
     outputCliData(JSON.stringify(view, null, pretty ? 2 : undefined));
+  },
+});
+
+const getCommand = defineCommand({
+  meta: {
+    name: 'get',
+    description: 'Print full Run object as JSON',
+  },
+  args: {
+    ...commonRunArgs,
+    runId: {
+      type: 'positional' as const,
+      description: 'Run ID to fetch',
+      required: true,
+    },
+    pretty: {
+      type: 'boolean' as const,
+      default: true,
+      description: 'Pretty-print JSON (default: true). Use --no-pretty for one line.',
+    },
+  },
+  async run({ args }) {
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+    const config = await loadSaifctlConfig(saifctlDir, projectDir);
+    const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
+    if (!storage) {
+      consola.error('Run storage is disabled (--storage none).');
+      process.exit(1);
+    }
+    const runId = parseRunId(args);
+
+    const artifact = await storage.getRun(runId);
+    if (!artifact) {
+      consola.error(`Run not found: ${runId}`);
+      process.exit(1);
+    }
+
+    const pretty = args.pretty !== false;
+    outputCliData(JSON.stringify(artifact, null, pretty ? 2 : undefined));
   },
 });
 
@@ -725,6 +804,7 @@ const runCommand = defineCommand({
     rm: rmCommand,
     remove: rmCommand,
     info: infoCommand,
+    get: getCommand,
     clear: clearCommand,
     fork: forkCommand,
     pause: pauseCommand,

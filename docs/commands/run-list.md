@@ -4,7 +4,7 @@ List Runs from run storage.
 
 **Alias:** `saifctl run ls` (same command).
 
-Shows persisted run artifacts (e.g. in `.saifctl/runs/`). Use `--status` and `--task` to narrow results.
+Shows persisted run objects (e.g. in `.saifctl/runs/`). Use `--status` and `--task` to narrow results.
 
 ## Usage
 
@@ -22,10 +22,10 @@ saifctl run list [options]
 | `--project-dir` | —     | string | Project directory (default: current directory)                                         |
 | `--saifctl-dir`  | —     | string | Saifctl config directory relative to project (default: `saifctl`)                                  |
 | `--storage`     | —     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
+| `--format`      | —     | string | Output format: `table` (default) or `json` — machine-readable list for tooling |
+| `--pretty`      | —     | boolean | When `--format json`: pretty-print JSON (default: true). Use `--no-pretty` for one line. |
 
 `--sandbox-base-dir` and other orchestration-only flags are not read by this subcommand; they have no effect here.
-
-If run storage is disabled (e.g. `--storage none` or `runs=none`), the command prints `Run storage is disabled (--storage none).` and **returns with exit code 0** — it does not treat that as an error (same behavior as [`run clear`](run-clear.md)).
 
 ## Examples
 
@@ -53,7 +53,15 @@ Use custom storage location:
 saifctl run list --storage runs=file:///tmp/my-runs
 ```
 
+Machine-readable list (JSON array), newest first — same sort as the table:
+
+```bash
+saifctl run list --format json --no-pretty
+```
+
 ## Output
+
+### Table format (default)
 
 Rows are sorted by **UPDATED** (newest first); ties break on `RUN_ID`. Column widths grow with the longest value in each column.
 
@@ -74,17 +82,29 @@ Rows are sorted by **UPDATED** (newest first); ties break on `RUN_ID`. Column wi
 No Runs found.
 ```
 
-### Example: storage disabled
+### JSON format (`--format json`)
 
-```text
-Run storage is disabled (--storage none).
+Stdout is a JSON array of run objects, each with `runId`, `featureName`, `specRef`, `status`, `startedAt`, `updatedAt`, and `taskId` when present:
+
+```json
+[
+  {
+    "runId": "abc12x",
+    "featureName": "feat-x",
+    "status": "failed",
+    "startedAt": "2026-03-21T10:00:00.000Z",
+    "updatedAt": "2026-03-21T10:15:00.000Z",
+  }
+]
 ```
 
-(Exit code **0**.)
+Pretty-printing is on by default; use `--no-pretty` for a single-line payload suitable for piping.
 
 ## See also
 
 - [Runs](../runs.md) — Run storage, resumption, and overview
+- [`run get`](run-get.md) — Full run object JSON
+- [`run info`](run-info.md) — Subset of a run object JSON
 - [`run start`](run-start.md) — Resume a Run
 - [`run remove`](run-remove.md) — Delete a Run
 - [`run clear`](run-clear.md) — Bulk delete runs
