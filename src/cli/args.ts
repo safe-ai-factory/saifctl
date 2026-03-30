@@ -6,10 +6,10 @@ import { DEFAULT_INDEXER_PROFILE } from '../indexer-profiles/index.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from '../orchestrator/sandbox.js';
 import { SUPPORTED_STORAGE_KEYS } from '../storage/types.js';
 
-/** Project directory (default: process.cwd() / current working directory) */
+/** Project directory (default: process.cwd() / current directory) */
 export const projectDirArg = {
   type: 'string' as const,
-  description: 'Project directory (default: current working directory)',
+  description: 'Project directory (default: current directory)',
 };
 
 export const projectArg = {

@@ -95,7 +95,7 @@ async function checkHatchet(): Promise<boolean> {
 const doctorCommand = defineCommand({
   meta: {
     name: 'doctor',
-    description: 'Check environment health (Docker, Leash CLI, Hatchet connectivity)',
+    description: 'Check environment health (Docker, Leash CLI, Hatchet)',
   },
   async run() {
     consola.log('');

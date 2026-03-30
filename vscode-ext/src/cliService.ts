@@ -5,7 +5,7 @@
  * - Background (spawnUserCmdCapture): Quick, non-interactive commands — list runs,
  *   finish feature, remove run. Output parsed without disturbing the workspace.
  * - Terminal (vscode.window.createTerminal): Long-running agent tasks — run,
- *   debug, design. User sees streaming output and can interact.
+ *   design, validate. User sees streaming output and can interact.
  */
 
 import { readdir, readFile } from 'node:fs/promises';
@@ -13,7 +13,8 @@ import { join } from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { saifctlLogger } from './logger';
+import { resolveCliInvocation, type ResolverLog } from './binaryResolver';
+import { logger, saifctlOutputChannel } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
 
 /** Run artifact shape when reading from .saifctl/runs/*.json */
@@ -27,17 +28,69 @@ interface RunArtifact {
 
 export class SaifctlCliService {
   private terminals: Map<string, vscode.Terminal> = new Map();
+  private resolvedInvocationCache = new Map<string, string>();
+
+  /** Drop cached `saifctl` invocation strings (e.g. after install or settings change). */
+  public invalidateCache(): void {
+    this.resolvedInvocationCache.clear();
+  }
+
+  private makeResolverLog(verbose: boolean): ResolverLog {
+    return verbose
+      ? {
+          trace: (m) => logger.trace(m),
+          debug: (m) => logger.debug(m),
+          info: (m) => logger.info(m),
+        }
+      : { info: (m) => logger.info(m) };
+  }
+
+  private async getCliInvocation(cwd: string): Promise<string> {
+    const verbose = vscode.workspace.getConfiguration('saifctl').get<boolean>('verbose', false);
+    const log = this.makeResolverLog(verbose);
+
+    const cached = this.resolvedInvocationCache.get(cwd);
+    if (cached !== undefined) {
+      logger.info(`CLI invocation (cached): ${JSON.stringify(cached)} (cwd=${cwd})`);
+      return cached;
+    }
+
+    const userPath = vscode.workspace.getConfiguration('saifctl').get<string>('binaryPath', '');
+    const override = (userPath ?? '').trim();
+    const resolved = await resolveCliInvocation({
+      cwd,
+      userBinaryPath: userPath ?? '',
+      log,
+    });
+
+    logger.info(`CLI invocation resolved: ${JSON.stringify(resolved)} (cwd=${cwd})`);
+
+    if (resolved === 'saifctl' && !override) {
+      logger.info(
+        'No local saifctl binary under cwd or parents; using plain "saifctl" (global PATH). Set saifctl.binaryPath or install locally.',
+      );
+    }
+
+    this.resolvedInvocationCache.set(cwd, resolved);
+    return resolved;
+  }
+
+  /** Full shell command: resolved prefix + subcommands and arguments. */
+  private async cliCommand(cwd: string, subcommandsAndArgs: string): Promise<string> {
+    const p = await this.getCliInvocation(cwd);
+    return subcommandsAndArgs ? `${p} ${subcommandsAndArgs}` : p;
+  }
 
   /**
-   * Checks if the `saifctl` CLI is installed and accessible in the system PATH.
+   * Checks if the saifctl CLI is installed and reachable using the configured command.
    * Returns true when SAIF_MOCK_RUNS=1 (allows UI testing without the CLI).
    */
-  public async isCliInstalled(): Promise<boolean> {
+  public async isCliInstalled(cwd: string): Promise<boolean> {
     if (process.env.SAIF_MOCK_RUNS === '1') {
       return true;
     }
     try {
-      await spawnUserCmdCapture('saifctl --help', { cwd: process.cwd() });
+      await spawnUserCmdCapture(await this.cliCommand(cwd, 'version'), { cwd });
       return true;
     } catch {
       return false;
@@ -50,25 +103,25 @@ export class SaifctlCliService {
    */
   private async executeInBackground(command: string, cwd: string): Promise<string> {
     try {
-      saifctlLogger.info(`Executing: ${command}`);
-      saifctlLogger.debug(`CWD: ${cwd}`);
+      logger.info(`Executing: ${command}`);
+      logger.debug(`CWD: ${cwd}`);
 
       const out = await spawnUserCmdCapture(command, { cwd });
-      saifctlLogger.trace(`Output: ${out}`);
+      logger.trace(`Output: ${out}`);
       return out.trim();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      saifctlLogger.error(`Command failed: ${command}`);
-      saifctlLogger.error(`Error details: ${message}`);
-      if (stack) saifctlLogger.error(stack);
+      logger.error(`Command failed: ${command}`);
+      logger.error(`Error details: ${message}`);
+      if (stack) logger.error(stack);
 
       const selection = await vscode.window.showErrorMessage(
         'SaifCTL error: Failed to execute command.',
         'View Logs',
       );
       if (selection === 'View Logs') {
-        saifctlLogger.show();
+        saifctlOutputChannel.show();
       }
       throw error;
     }
@@ -76,7 +129,7 @@ export class SaifctlCliService {
 
   /**
    * Executes a command in a visible VS Code Terminal.
-   * Use for long-running agent processes (run, debug, design).
+   * Use for long-running agent processes (run, design, validate).
    */
   private executeInTerminal(opts: { command: string; terminalName: string; cwd: string }): void {
     const { command, terminalName, cwd } = opts;
@@ -99,22 +152,41 @@ export class SaifctlCliService {
   // ============================================================================
 
   public async createFeature(featureName: string, cwd: string): Promise<void> {
-    await this.executeInBackground(`saifctl feat new -y -n ${escapeArg(featureName)}`, cwd);
+    await this.executeInBackground(
+      await this.cliCommand(cwd, `feat new -y -n ${escapeArg(featureName)}`),
+      cwd,
+    );
     vscode.window.showInformationMessage(`Created new feature: ${featureName}`);
   }
 
-  public runFeature(featureName: string, cwd: string): void {
+  public async runFeature(featureName: string, cwd: string): Promise<void> {
     this.executeInTerminal({
-      command: `saifctl feat run ${escapeArg(featureName)}`,
+      command: await this.cliCommand(cwd, `feat run -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL run: ${featureName}`,
       cwd,
     });
   }
 
-  public designFeature(featureName: string, cwd: string): void {
+  public async designFeature(featureName: string, cwd: string): Promise<void> {
     this.executeInTerminal({
-      command: `saifctl feat design ${escapeArg(featureName)}`,
+      command: await this.cliCommand(cwd, `feat design -y -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL design: ${featureName}`,
+      cwd,
+    });
+  }
+
+  public async designFeatureSpecsOnly(featureName: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `feat design-specs -y -n ${escapeArg(featureName)}`),
+      terminalName: `SaifCTL design-specs: ${featureName}`,
+      cwd,
+    });
+  }
+
+  public async validateFeatureTests(featureName: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `feat design-fail2pass -y -n ${escapeArg(featureName)}`),
+      terminalName: `SaifCTL validate tests: ${featureName}`,
       cwd,
     });
   }
@@ -200,21 +272,21 @@ export class SaifctlCliService {
     ] as RunArtifact[];
   }
 
-  public fromArtifact(runId: string, cwd: string): void {
+  public async fromArtifact(runId: string, cwd: string): Promise<void> {
     this.executeInTerminal({
-      command: `saifctl run start ${escapeArg(runId)}`,
+      command: await this.cliCommand(cwd, `run start ${escapeArg(runId)}`),
       terminalName: `SaifCTL fromArtifact: ${runId}`,
       cwd,
     });
   }
 
   public async removeRun(runId: string, cwd: string): Promise<void> {
-    await this.executeInBackground(`saifctl run rm ${escapeArg(runId)}`, cwd);
+    await this.executeInBackground(await this.cliCommand(cwd, `run rm ${escapeArg(runId)}`), cwd);
     vscode.window.showInformationMessage(`Removed run: ${runId}`);
   }
 
   public async clearAllRuns(cwd: string): Promise<void> {
-    await this.executeInBackground('saifctl run clear', cwd);
+    await this.executeInBackground(await this.cliCommand(cwd, 'run clear'), cwd);
     vscode.window.showInformationMessage('Cleared all SaifCTL runs.');
   }
 }

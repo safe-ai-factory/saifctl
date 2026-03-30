@@ -2,7 +2,7 @@ import * as path from 'node:path';
 
 import { runTests } from '@vscode/test-electron';
 
-import { consola } from '../saifctl-logger.js';
+import { logger } from '../logger.js';
 
 /**
  * Entry point for VS Code extension tests. Runs outside VS Code in Node.
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
       launchArgs,
     });
   } catch {
-    consola.error('Failed to run tests');
+    logger.error('Failed to run tests');
     process.exit(1);
   }
 }

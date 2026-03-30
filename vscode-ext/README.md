@@ -10,3 +10,5 @@ npm install -g @safe-ai-factory/saifctl
 ```
 
 - Launching in beta soon.
+
+Developer setup, packaging a `.vsix`, and install commands: [docs/development.md](docs/development.md).

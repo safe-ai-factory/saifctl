@@ -105,8 +105,7 @@ import {
 const yesArg = {
   type: 'boolean' as const,
   alias: 'y' as const,
-  description:
-    'Non-interactive mode. Requires --name/-n. Omits description prompt (defaults to empty).',
+  description: 'Non-interactive mode. Requires --name/-n.',
 };
 const designerArg = {
   type: 'string' as const,
@@ -125,8 +124,7 @@ const forceArg = {
 const newCommand = defineCommand({
   meta: {
     name: 'new',
-    description:
-      'Create scaffolding for a new feature (e.g. add-login; prompts for name if not given)',
+    description: 'Create scaffolding for a new feature',
   },
   args: {
     name: {
@@ -138,7 +136,7 @@ const newCommand = defineCommand({
     'project-dir': projectDirArg,
     desc: {
       type: 'string',
-      description: 'Brief description. When provided, skips the description prompt.',
+      description: 'Brief description. Skips the description prompt.',
     },
   },
   async run({ args }) {
@@ -231,7 +229,6 @@ const designSpecsArgs = {
 
 const designDiscoveryArgs = {
   name: nameArg,
-  yes: yesArg,
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   ...modelOverrideArgs,
@@ -384,7 +381,7 @@ async function _runDesignSpecs(args: {
 const designSpecsCommand = defineCommand({
   meta: {
     name: 'design-specs',
-    description: "Generate specs from feature's proposal only (first step of design workflow)",
+    description: "Generate specs from feature's proposal only",
   },
   args: designSpecsArgs,
   async run({ args }) {
@@ -396,8 +393,7 @@ const designSpecsCommand = defineCommand({
 const designDiscoveryCommand = defineCommand({
   meta: {
     name: 'design-discovery',
-    description:
-      'Gather context using MCP/tools, write discovery.md (optional step before design-specs)',
+    description: 'Gather context using MCP/tools, write discovery.md',
   },
   args: designDiscoveryArgs,
   async run({ args }) {
@@ -505,7 +501,7 @@ async function _runDesignTests({
 const designTestsCommand = defineCommand({
   meta: {
     name: 'design-tests',
-    description: 'Generate tests from existing specs (second step of design workflow)',
+    description: 'Generate tests from existing specs',
   },
   args: designTestsArgs,
   async run({ args }) {
@@ -638,8 +634,7 @@ async function _runDesignFail2pass(opts: {
 const designFail2passCommand = defineCommand({
   meta: {
     name: 'design-fail2pass',
-    description:
-      'Validate generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).',
+    description: 'Validate generated tests. Feature tests must fail',
   },
   args: designFail2passArgs,
   async run({ args }) {
@@ -664,7 +659,7 @@ const { 'skip-catalog': _skipCatalog, ...designTestsArgsForDesign } = designTest
 const designCommand = defineCommand({
   meta: {
     name: 'design',
-    description: 'Generate specs, tests, and validate the tests (full design workflow)',
+    description: 'Generate specs, tests, and validate the tests',
   },
   args: {
     ...designDiscoveryArgs,
@@ -715,7 +710,7 @@ const designCommand = defineCommand({
 const runCommand = defineCommand({
   meta: {
     name: 'run',
-    description: 'Start an agent to implement the specs. Runs until it passes your tests',
+    description: 'Start an agent to implement the specs. Runs until it passes tests',
   },
   args: featRunArgs,
   async run({ args }) {
@@ -774,14 +769,23 @@ const featCommand = defineCommand({
   },
   subCommands: {
     new: newCommand,
+    design: designCommand,
     'design-discovery': designDiscoveryCommand,
     'design-specs': designSpecsCommand,
-    'design-tests': designTestsCommand,
     'design-fail2pass': designFail2passCommand,
-    design: designCommand,
+    'design-tests': designTestsCommand,
     run: runCommand,
   },
 });
+
+// 'feature' alias for feat command
+export const featureCommand = {
+  ...featCommand,
+  meta: {
+    name: 'feature',
+    description: 'Feature workflow (alias: feat)',
+  },
+};
 
 export default featCommand; // export for validation
 

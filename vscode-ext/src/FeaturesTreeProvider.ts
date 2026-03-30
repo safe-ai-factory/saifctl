@@ -2,7 +2,7 @@
  * Tree provider for Features view.
  *
  * Scans filesystem for Projects -> Features -> Files. Assigns contextValue so
- * inline icons (Run, Debug, Design, Finish) appear only where intended.
+ * inline icons (Run, Design) appear only where intended.
  */
 
 import * as fs from 'node:fs';

@@ -19,6 +19,11 @@ suite('SaifCTL extension test suite', () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('saifctl.createFeature'), 'createFeature command is missing');
     assert.ok(commands.includes('saifctl.runFeature'), 'runFeature command is missing');
+    assert.ok(commands.includes('saifctl.designFeature'), 'designFeature command is missing');
+    assert.ok(
+      commands.includes('saifctl.openFeatureProposal'),
+      'openFeatureProposal command is missing',
+    );
     assert.ok(commands.includes('saifctl.showLogs'), 'showLogs command is missing');
   });
 });

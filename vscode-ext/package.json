@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "publisher": "JuroOravec",
   "license": "MIT",
-  "icon": "resources/saifctl-icon-green.svg",
+  "icon": "resources/saifctl-icon-green.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/safe-ai-factory/saifctl.git",
@@ -68,7 +68,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "glob": "^14",
+    "glob": "^13",
     "knip": "^5.85.0",
     "mocha": "^10",
     "npm-run-all": "^4.1.5",
@@ -104,12 +104,12 @@
     "viewsWelcome": [
       {
         "view": "saifctl-features",
-        "contents": "The SaifCTL CLI (`saifctl`) is not installed or not in your PATH.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "contents": "The SaifCTL CLI (`saifctl`) was not found for this workspace.\n\nInstall locally:\n`npm install @safe-ai-factory/saifctl`\n\nOr globally:\n`npm install -g @safe-ai-factory/saifctl`\n\nYou can also set **SaifCTL: Binary Path** if the CLI is installed elsewhere.\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
         "when": "!saifctl.isCliInstalled"
       },
       {
         "view": "saifctl-runs",
-        "contents": "No CLI detected. Install SaifCTL to view and manage your agent runs.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "contents": "No CLI detected for this workspace. Install SaifCTL to view and manage your agent runs.\n\nInstall locally:\n`npm install @safe-ai-factory/saifctl`\n\nOr globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
         "when": "!saifctl.isCliInstalled"
       },
       {
@@ -151,7 +151,27 @@
       {
         "command": "saifctl.designFeature",
         "title": "Design",
-        "icon": "$(edit)"
+        "icon": "$(wand)"
+      },
+      {
+        "command": "saifctl.designFeatureSpecs",
+        "title": "Design specs only"
+      },
+      {
+        "command": "saifctl.validateFeatureTests",
+        "title": "Validate tests (fail2pass)"
+      },
+      {
+        "command": "saifctl.openFeatureProposal",
+        "title": "Open proposal.md"
+      },
+      {
+        "command": "saifctl.copyFeatureName",
+        "title": "Copy feature name"
+      },
+      {
+        "command": "saifctl.revealFeatureInExplorer",
+        "title": "Reveal in Explorer"
       },
       {
         "command": "saifctl.refreshRuns",
@@ -194,10 +214,15 @@
     "configuration": {
       "title": "SaifCTL",
       "properties": {
+        "saifctl.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the saifctl invocation. Leave empty to auto-detect from local node_modules or PATH. Use a full path or a prefix such as 'pnpm exec saifctl' if detection fails."
+        },
         "saifctl.verbose": {
           "type": "boolean",
           "default": false,
-          "description": "Enable verbose logging for the SaifCTL extension. When enabled, debug-level messages appear in the SaifCTL output panel."
+          "description": "Enable verbose logging for the SaifCTL extension."
         }
       }
     },
@@ -244,6 +269,31 @@
           "command": "saifctl.designFeature",
           "when": "viewItem == feature",
           "group": "inline@2"
+        },
+        {
+          "command": "saifctl.openFeatureProposal",
+          "when": "viewItem == feature",
+          "group": "1_feature@1"
+        },
+        {
+          "command": "saifctl.copyFeatureName",
+          "when": "viewItem == feature",
+          "group": "1_feature@2"
+        },
+        {
+          "command": "saifctl.revealFeatureInExplorer",
+          "when": "viewItem == feature",
+          "group": "1_feature@3"
+        },
+        {
+          "command": "saifctl.designFeatureSpecs",
+          "when": "viewItem == feature",
+          "group": "1_feature@4"
+        },
+        {
+          "command": "saifctl.validateFeatureTests",
+          "when": "viewItem == feature",
+          "group": "1_feature@5"
         },
         {
           "command": "saifctl.fromArtifact",

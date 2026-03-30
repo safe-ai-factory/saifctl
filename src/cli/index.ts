@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
-
 import { defineCommand, runMain } from 'citty';
 
+import { getSaifctlPackageVersion } from '../constants.js';
 import cacheCommand from './commands/cache.js';
 import doctorCommand from './commands/doctor.js';
-import featCommand from './commands/feat.js';
+import { default as featCommand, featureCommand } from './commands/feat.js';
 import initCommand from './commands/init.js';
 import runCommand from './commands/run.js';
+import versionCommand from './commands/version.js';
 
 const main = defineCommand({
   meta: {
     name: 'saifctl',
+    version: getSaifctlPackageVersion(),
     description:
       'SaifCTL: spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.',
   },
@@ -19,16 +20,15 @@ const main = defineCommand({
     cache: cacheCommand,
     doctor: doctorCommand,
     feat: featCommand,
-    feature: featCommand,
+    feature: featureCommand,
     init: initCommand,
     run: runCommand,
+    version: versionCommand,
   },
 });
 
-export const cli = () => {
+const cli = () => {
   void runMain(main);
 };
 
-if (fileURLToPath(import.meta.url) === process.argv[1]) {
-  cli();
-}
+cli();

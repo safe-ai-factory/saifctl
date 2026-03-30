@@ -3,19 +3,31 @@
  * must stay consistent regardless of where the process is invoked from.
  */
 
+import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
  * Absolute path to the SaifCTL tool repository root.
  *
- * Resolved from this file's location (src/constants.ts → one level up = SaifCTL repo root).
- * Use this instead of computing the root from import.meta.url in other modules —
- * that pattern breaks when files live at different depths (e.g. scripts/ vs src/).
+ * Resolved from this module's file path:
+ * - When source - `src/constants.ts` → parent is repo root;
+ * - When bundled into `dist/cli.js` - `import.meta.url` is that file so `dist/` → parent is repo root.
  */
 export function getSaifctlRoot(): string {
   const thisFile = fileURLToPath(import.meta.url);
   return resolve(dirname(thisFile), '..');
+}
+
+/** `version` field from the published package's package.json (same root as {@link getSaifctlRoot}). */
+export function getSaifctlPackageVersion(): string {
+  const pkgPath = join(getSaifctlRoot(), 'package.json');
+  const raw = readFileSync(pkgPath, 'utf8');
+  const pkg = JSON.parse(raw) as { version?: string };
+  if (typeof pkg.version !== 'string' || pkg.version.length === 0) {
+    throw new Error(`Missing or invalid "version" in ${pkgPath}`);
+  }
+  return pkg.version;
 }
 
 /**
