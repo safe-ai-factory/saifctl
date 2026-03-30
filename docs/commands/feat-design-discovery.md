@@ -28,7 +28,7 @@ saifctl feature design-discovery [options]
 | `--model`                 | —     | string  | LLM model for the discovery agent (see [models.md](../models.md)).                                  |
 | `--base-url`              | —     | string  | LLM base URL.                                                                                       |
 | `--saifctl-dir`            | —     | string  | Path to saifctl directory (default: `saifctl`)                                                        |
-| `--project-dir`           | —     | string  | Project directory (default: current working directory)                                              |
+| `--project-dir`           | —     | string  | Project directory (default: current directory)                                              |
 
 ## Examples
 

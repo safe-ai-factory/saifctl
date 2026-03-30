@@ -29,7 +29,7 @@ These apply to **every** subcommand:
 
 | Argument        | Type   | Description                                                                                      |
 | --------------- | ------ | ------------------------------------------------------------------------------------------------ |
-| `--project-dir` | string | Project directory (default: current working directory)                                           |
+| `--project-dir` | string | Project directory (default: current directory)                                           |
 | `--saifctl-dir`  | string | Saifctl config directory relative to project (default: `saifctl`)                                |
 | `--storage`     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 

@@ -23,7 +23,7 @@ saifctl feature design-tests [options]
 | `--model`        | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`     | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
 | `--saifctl-dir`   | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
-| `--project-dir`  | —     | string  | Project directory (default: current working directory)                                                                                                          |
+| `--project-dir`  | —     | string  | Project directory (default: current directory)                                                                                                          |
 | `--test-profile` | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
 | `--indexer`      | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
 | `--project`      | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                                            |

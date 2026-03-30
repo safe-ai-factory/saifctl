@@ -55,7 +55,7 @@ python ./scripts/my-agent.py --task-file "$SAIFCTL_TASK_PATH"
 | Requirement                         | Description                                                                                                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Read task from `$SAIFCTL_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
-| Work in the workspace               | In Leash mode the workspace is `/workspace`. With local coding (LocalEngine / `--engine local`) it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
+| Work in the workspace               | In Leash mode the workspace is `/workspace`. With local coding (LocalEngine / `--engine local`) it is the current directory (sandbox `code/`). Your agent must edit files in that directory.  |
 | Exit on completion                  | Exit code 0 when done, non-zero on failure. The factory uses the exit code to decide whether to run the gate.                                                                  |
 | Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--agent-env` or `--agent-env-file`.                           |
 

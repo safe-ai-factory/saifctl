@@ -28,7 +28,7 @@ saifctl feature run [options]
 | ---------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--name`               | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                                          |
 | `--saifctl-dir`         | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                       |
-| `--project-dir`        | —     | string  | Project directory (default: current working directory)                                                                                                              |
+| `--project-dir`        | —     | string  | Project directory (default: current directory)                                                                                                              |
 | `--project`            | `-p`  | string  | Project name override (default: package.json "name")                                                                                                                |
 | `--test-profile`       | —     | string  | Test profile id (default: node-vitest)                                                                                                                              |
 | `--sandbox-base-dir`   | —     | string  | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                                                                                        |

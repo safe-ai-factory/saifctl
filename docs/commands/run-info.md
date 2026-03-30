@@ -14,7 +14,7 @@ saifctl run info <runId> [options]
 | --------------- | ----- | ------- | --------------------------------------------------------------------------------------------- |
 | `runId`         | —     | string  | Run ID to show (positional, required)                                                         |
 | `--pretty`      | —     | boolean | Pretty-print JSON (default: true). Citty maps `--no-pretty` to `pretty: false` (single line). |
-| `--project-dir` | —     | string  | Project directory (default: current working directory)                                      |
+| `--project-dir` | —     | string  | Project directory (default: current directory)                                      |
 | `--saifctl-dir`  | —     | string  | Saifctl config directory relative to project (default: `saifctl`)                             |
 | `--storage`     | —     | string  | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 

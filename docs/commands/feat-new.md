@@ -23,7 +23,7 @@ saifctl feature new [options]
 | `--desc`        | —     | string  | Brief description. When omitted, prompts interactively.                                         |
 | `--yes`         | `-y`  | boolean | Non-interactive mode. Requires `--name`/`-n`. Skips all prompts; description defaults to empty. |
 | `--saifctl-dir`  | —     | string  | Path to saifctl directory (default: `saifctl`)                                                    |
-| `--project-dir` | —     | string  | Project directory (default: current working directory)                                          |
+| `--project-dir` | —     | string  | Project directory (default: current directory)                                          |
 
 ## Examples
 

@@ -16,7 +16,7 @@ saifctl init [options]
 | --------------- | ----- | ------ | ------------------------------------------------------ |
 | `--project`     | `-p`  | string | Project name override (default: `package.json` "name") |
 | `--saifctl-dir`  | —     | string | Path to saifctl directory (default: `saifctl`)           |
-| `--project-dir` | —     | string | Project directory (default: current working directory) |
+| `--project-dir` | —     | string | Project directory (default: current directory) |
 
 ## Examples
 

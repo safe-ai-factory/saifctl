@@ -23,7 +23,7 @@ saifctl feature design-fail2pass [options]
 | -------------------- | ----- | ------ | ----------------------------------------------------------------------------------------------- |
 | `--name`             | `-n`  | string | Feature name (kebab-case). Prompts with a list if omitted.                                      |
 | `--saifctl-dir`       | —     | string | Path to saifctl directory (default: `saifctl`)                                                    |
-| `--project-dir`      | —     | string | Project directory (default: current working directory)                                          |
+| `--project-dir`      | —     | string | Project directory (default: current directory)                                          |
 | `--project`          | `-p`  | string | Project name override (default: package.json "name")                                            |
 | `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                    |
 | `--profile`          | —     | string | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script. |

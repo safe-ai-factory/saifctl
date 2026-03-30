@@ -16,7 +16,7 @@ saifctl run export <runId> [options]
 | --------------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runId`         | —     | string | Run ID to export (positional, required)                                                                                                     |
 | `--output`      | `-o`  | string | Output patch file path (default: `./saifctl-<feature>-<runId>-<diffHash>.patch`) |
-| `--project-dir` | —     | string | Project directory (default: current working directory). Used to warn if `HEAD` differs from the run's `baseCommitSha`.                    |
+| `--project-dir` | —     | string | Project directory (default: current directory). Used to warn if `HEAD` differs from the run's `baseCommitSha`.                    |
 | `--saifctl-dir`  | —     | string | Saifctl config directory relative to project (default: `saifctl`)                                                                             |
 | `--storage`     | —     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project                                          |
 
