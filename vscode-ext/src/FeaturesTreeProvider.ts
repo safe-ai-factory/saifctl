@@ -10,6 +10,8 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
+import { discoverSaifctlProjects } from './projectDiscovery';
+
 export type SaifctlTreeItem = ProjectItem | FeatureItem | FileItem | DirItem;
 
 export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTreeItem> {
@@ -78,53 +80,8 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
   }
 
   public async getProjects(): Promise<ProjectItem[]> {
-    const projects: ProjectItem[] = [];
-    const ignoreDirs = new Set([
-      'node_modules',
-      '.git',
-      'dist',
-      'build',
-      '.venv',
-      'venv',
-      '__pycache__',
-      '.saifctl',
-    ]);
-
-    const search = async (currentDir: string) => {
-      let entries: { name: string; isDirectory: () => boolean }[];
-      try {
-        entries = await fs.promises.readdir(currentDir, { withFileTypes: true });
-      } catch {
-        return;
-      }
-
-      let isProjectRoot = false;
-
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-
-        if (entry.name === 'saifctl') {
-          if (!isProjectRoot) {
-            const projectName =
-              currentDir === this.workspaceRoot
-                ? path.basename(currentDir) || 'Workspace'
-                : path.relative(this.workspaceRoot, currentDir) ||
-                  path.basename(this.workspaceRoot);
-
-            projects.push(new ProjectItem(projectName, currentDir));
-            isProjectRoot = true;
-          }
-          continue;
-        }
-
-        if (!entry.name.startsWith('.') && !ignoreDirs.has(entry.name)) {
-          await search(path.join(currentDir, entry.name));
-        }
-      }
-    };
-
-    await search(this.workspaceRoot);
-    return projects;
+    const discovered = await discoverSaifctlProjects(this.workspaceRoot);
+    return discovered.map((p) => new ProjectItem(p.name, p.projectPath));
   }
 
   private async getFeatures(projectPath: string): Promise<FeatureItem[]> {

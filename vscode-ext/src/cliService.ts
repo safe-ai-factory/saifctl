@@ -9,7 +9,7 @@
  */
 
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -233,11 +233,11 @@ export class SaifctlCliService {
   }
 
   /** TEMP: Mock runs for UI testing. Use SAIF_MOCK_RUNS=1 when launching. */
-  private getMockRuns(_cwd: string): RunArtifact[] {
-    return [
+  private getMockRuns(cwd: string): RunArtifact[] {
+    const all = [
       {
         runId: 'run-abc-123',
-        status: 'completed',
+        status: 'completed' as const,
         config: {
           featureName: 'Agent_Auth_Attempt_1',
           projectDir: 'project-alpha',
@@ -249,7 +249,7 @@ export class SaifctlCliService {
       },
       {
         runId: 'run-def-456',
-        status: 'failed',
+        status: 'failed' as const,
         config: {
           featureName: 'Agent_Auth_Attempt_2',
           projectDir: 'project-alpha',
@@ -260,7 +260,7 @@ export class SaifctlCliService {
       },
       {
         runId: 'run-xyz-789',
-        status: 'running',
+        status: 'running' as const,
         config: {
           featureName: 'Memory_Refactor',
           projectDir: 'project-agents',
@@ -269,7 +269,10 @@ export class SaifctlCliService {
         },
         specRef: 'add-memory-module',
       },
-    ] as RunArtifact[];
+    ] satisfies RunArtifact[];
+
+    const key = basename(cwd);
+    return all.filter((r) => r.config.projectDir === key);
   }
 
   public async fromArtifact(runId: string, cwd: string): Promise<void> {

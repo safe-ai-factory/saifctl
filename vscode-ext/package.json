@@ -206,6 +206,26 @@
         "title": "Copy Name"
       },
       {
+        "command": "saifctl.copyRunStatus",
+        "title": "Copy Status",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "saifctl.copyRunFeature",
+        "title": "Copy Feature",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "saifctl.copyRunConfigValue",
+        "title": "Copy Value",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "saifctl.copyRunConfigJson",
+        "title": "Copy config as JSON",
+        "icon": "$(copy)"
+      },
+      {
         "command": "saifctl.showLogs",
         "title": "Show SaifCTL logs",
         "icon": "$(output)"
@@ -324,6 +344,41 @@
           "command": "saifctl.copyRunName",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@3"
+        },
+        {
+          "command": "saifctl.copyRunStatus",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@4"
+        },
+        {
+          "command": "saifctl.copyRunFeature",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@5"
+        },
+        {
+          "command": "saifctl.copyRunStatus",
+          "when": "viewItem == runMeta_status",
+          "group": "inline"
+        },
+        {
+          "command": "saifctl.copyRunFeature",
+          "when": "viewItem == runMeta_specRef",
+          "group": "inline"
+        },
+        {
+          "command": "saifctl.copyRunConfigValue",
+          "when": "viewItem == runMeta_configKey",
+          "group": "inline"
+        },
+        {
+          "command": "saifctl.copyRunConfigJson",
+          "when": "viewItem == runMeta_configGroup",
+          "group": "inline"
+        },
+        {
+          "command": "saifctl.copyRunConfigJson",
+          "when": "viewItem == runMeta_configGroup",
+          "group": "1_runMeta@1"
         },
         {
           "command": "saifctl.createFile",

@@ -14,7 +14,16 @@ import { SaifctlCliService } from './cliService';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
-import { RunItem, RunProjectItem, RunsTreeProvider } from './RunsTreeProvider';
+import {
+  formatRunConfigAsPrettyJson,
+  RunConfigGroupItem,
+  RunConfigKeyItem,
+  RunFeatureItem,
+  RunItem,
+  RunProjectItem,
+  RunStatusItem,
+  RunsTreeProvider,
+} from './RunsTreeProvider';
 
 function makeWorkspaceResolverLog(): ResolverLog {
   const verbose = vscode.workspace.getConfiguration('saifctl').get<boolean>('verbose', false);
@@ -379,7 +388,7 @@ export async function activate(context: vscode.ExtensionContext) {
   };
 
   const clearAllRunsTargetCwd = (item?: vscode.TreeItem): string =>
-    item instanceof RunProjectItem ? path.join(workspaceRoot, item.projectName) : workspaceRoot;
+    item instanceof RunProjectItem ? item.projectPath : workspaceRoot;
 
   const fromArtifactCmd = vscode.commands.registerCommand(
     'saifctl.fromArtifact',
@@ -465,6 +474,57 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  const copyRunStatusCmd = vscode.commands.registerCommand(
+    'saifctl.copyRunStatus',
+    loggedCommand('saifctl.copyRunStatus', async (item?: vscode.TreeItem) => {
+      const status =
+        item instanceof RunStatusItem
+          ? item.status
+          : item instanceof RunItem
+            ? item.runData.status
+            : undefined;
+      if (status) {
+        await vscode.env.clipboard.writeText(status);
+        void vscode.window.showInformationMessage(`Copied status: ${status}`);
+      }
+    }),
+  );
+
+  const copyRunFeatureCmd = vscode.commands.registerCommand(
+    'saifctl.copyRunFeature',
+    loggedCommand('saifctl.copyRunFeature', async (item?: vscode.TreeItem) => {
+      const feature =
+        item instanceof RunFeatureItem
+          ? item.featureName
+          : item instanceof RunItem
+            ? item.runData.specRef
+            : undefined;
+      if (feature) {
+        await vscode.env.clipboard.writeText(feature);
+        void vscode.window.showInformationMessage(`Copied feature: ${feature}`);
+      }
+    }),
+  );
+
+  const copyRunConfigValueCmd = vscode.commands.registerCommand(
+    'saifctl.copyRunConfigValue',
+    loggedCommand('saifctl.copyRunConfigValue', async (item?: vscode.TreeItem) => {
+      if (!(item instanceof RunConfigKeyItem)) return;
+      await vscode.env.clipboard.writeText(item.configValue);
+      void vscode.window.showInformationMessage(`Copied ${item.configKey}`);
+    }),
+  );
+
+  const copyRunConfigJsonCmd = vscode.commands.registerCommand(
+    'saifctl.copyRunConfigJson',
+    loggedCommand('saifctl.copyRunConfigJson', async (item?: vscode.TreeItem) => {
+      if (!(item instanceof RunConfigGroupItem)) return;
+      const text = formatRunConfigAsPrettyJson(item.fullConfig);
+      await vscode.env.clipboard.writeText(text);
+      void vscode.window.showInformationMessage('Copied full run config as JSON');
+    }),
+  );
+
   const showLogsCmd = vscode.commands.registerCommand(
     'saifctl.showLogs',
     loggedCommand('saifctl.showLogs', () => {
@@ -518,6 +578,10 @@ export async function activate(context: vscode.ExtensionContext) {
     revealRunInFinderCmd,
     copyRunIdCmd,
     copyRunNameCmd,
+    copyRunStatusCmd,
+    copyRunFeatureCmd,
+    copyRunConfigValueCmd,
+    copyRunConfigJsonCmd,
     showLogsCmd,
     recheckInstallCmd,
   );
