@@ -26,7 +26,7 @@
     "spec-driven"
   ],
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.86.0"
   },
   "categories": [
     "Other"
@@ -59,7 +59,7 @@
     "@eslint/js": "^9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.86.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vitest/coverage-v8": "^2.1.9",
@@ -144,6 +144,21 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "saifctl.filterFeatures",
+        "title": "Filter features",
+        "icon": "$(search)"
+      },
+      {
+        "command": "saifctl.filterFeaturesActive",
+        "title": "Edit features filter",
+        "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "saifctl.clearFilterFeatures",
+        "title": "Clear features filter",
+        "icon": "$(close)"
+      },
+      {
         "command": "saifctl.runFeature",
         "title": "Run",
         "icon": "$(play)"
@@ -177,6 +192,21 @@
         "command": "saifctl.refreshRuns",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "saifctl.filterRuns",
+        "title": "Filter runs",
+        "icon": "$(search)"
+      },
+      {
+        "command": "saifctl.filterRunsActive",
+        "title": "Edit runs filter",
+        "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "saifctl.clearFilterRuns",
+        "title": "Clear runs filter",
+        "icon": "$(close)"
       },
       {
         "command": "saifctl.fromArtifact",
@@ -274,14 +304,44 @@
           "group": "navigation@4"
         },
         {
+          "command": "saifctl.filterFeatures",
+          "when": "view == saifctl-features && !saifctl.featuresFilterActive",
+          "group": "navigation@5"
+        },
+        {
+          "command": "saifctl.filterFeaturesActive",
+          "when": "view == saifctl-features && saifctl.featuresFilterActive",
+          "group": "navigation@5"
+        },
+        {
+          "command": "saifctl.clearFilterFeatures",
+          "when": "view == saifctl-features && saifctl.featuresFilterActive",
+          "group": "navigation@6"
+        },
+        {
           "command": "saifctl.showLogs",
           "when": "view == saifctl-features",
-          "group": "navigation@5"
+          "group": "navigation@7"
+        },
+        {
+          "command": "saifctl.filterRuns",
+          "when": "view == saifctl-runs && !saifctl.runsFilterActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "saifctl.filterRunsActive",
+          "when": "view == saifctl-runs && saifctl.runsFilterActive",
+          "group": "navigation@1"
+        },
+        {
+          "command": "saifctl.clearFilterRuns",
+          "when": "view == saifctl-runs && saifctl.runsFilterActive",
+          "group": "navigation@2"
         },
         {
           "command": "saifctl.refreshRuns",
           "when": "view == saifctl-runs",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [

@@ -23,10 +23,12 @@ const HIDDEN_CONFIG_KEYS = new Set([
   'cedarScript',
 ]);
 
+export type RunStatus = 'failed' | 'completed' | 'running' | 'paused';
+
 /** Raw artifact shape from .saifctl/runs/*.json (subset of full RunArtifact) */
 interface RunArtifactRaw {
   runId: string;
-  status: 'failed' | 'completed' | 'running' | 'paused';
+  status: RunStatus;
   config?: { featureName: string; projectDir?: string; [k: string]: unknown };
   specRef?: string;
   updatedAt?: string;
@@ -39,7 +41,7 @@ export interface SaifctlRunData {
   projectPath: string;
   /** Same label as Features tree project node */
   projectLabel: string;
-  status: RunArtifactRaw['status'];
+  status: RunStatus;
   specRef: string;
   /** Deep clone of artifact `config` (SerializedLoopOpts-shaped JSON). */
   artifactConfig: Record<string, unknown>;
@@ -59,11 +61,48 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this._onDidChangeTreeData.event;
 
   private runsCache: SaifctlRunData[] = [];
+  private _filterText = '';
+  private _filterStatuses = new Set<RunStatus>();
 
   constructor(
     private readonly workspaceRoot: string,
     private readonly cliService: SaifctlCliService,
   ) {}
+
+  get filterText(): string {
+    return this._filterText;
+  }
+
+  /** Copy of selected status filters (empty = no status filter). */
+  get filterStatuses(): ReadonlySet<RunStatus> {
+    return new Set(this._filterStatuses);
+  }
+
+  get isFiltered(): boolean {
+    return this._filterText.trim() !== '' || this._filterStatuses.size > 0;
+  }
+
+  setFilter(text: string, statuses: Set<RunStatus>): void {
+    this._filterText = text;
+    this._filterStatuses = statuses;
+    this._onDidChangeTreeData.fire();
+  }
+
+  clearFilter(): void {
+    this._filterText = '';
+    this._filterStatuses = new Set();
+    this._onDidChangeTreeData.fire();
+  }
+
+  private matchesFilter(run: SaifctlRunData): boolean {
+    const needle = this._filterText.trim().toLowerCase();
+    const textOk =
+      needle === '' ||
+      run.name.toLowerCase().includes(needle) ||
+      run.id.toLowerCase().includes(needle);
+    const statusOk = this._filterStatuses.size === 0 || this._filterStatuses.has(run.status);
+    return textOk && statusOk;
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -98,7 +137,14 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           }
         }
         this.runsCache = merged;
-        return projects.map((p) => new RunProjectItem(p.name, p.projectPath));
+        if (!this.isFiltered) {
+          return projects.map((p) => new RunProjectItem(p.name, p.projectPath));
+        }
+        return projects
+          .filter((p) =>
+            this.runsCache.some((r) => r.projectPath === p.projectPath && this.matchesFilter(r)),
+          )
+          .map((p) => new RunProjectItem(p.name, p.projectPath));
       } catch {
         vscode.window.showErrorMessage('Failed to fetch SaifCTL runs.');
         return [];
@@ -106,7 +152,9 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     }
 
     if (element instanceof RunProjectItem) {
-      const projectRuns = this.runsCache.filter((run) => run.projectPath === element.projectPath);
+      const projectRuns = this.runsCache.filter(
+        (run) => run.projectPath === element.projectPath && this.matchesFilter(run),
+      );
       return projectRuns.map((run) => new RunItem(run, run.projectPath));
     }
 

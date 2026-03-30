@@ -19,7 +19,28 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
   readonly onDidChangeTreeData: vscode.Event<SaifctlTreeItem | undefined | void> =
     this._onDidChangeTreeData.event;
 
+  private _filterText = '';
+
   constructor(private readonly workspaceRoot: string) {}
+
+  /** Current filter string (as entered; tree matches case-insensitively). */
+  get filterText(): string {
+    return this._filterText;
+  }
+
+  get isFiltered(): boolean {
+    return this._filterText.trim() !== '';
+  }
+
+  setFilter(text: string): void {
+    this._filterText = text;
+    this._onDidChangeTreeData.fire();
+  }
+
+  clearFilter(): void {
+    this._filterText = '';
+    this._onDidChangeTreeData.fire();
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -35,11 +56,33 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
     }
 
     if (!element) {
-      return this.getProjects();
+      const projects = await this.getProjects();
+
+      // Include only those projects that contain at least one feature
+      // that matches the filter text
+      const needle = this._filterText.trim().toLowerCase();
+      if (!needle) return projects;
+
+      const out: ProjectItem[] = [];
+      for (const p of projects) {
+        const features = await this.getFeatures(p.projectPath);
+        const any = features.some(
+          (f) => typeof f.label === 'string' && f.label.toLowerCase().includes(needle),
+        );
+        if (any) out.push(p);
+      }
+      return out;
     }
 
     if (element instanceof ProjectItem) {
-      return this.getFeatures(element.projectPath);
+      const features = await this.getFeatures(element.projectPath);
+
+      // filter features by filter text
+      const needle = this._filterText.trim().toLowerCase();
+      if (!needle) return features;
+      return features.filter(
+        (f) => typeof f.label === 'string' && f.label.toLowerCase().includes(needle),
+      );
     }
 
     if (element instanceof FeatureItem) {

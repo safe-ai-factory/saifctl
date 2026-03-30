@@ -22,6 +22,7 @@ import {
   RunFeatureItem,
   RunItem,
   RunProjectItem,
+  type RunStatus,
   RunStatusItem,
   RunsTreeProvider,
 } from './RunsTreeProvider';
@@ -124,12 +125,19 @@ export async function activate(context: vscode.ExtensionContext) {
 
   await checkCliStatus();
 
+  await vscode.commands.executeCommand('setContext', 'saifctl.featuresFilterActive', false);
+  await vscode.commands.executeCommand('setContext', 'saifctl.runsFilterActive', false);
+
   // ============================================================================
   // 2. Tree Providers Setup
   // ============================================================================
 
   const featuresProvider = new FeaturesTreeProvider(workspaceRoot);
-  vscode.window.registerTreeDataProvider('saifctl-features', featuresProvider);
+  const featuresTreeView = vscode.window.createTreeView('saifctl-features', {
+    treeDataProvider: featuresProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(featuresTreeView);
 
   // File watcher for saifctl/features
   const watcher = vscode.workspace.createFileSystemWatcher('**/saifctl/features/**');
@@ -166,7 +174,11 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(binWatcher);
 
   const runsProvider = new RunsTreeProvider(workspaceRoot, cliService);
-  vscode.window.registerTreeDataProvider('saifctl-runs', runsProvider);
+  const runsTreeView = vscode.window.createTreeView('saifctl-runs', {
+    treeDataProvider: runsProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(runsTreeView);
 
   const saifctlSettingsListener = vscode.workspace.onDidChangeConfiguration((e) => {
     if (!e.affectsConfiguration('saifctl')) return;
@@ -380,6 +392,52 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  const openFeaturesFilter = () => {
+    showFeaturesFilterQuickPick(featuresProvider, featuresTreeView);
+  };
+
+  const filterFeaturesCmd = vscode.commands.registerCommand(
+    'saifctl.filterFeatures',
+    loggedCommand('saifctl.filterFeatures', openFeaturesFilter),
+  );
+
+  const filterFeaturesActiveCmd = vscode.commands.registerCommand(
+    'saifctl.filterFeaturesActive',
+    loggedCommand('saifctl.filterFeaturesActive', openFeaturesFilter),
+  );
+
+  const clearFilterFeaturesCmd = vscode.commands.registerCommand(
+    'saifctl.clearFilterFeatures',
+    loggedCommand('saifctl.clearFilterFeatures', () => {
+      featuresProvider.clearFilter();
+      updateFeaturesViewDescription(featuresTreeView, featuresProvider);
+      void vscode.commands.executeCommand('setContext', 'saifctl.featuresFilterActive', false);
+    }),
+  );
+
+  const openRunsFilter = () => {
+    showRunsFilterQuickPick(runsProvider, runsTreeView);
+  };
+
+  const filterRunsCmd = vscode.commands.registerCommand(
+    'saifctl.filterRuns',
+    withCliGuard(loggedCommand('saifctl.filterRuns', openRunsFilter)),
+  );
+
+  const filterRunsActiveCmd = vscode.commands.registerCommand(
+    'saifctl.filterRunsActive',
+    withCliGuard(loggedCommand('saifctl.filterRunsActive', openRunsFilter)),
+  );
+
+  const clearFilterRunsCmd = vscode.commands.registerCommand(
+    'saifctl.clearFilterRuns',
+    loggedCommand('saifctl.clearFilterRuns', () => {
+      runsProvider.clearFilter();
+      updateRunsViewDescription(runsTreeView, runsProvider);
+      void vscode.commands.executeCommand('setContext', 'saifctl.runsFilterActive', false);
+    }),
+  );
+
   const getCwdForRun = (item?: vscode.TreeItem): string =>
     item instanceof RunItem ? item.projectPath : workspaceRoot;
 
@@ -575,6 +633,9 @@ export async function activate(context: vscode.ExtensionContext) {
     createDirCmd,
     createFileCmd,
     refreshFeaturesCmd,
+    filterFeaturesCmd,
+    filterFeaturesActiveCmd,
+    clearFilterFeaturesCmd,
     runFeatureCmd,
     designFeatureCmd,
     designFeatureSpecsCmd,
@@ -583,6 +644,9 @@ export async function activate(context: vscode.ExtensionContext) {
     copyFeatureNameCmd,
     revealFeatureInExplorerCmd,
     refreshRunsCmd,
+    filterRunsCmd,
+    filterRunsActiveCmd,
+    clearFilterRunsCmd,
     fromArtifactCmd,
     removeRunCmd,
     clearAllRunsCmd,
@@ -601,4 +665,104 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   // Clean up any running child processes or terminals if necessary
+}
+
+///////////////////////////////////////////////////////////
+// FILTERING
+///////////////////////////////////////////////////////////
+
+function updateFeaturesViewDescription(
+  treeView: vscode.TreeView<unknown>,
+  provider: FeaturesTreeProvider,
+): void {
+  const t = provider.filterText.trim();
+  treeView.description = t ? `· "${t}"` : undefined;
+}
+
+function updateRunsViewDescription(
+  treeView: vscode.TreeView<unknown>,
+  provider: RunsTreeProvider,
+): void {
+  const parts: string[] = [];
+  const t = provider.filterText.trim();
+  if (t) parts.push(`"${t}"`);
+  const statuses = [...provider.filterStatuses].sort((a, b) => a.localeCompare(b));
+  if (statuses.length > 0) parts.push(statuses.join(', '));
+  treeView.description = parts.length > 0 ? `· ${parts.join(' · ')}` : undefined;
+}
+
+const RUN_STATUS_VALUES: RunStatus[] = ['running', 'failed', 'completed', 'paused'];
+
+function isRunStatus(s: string | undefined): s is RunStatus {
+  return s !== undefined && (RUN_STATUS_VALUES as string[]).includes(s);
+}
+
+/** Status rows stay visible while typing a name/ID filter (VS Code 1.86+ alwaysShow). */
+function runStatusFilterQuickPickItems(): vscode.QuickPickItem[] {
+  return [
+    { label: '$(sync~spin) Running', description: 'running', alwaysShow: true },
+    { label: '$(error) Failed', description: 'failed', alwaysShow: true },
+    { label: '$(pass) Completed', description: 'completed', alwaysShow: true },
+    { label: '$(debug-pause) Paused', description: 'paused', alwaysShow: true },
+  ];
+}
+
+function showFeaturesFilterQuickPick(
+  featuresProvider: FeaturesTreeProvider,
+  treeView: vscode.TreeView<unknown>,
+): void {
+  const qp = vscode.window.createQuickPick();
+  qp.placeholder = 'Filter by feature name (substring match)…';
+  qp.value = featuresProvider.filterText;
+  qp.items = [];
+
+  const apply = () => {
+    featuresProvider.setFilter(qp.value);
+    updateFeaturesViewDescription(treeView, featuresProvider);
+    void vscode.commands.executeCommand(
+      'setContext',
+      'saifctl.featuresFilterActive',
+      featuresProvider.isFiltered,
+    );
+  };
+
+  qp.onDidChangeValue(apply);
+  qp.onDidHide(() => qp.dispose());
+  apply();
+  qp.show();
+}
+
+function showRunsFilterQuickPick(
+  runsProvider: RunsTreeProvider,
+  treeView: vscode.TreeView<unknown>,
+): void {
+  const statusItems = runStatusFilterQuickPickItems();
+  const qp = vscode.window.createQuickPick();
+  qp.placeholder = 'Filter by run name or ID; toggle status rows below…';
+  qp.value = runsProvider.filterText;
+  qp.canSelectMany = true;
+  qp.items = statusItems;
+
+  const apply = () => {
+    const statuses = new Set<RunStatus>();
+    for (const i of qp.selectedItems) {
+      if (isRunStatus(i.description)) statuses.add(i.description);
+    }
+    runsProvider.setFilter(qp.value, statuses);
+    updateRunsViewDescription(treeView, runsProvider);
+    void vscode.commands.executeCommand(
+      'setContext',
+      'saifctl.runsFilterActive',
+      runsProvider.isFiltered,
+    );
+  };
+
+  qp.selectedItems = statusItems.filter(
+    (i) => isRunStatus(i.description) && runsProvider.filterStatuses.has(i.description),
+  );
+  qp.onDidChangeValue(apply);
+  qp.onDidChangeSelection(apply);
+  qp.onDidHide(() => qp.dispose());
+  apply();
+  qp.show();
 }
