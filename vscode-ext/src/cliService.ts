@@ -373,7 +373,25 @@ index 0000000..abc
   public async fromArtifact(runId: string, cwd: string): Promise<void> {
     this.executeInTerminal({
       command: await this.cliCommand(cwd, `run start ${escapeArg(runId)}`),
-      terminalName: `SaifCTL fromArtifact: ${runId}`,
+      terminalName: `SaifCTL start: ${runId}`,
+      cwd,
+    });
+  }
+
+  /** Idle coding container for a saved run (`saifctl run inspect`). */
+  public async inspectRun(runId: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `run inspect ${escapeArg(runId)}`),
+      terminalName: `SaifCTL inspect: ${runId}`,
+      cwd,
+    });
+  }
+
+  /** Re-run tests for a saved run without the agent (`saifctl run test`). */
+  public async testRun(runId: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `run test ${escapeArg(runId)}`),
+      terminalName: `SaifCTL test: ${runId}`,
       cwd,
     });
   }

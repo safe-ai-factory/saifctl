@@ -473,6 +473,34 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  const inspectRunCmd = vscode.commands.registerCommand(
+    'saifctl.inspectRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.inspectRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) void cliService.inspectRun(runId, cwd);
+        },
+      ),
+    ),
+  );
+
+  const testRunCmd = vscode.commands.registerCommand(
+    'saifctl.testRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.testRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) void cliService.testRun(runId, cwd);
+        },
+      ),
+    ),
+  );
+
   const applyRunCmd = vscode.commands.registerCommand(
     'saifctl.applyRun',
     withCliGuard(
@@ -793,6 +821,8 @@ export async function activate(context: vscode.ExtensionContext) {
     filterRunsActiveCmd,
     clearFilterRunsCmd,
     fromArtifactCmd,
+    inspectRunCmd,
+    testRunCmd,
     applyRunCmd,
     exportRunCmd,
     downloadRunCmd,

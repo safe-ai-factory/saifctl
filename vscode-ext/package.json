@@ -210,8 +210,18 @@
       },
       {
         "command": "saifctl.fromArtifact",
-        "title": "Start from artifact",
+        "title": "Start run",
         "icon": "$(play)"
+      },
+      {
+        "command": "saifctl.inspectRun",
+        "title": "Inspect run",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "saifctl.testRun",
+        "title": "Test run",
+        "icon": "$(beaker)"
       },
       {
         "command": "saifctl.downloadRun",
@@ -412,13 +422,23 @@
         },
         {
           "command": "saifctl.fromArtifact",
-          "when": "viewItem == run_failed",
+          "when": "viewItem =~ /^run_/",
           "group": "inline@1"
+        },
+        {
+          "command": "saifctl.inspectRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "inline@2"
+        },
+        {
+          "command": "saifctl.testRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "inline@3"
         },
         {
           "command": "saifctl.removeRun",
           "when": "viewItem =~ /^run_/",
-          "group": "inline@2"
+          "group": "inline@4"
         },
         {
           "command": "saifctl.clearAllRuns",
