@@ -26,7 +26,11 @@ async function withTempProject(fn: (projectDir: string) => Promise<void>): Promi
 async function writeRunJson(
   projectDir: string,
   runId: string,
-  row: { featureName: string; status: 'failed' | 'completed' | 'paused'; updatedAt: string },
+  row: {
+    featureName: string;
+    status: 'failed' | 'completed' | 'paused' | 'running' | 'inspecting';
+    updatedAt: string;
+  },
 ): Promise<void> {
   const dir = join(projectDir, '.saifctl', 'runs');
   await mkdir(dir, { recursive: true });
@@ -161,9 +165,30 @@ describe('saifctl run rm', () => {
       ]);
 
       expect(logs).toEqual([]);
-      expect(errors.some((e) => e.includes('paused'))).toBe(true);
+      expect(errors.some((e) => e.includes('cannot be removed'))).toBe(true);
       expect(exitCode).toBe(1);
       expect(await runFileExists(projectDir, 'paused-run')).toBe(true);
+    });
+  });
+
+  it('errors and exits 1 when run is running', async () => {
+    await withTempProject(async (projectDir) => {
+      await writeRunJson(projectDir, 'live-run', {
+        featureName: 'a',
+        status: 'running',
+        updatedAt: '2026-03-20T10:00:00.000Z',
+      });
+
+      const { errors, exitCode } = await runRunSubcommand([
+        'rm',
+        'live-run',
+        '--project-dir',
+        projectDir,
+      ]);
+
+      expect(errors.some((e) => e.includes('cannot be removed'))).toBe(true);
+      expect(exitCode).toBe(1);
+      expect(await runFileExists(projectDir, 'live-run')).toBe(true);
     });
   });
 

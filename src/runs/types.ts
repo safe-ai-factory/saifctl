@@ -9,7 +9,20 @@ import type { SerializedLoopOpts } from './utils/serialize.js';
 
 export type { DockerLiveInfra, LiveInfra, LocalLiveInfra } from '../engines/types.js';
 
-export type RunStatus = 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
+export type RunStatus =
+  | 'failed'
+  | 'completed'
+  | 'running'
+  | 'paused'
+  | 'inspecting'
+  /** CLI/orchestrator is beginning `run start` / `feat run` before the loop marks `running`. */
+  | 'starting'
+  /** `run pause` requested; orchestrator is winding down to `paused`. */
+  | 'pausing'
+  /** `run stop` requested while live; orchestrator tearing down to `failed`. */
+  | 'stopping'
+  /** `run resume` handoff before the loop marks `running`. */
+  | 'resuming';
 
 /**
  * Live inspect session metadata while {@link RunStatus} is `"inspecting"`.
@@ -70,7 +83,7 @@ export class RunCannotStopError extends Error {
   ) {
     super(
       `Run "${runId}" cannot be stopped (status: "${status}"). ` +
-        `Only runs with status "running" or "paused" can be stopped.`,
+        `Stop applies to live or transitional runs (running, paused, starting, pausing, stopping, resuming).`,
     );
   }
 }
@@ -167,15 +180,18 @@ export class StaleArtifactError extends Error {
   }
 }
 
-/** Thrown by {@link RunStorage.setStatusRunning} when the Run already has status {@link RunStatus} `"running"`. */
+/**
+ * Thrown by {@link RunStorage.setStatusRunning} when the Run is already active in a conflicting way
+ * (e.g. `running`, `inspecting`, or mid-transition).
+ */
 export class RunAlreadyRunningError extends Error {
   override readonly name = 'RunAlreadyRunningError';
 
   constructor(readonly runId: string) {
     super(
-      `Run "${runId}" already has status "running". ` +
+      `Run "${runId}" is already active or mid-transition (cannot enter "running"). ` +
         `If the process died without saving a final status, manually edit or delete the run artifact ` +
-        `(e.g. .saifctl/runs/${runId}.json) to clear the stale "running" status.`,
+        `(e.g. .saifctl/runs/${runId}.json).`,
     );
   }
 }

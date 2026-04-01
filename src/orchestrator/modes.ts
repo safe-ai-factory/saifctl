@@ -30,6 +30,7 @@ import { type RunStorage } from '../runs/storage.js';
 import {
   type OuterAttemptSummary,
   RunAlreadyRunningError,
+  type RunArtifact,
   RunCannotStopError,
   type RunCommit,
   type RunInspectSession,
@@ -37,6 +38,12 @@ import {
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
+import {
+  allowsBeginRunStartFromArtifact,
+  blocksRunInspect,
+  isRunAwaitingPauseCompletion,
+  isRunAwaitingStopCompletion,
+} from '../runs/utils/statuses.js';
 import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
@@ -435,6 +442,31 @@ async function runFail2PassCore(
 // Mode 2: start (fresh sandbox -> running)
 // ---------------------------------------------------------------------------
 
+/** If `run stop` won the race during `starting` setup, mark `failed` and throw. */
+async function abortRunStartIfStopRequested(runStorage: RunStorage, runId: string): Promise<void> {
+  const cur = await runStorage.getRun(runId);
+  if (!cur) return;
+  if (cur.status !== 'stopping' && cur.controlSignal?.action !== 'stop') return;
+  const rev = cur.artifactRevision ?? 0;
+  const t = new Date().toISOString();
+  try {
+    await runStorage.saveRun(
+      runId,
+      {
+        ...cur,
+        status: 'failed',
+        controlSignal: null,
+        updatedAt: t,
+        lastFeedback: cur.lastFeedback ?? 'Run was stopped before start completed.',
+      },
+      { ifRevisionEquals: rev },
+    );
+  } catch {
+    // stale revision — still abort visible work
+  }
+  throw new Error(`Run "${runId}" was stopped before start completed.`);
+}
+
 /**
  * Creates a fresh sandbox and runs the full Ralph Wiggum iterative loop:
  *   1. Run OpenHands to implement the feature
@@ -498,19 +530,6 @@ async function runStartCore(
   if (!isLocal) {
     consola.log('[orchestrator] Hatchet token detected — dispatching via Hatchet workflow.');
 
-    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
-    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
-    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
-    //        The problem:
-    //        A paused sandbox is local state on one specific machine.
-    //        The sandbox directory, Docker network, and paused coder container all
-    //        live on the worker's filesystem. When run resume tries to reuse them,
-    //        it must run on the same worker. Hatchet's default scheduling is
-    //        round-robin / load-balanced — no guarantee of worker affinity.
-    if (!opts.fromArtifact?.pausedSandbox) {
-      throw new Error("Hatchet + 'run resume' path does not work yet.");
-    }
-
     const serializedOpts = serializeOrchestratorOpts(opts);
     const featRunWorkflow = createFeatRunWorkflow();
 
@@ -547,6 +566,42 @@ async function runStartCore(
   // Non-hatchet branch
   ///////////////////////
 
+  /** Fresh `feat run` with storage: reserve id + `starting` before sandbox creation. */
+  let persistedRunIdForStorage: string | undefined;
+  if (runStorage && !opts.fromArtifact && !testOnly) {
+    const rid = Math.random().toString(36).substring(2, 9);
+    try {
+      const { runStorage: _rs, fromArtifact: _fa, ...loopOpts } = opts;
+      const startingArtifact = buildRunArtifact({
+        runId: rid,
+        baseCommitSha: runContext.baseCommitSha,
+        basePatchDiff: runContext.basePatchDiff,
+        runCommits: [],
+        specRef: feature.relativePath,
+        rules: runContext.rules,
+        status: 'starting',
+        opts: loopOpts,
+        pausedSandboxBasePath: null,
+        controlSignal: null,
+        inspectSession: null,
+        liveInfra: null,
+        lastFeedback: runContext.lastErrorFeedback ?? undefined,
+      });
+      await runStorage.setStatusStartingNewRun(rid, startingArtifact);
+      const snap = await runStorage.getRun(rid);
+      if (snap?.status === 'stopping' || snap?.controlSignal?.action === 'stop') {
+        await abortRunStartIfStopRequested(runStorage, rid);
+      }
+      persistedRunIdForStorage = rid;
+    } catch (err) {
+      if (err instanceof RunAlreadyRunningError) throw err;
+      if (err instanceof Error && err.message.includes('was stopped before start completed')) {
+        throw err;
+      }
+      consola.warn('[orchestrator] Failed to persist new run as starting:', err);
+    }
+  }
+
   // When resuming, we reuse the existing sandbox
   const pausedSandbox = opts.fromArtifact?.pausedSandbox;
   const sandbox: Sandbox =
@@ -566,7 +621,7 @@ async function runStartCore(
       cedarScript: opts.cedarScript,
       verbose: opts.verbose,
       runCommits: opts.fromArtifact?.seedRunCommits ?? [],
-      runId: opts.fromArtifact?.persistedRunId,
+      runId: opts.fromArtifact?.persistedRunId ?? persistedRunIdForStorage,
       includeDirty: opts.includeDirty,
     }));
 
@@ -729,15 +784,25 @@ async function fromArtifactCore(
     engineCli,
   } = opts;
 
-  const artifact = await runStorage.getRun(runId);
+  let artifact = await runStorage.getRun(runId);
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
-  if (artifact.status === 'running') {
+  if (artifact.status === 'paused' && artifact.pausedSandboxBasePath?.trim()) {
+    throw new Error(`Run "${runId}" is paused. Use: saifctl run resume ${runId}`);
+  }
+  if (!allowsBeginRunStartFromArtifact(artifact.status, artifact.pausedSandboxBasePath)) {
     throw new Error(
-      `Run "${runId}" is already running (status: "running"). ` +
-        `If the process died, manually edit or delete the run artifact (e.g. .saifctl/runs/${runId}.json).`,
+      `Run "${runId}" cannot be started (status: "${artifact.status}"). ` +
+        `Use run start on failed or completed runs, or run resume when paused with a sandbox.`,
     );
+  }
+
+  await runStorage.beginRunStartFromArtifact(runId);
+  await abortRunStartIfStopRequested(runStorage, runId);
+  artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
 
   const mode = testOnly ? 'test' : 'fromArtifact';
@@ -752,6 +817,12 @@ async function fromArtifactCore(
     basePatchDiff: artifact.basePatchDiff,
     runCommits: artifact.runCommits,
   });
+
+  await abortRunStartIfStopRequested(runStorage, runId);
+  artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
+  }
 
   const deserialized = deserializeArtifactConfig(artifact.config);
   const feature = await resolveFeature({
@@ -899,6 +970,21 @@ async function runResumeCore(
     return fromArtifactCore(opts, registry);
   }
 
+  const revResume = artifact.artifactRevision ?? 0;
+  const tResume = new Date().toISOString();
+  await runStorage.saveRun(
+    runId,
+    {
+      ...artifact,
+      status: 'resuming',
+      controlSignal: null,
+      updatedAt: tResume,
+    },
+    { ifRevisionEquals: revResume },
+  );
+  const artifactResuming = await runStorage.getRun(runId);
+  const resumeArtifactRevision = artifactResuming?.artifactRevision ?? revResume + 1;
+
   const resumeSandbox = sandboxFromPausedBasePath({
     runId: artifact.runId,
     sandboxBasePath: pausedPath,
@@ -923,7 +1009,7 @@ async function runResumeCore(
     initialErrorFeedback: artifact.lastFeedback,
     seedRunCommits: artifact.runCommits,
     persistedRunId: runId,
-    artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
+    artifactRevisionWhenFromArtifact: resumeArtifactRevision,
     seedRoundSummaries: artifact.roundSummaries,
     pausedSandbox: resumeSandbox,
     resumedCodingInfra,
@@ -936,13 +1022,13 @@ async function runResumeCore(
 // Pause: running → paused
 // ---------------------------------------------------------------------------
 
-/** Poll interval while waiting for a run to leave `"running"` (pause / stop). */
+/** Poll interval while waiting for pause/stop handshakes to finish. */
 const RUN_WAIT_POLL_MS = 1000;
 
 /** Default max wait when `run pause` / `run stop` await orchestrator teardown (seconds → ms at CLI). */
 const DEFAULT_RUN_WAIT_TIMEOUT_MS = 60_000;
 
-async function waitForRunNotRunning(opts: {
+async function waitForPauseSettled(opts: {
   runStorage: RunStorage;
   runId: string;
   waitTimeoutMs: number;
@@ -954,7 +1040,24 @@ async function waitForRunNotRunning(opts: {
     await new Promise((r) => setTimeout(r, RUN_WAIT_POLL_MS));
     const cur = await runStorage.getRun(runId);
     if (!cur) return true;
-    if (cur.status !== 'running') return true;
+    if (!isRunAwaitingPauseCompletion(cur.status)) return true;
+  }
+  return false;
+}
+
+async function waitForAsyncStopSettled(opts: {
+  runStorage: RunStorage;
+  runId: string;
+  waitTimeoutMs: number;
+}): Promise<boolean> {
+  const { runStorage, runId, waitTimeoutMs } = opts;
+  const deadline = Date.now() + waitTimeoutMs;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, RUN_WAIT_POLL_MS));
+    const cur = await runStorage.getRun(runId);
+    if (!cur) return true;
+    if (!isRunAwaitingStopCompletion(cur.status)) return true;
   }
   return false;
 }
@@ -976,10 +1079,10 @@ export async function runPause(opts: {
   await runStorage.requestPause(runId);
   consola.log(`Pause requested for run ${runId} — waiting for orchestrator to finish pausing...`);
 
-  const ok = await waitForRunNotRunning({ runStorage, runId, waitTimeoutMs });
+  const ok = await waitForPauseSettled({ runStorage, runId, waitTimeoutMs });
   if (!ok) {
     consola.warn(
-      `[orchestrator] Timed out after ${waitTimeoutMs / 1000}s waiting for run "${runId}" to leave status "running". Check with: saifctl run ls`,
+      `[orchestrator] Timed out after ${waitTimeoutMs / 1000}s waiting for run "${runId}" to finish pausing (still running or pausing). Check with: saifctl run ls`,
     );
     return;
   }
@@ -990,17 +1093,17 @@ export async function runPause(opts: {
 }
 
 /**
- * Stop a run: for `"running"`, sets {@link RunArtifact#controlSignal} `stop`
- * and waits until status changes (polling storage);
- * For `"paused"`, tears down Docker + sandbox synchronously and saves `failed`.
+ * Stop a run: asks a live run to shut down and waits, or tears down a paused sandbox immediately.
+ * With `force: true`, stops waiting and cleans up what is known from the saved run (e.g. stuck on Stopping).
  */
 export async function runStop(opts: {
   runId: string;
   projectDir: string;
   runStorage: RunStorage;
   waitTimeoutMs?: number;
+  force?: boolean;
 }): Promise<void> {
-  const { runId, projectDir, runStorage } = opts;
+  const { runId, projectDir, runStorage, force } = opts;
   const waitTimeoutMs = opts.waitTimeoutMs ?? DEFAULT_RUN_WAIT_TIMEOUT_MS;
 
   // Get run artifact from storage
@@ -1009,16 +1112,9 @@ export async function runStop(opts: {
     throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
 
-  // If the run is paused, tear down Docker + sandbox synchronously and save `failed`
-  if (artifact.status === 'paused') {
-    const pausedPath = artifact.pausedSandboxBasePath?.trim();
-    if (!pausedPath) {
-      throw new Error(
-        `Run "${runId}" is paused but missing pausedSandboxBasePath; cannot tear down resources.`,
-      );
-    }
+  const pausedPath = artifact.pausedSandboxBasePath?.trim();
 
-    // Tear down Docker (containers, docker-compose, networks, etc)
+  if (artifact.status === 'paused' && pausedPath) {
     const codingEngine = createEngine(artifact.config.codingEnvironment);
     const storedCoding = artifact.liveInfra?.coding ?? null;
     await codingEngine.teardown({ runId: artifact.runId, infra: storedCoding, projectDir });
@@ -1041,25 +1137,38 @@ export async function runStop(opts: {
       },
       { ifRevisionEquals: rev },
     );
-    consola.log(
-      `[orchestrator] Stopped paused run ${runId} — artifact status: failed, sandbox removed.`,
-    );
+    consola.log(`Run "${runId}" stopped (failed); sandbox removed.`);
     return;
   }
 
-  // The agent is running. To stop the process, we need to request stop.
-  // This is same logic as runPause.
-  if (artifact.status === 'running') {
-    // Request stop by changing state in storage
-    // The running Run polls the storage and that's how it finds about our
-    // stop request.
+  if (force) {
+    consola.log(`Stopping run "${runId}" with --force…`);
+    await bestEffortTeardownRunResources(artifact, projectDir);
+    await persistForceStoppedRun(runStorage, runId);
+    return;
+  }
+
+  if (artifact.status === 'paused' && !pausedPath) {
+    throw new Error(
+      `Run "${runId}" is paused but has no saved workspace path to remove. Try: saifctl run stop --force ${runId}`,
+    );
+  }
+
+  const needsAsyncStop =
+    artifact.status === 'running' ||
+    artifact.status === 'starting' ||
+    artifact.status === 'resuming' ||
+    artifact.status === 'pausing' ||
+    artifact.status === 'stopping';
+  if (needsAsyncStop) {
     await runStorage.requestStop(runId);
-    consola.log(`Stop requested for run ${runId} — waiting for orchestrator to finish teardown...`);
-    const ok = await waitForRunNotRunning({ runStorage, runId, waitTimeoutMs });
+    consola.log(`Stop requested for run "${runId}" — waiting for it to finish shutting down…`);
+    const ok = await waitForAsyncStopSettled({ runStorage, runId, waitTimeoutMs });
     if (!ok) {
       consola.warn(
-        `[orchestrator] Timed out after ${waitTimeoutMs / 1000}s waiting for run "${runId}" to leave status "running". Check with: saifctl run ls`,
+        `Timed out after ${waitTimeoutMs / 1000}s — run "${runId}" may still be stopping. Check: saifctl run ls`,
       );
+      consola.warn(`If it looks stuck, run: saifctl run stop --force ${runId}`);
       return;
     }
     // By now the run stopped or we timed out
@@ -1072,6 +1181,82 @@ export async function runStop(opts: {
 
   // Error: Neither running nor paused → cannot stop.
   throw new RunCannotStopError(runId, artifact.status);
+}
+
+/** Tears down Docker and sandbox paths recorded on the run (used by `run stop --force`). */
+async function bestEffortTeardownRunResources(
+  artifact: RunArtifact,
+  projectDir: string,
+): Promise<void> {
+  try {
+    const codingEngine = createEngine(artifact.config.codingEnvironment);
+    await codingEngine.teardown({
+      runId: artifact.runId,
+      infra: artifact.liveInfra?.coding ?? null,
+      projectDir,
+    });
+  } catch (err) {
+    consola.warn(`Could not fully stop the coding environment for this run: ${String(err)}`);
+  }
+  try {
+    const stagingEngine = createEngine(artifact.config.stagingEnvironment);
+    await stagingEngine.teardown({
+      runId: artifact.runId,
+      infra: artifact.liveInfra?.staging ?? null,
+      projectDir,
+    });
+  } catch (err) {
+    consola.warn(`Could not fully stop the test/staging environment for this run: ${String(err)}`);
+  }
+  const pausedPath = artifact.pausedSandboxBasePath?.trim();
+  if (pausedPath) {
+    try {
+      if (await pathExists(pausedPath)) {
+        await destroySandbox(pausedPath);
+      }
+    } catch (err) {
+      consola.warn(`Could not remove the run workspace folder: ${String(err)}`);
+    }
+  }
+}
+
+/** Writes post–force-stop fields (cleared stop request and Docker snapshot); keeps failed/completed as-is. */
+async function persistForceStoppedRun(runStorage: RunStorage, runId: string): Promise<void> {
+  const maxAttempts = 8;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const cur = await runStorage.getRun(runId);
+    if (!cur) return;
+    const rev = cur.artifactRevision ?? 0;
+    const t = new Date().toISOString();
+    const keepTerminal = cur.status === 'failed' || cur.status === 'completed';
+    try {
+      await runStorage.saveRun(
+        runId,
+        {
+          ...cur,
+          status: keepTerminal ? cur.status : 'failed',
+          controlSignal: null,
+          pausedSandboxBasePath: null,
+          liveInfra: null,
+          inspectSession: null,
+          updatedAt: t,
+          lastFeedback: keepTerminal
+            ? cur.lastFeedback
+            : (cur.lastFeedback ?? 'Stopped with --force.'),
+        },
+        { ifRevisionEquals: rev },
+      );
+      if (keepTerminal) {
+        consola.log(`Run "${runId}" cleaned up (still marked ${cur.status}).`);
+      } else {
+        consola.log(`Run "${runId}" force-stopped.`);
+      }
+      return;
+    } catch (e) {
+      if (e instanceof StaleArtifactError && attempt < maxAttempts - 1) continue;
+      throw e;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1116,15 +1301,15 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifctl run ls`);
   }
-  if (artifact.status === 'running') {
-    throw new Error(
-      `Run "${runId}" is already running (status: "running"). ` +
-        `If the process died, manually edit or delete the run artifact (e.g. .saifctl/runs/${runId}.json).`,
-    );
-  }
   if (artifact.status === 'inspecting') {
     throw new Error(
       `Run "${runId}" is already in inspect mode. Finish the other session (Ctrl+C in that terminal) or clear the artifact.`,
+    );
+  }
+  if (blocksRunInspect(artifact.status)) {
+    throw new Error(
+      `Run "${runId}" cannot be inspected while status is "${artifact.status}". ` +
+        `Wait for it to finish, stop it, or if the process died, edit the artifact under .saifctl/runs/.`,
     );
   }
 

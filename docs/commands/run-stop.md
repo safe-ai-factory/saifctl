@@ -20,7 +20,8 @@ saifctl run stop <runId> [options]
 | `--project-dir` | —     | string | Project root (default: current dir).                                               |
 | `--saifctl-dir` | —     | string | Saifctl config folder (default: `saifctl`).                                                      |
 | `--storage`     | —     | string | Where saved runs live (`local`, `file://…`, `s3`, etc.). See [Runs](../runs.md).                 |
-| `--timeout`     | —     | int    | Seconds to wait for the run to stop. Default: **60**. |
+| `--timeout`     | —     | int    | Seconds to wait for the run to finish shutting down. Default: **60**. |
+| `--force`       | `-f`  | flag   | Do not wait: stop Docker and remove the saved workspace if possible. |
 
 Stop does not take agent, engine, or sandbox flags.
 
@@ -32,7 +33,7 @@ Stop a run whose ID you copied from the terminal or from `run list`:
 saifctl run stop biehp82
 ```
 
-Wait up to two minutes for the orchestrator to finish stopping:
+Wait up to two minutes for the run to finish shutting down:
 
 ```bash
 saifctl run stop biehp82 --timeout 120
@@ -44,9 +45,13 @@ Custom storage location:
 saifctl run stop biehp82 --storage runs=file:///tmp/my-runs
 ```
 
-## Notes
+If a run stays on **Stopping** (or otherwise looks stuck), stop it without waiting:
 
-- Only **`running`** or **`paused`** runs can be stopped; otherwise the CLI errors (`RunCannotStopError`).
+```bash
+saifctl run stop biehp82 --force
+```
+
+## Notes
 
 - Stopping a **`running`** Run stops the agent mid-work. Any agent's **changes are committed** and saved with the Run, then the sandbox is destroyed. Stopping a **`paused`** run tears down the paused sandbox only (no live agent).
 

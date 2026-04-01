@@ -15,6 +15,7 @@ import {
   type RunStatus,
   StaleArtifactError,
 } from './types.js';
+import { allowsBeginRunStartFromArtifact } from './utils/statuses.js';
 
 const NAMESPACE = 'runs';
 
@@ -83,7 +84,8 @@ export class RunStorage {
 
   async setStatusRunning(runId: string, artifact: RunArtifact): Promise<number> {
     const existing = await this.storage.get(runId);
-    if (existing?.status === 'running' || existing?.status === 'inspecting') {
+    const s = existing?.status;
+    if (s === 'running' || s === 'inspecting' || s === 'pausing' || s === 'stopping') {
       throw new RunAlreadyRunningError(runId);
     }
     const currentRev = existing?.artifactRevision ?? 0;
@@ -117,6 +119,17 @@ export class RunStorage {
         `Run "${runId}" is already in inspect mode. Finish or Ctrl+C the other inspect session first.`,
       );
     }
+    if (
+      existing.status === 'running' ||
+      existing.status === 'starting' ||
+      existing.status === 'pausing' ||
+      existing.status === 'stopping' ||
+      existing.status === 'resuming'
+    ) {
+      throw new Error(
+        `Run "${runId}" cannot enter inspect (status: "${existing.status}"). Stop or wait for it to finish first.`,
+      );
+    }
     const currentRev = existing.artifactRevision ?? 0;
     const merged: RunArtifact = {
       ...existing,
@@ -143,8 +156,8 @@ export class RunStorage {
   }
 
   /**
-   * Sets {@link RunArtifact#controlSignal} to `pause` so a live orchestrator (polling storage) can pause
-   * without tearing down the sandbox or Docker network/compose stack. Last-write-wins with {@link requestStop}.
+   * Sets status to {@link RunStatus} `"pausing"` and {@link RunArtifact#controlSignal} `pause`.
+   * The orchestrator polls storage and completes the pause to `"paused"`.
    *
    * @throws {@link RunCannotPauseError} when the Run is not {@link RunStatus} `"running"`.
    */
@@ -160,6 +173,7 @@ export class RunStorage {
     const t = new Date().toISOString();
     const next: RunArtifact = {
       ...existing,
+      status: 'pausing',
       controlSignal: { action: 'pause', requestedAt: t },
       updatedAt: t,
       liveInfra: existing.liveInfra,
@@ -168,28 +182,84 @@ export class RunStorage {
   }
 
   /**
-   * Sets {@link RunArtifact#controlSignal} to `stop` so a live orchestrator tears down like a normal
-   * failed exit, or (when already {@link RunStatus} `"paused"`) the caller runs synchronous cleanup.
-   * Last-write-wins with {@link requestPause}.
+   * Sets status to `"stopping"` and control signal `stop` for live orchestrator teardown.
+   * Does not apply to `"paused"` — the CLI `run stop` command tears that down synchronously.
+   * Idempotent when already `"stopping"` (refreshes stop signal timestamp).
    *
-   * @throws {@link RunCannotStopError} when the Run is not `"running"` or `"paused"`.
+   * @throws {@link RunCannotStopError} when the run cannot be stopped asynchronously (e.g. completed).
    */
   async requestStop(runId: string): Promise<void> {
     const existing = await this.storage.get(runId);
     if (!existing) {
       throw new Error(`Run not found: ${runId}`);
     }
-    if (existing.status !== 'running' && existing.status !== 'paused') {
+    const stoppableAsync =
+      existing.status === 'running' ||
+      existing.status === 'starting' ||
+      existing.status === 'resuming' ||
+      existing.status === 'pausing' ||
+      existing.status === 'stopping';
+    if (!stoppableAsync) {
       throw new RunCannotStopError(runId, existing.status);
     }
     const currentRev = existing.artifactRevision ?? 0;
     const t = new Date().toISOString();
     const next: RunArtifact = {
       ...existing,
+      status: 'stopping',
       controlSignal: { action: 'stop', requestedAt: t },
       updatedAt: t,
     };
     await this.saveRun(runId, next, { ifRevisionEquals: currentRev });
+  }
+
+  /**
+   * Mark a terminal run as {@link RunStatus} `"starting"` before worktree/sandbox setup (`run start`).
+   * Caller should poll for `stopping` / stop signal and abort if the user requested stop.
+   *
+   * @returns New {@link RunArtifact#artifactRevision}.
+   */
+  async beginRunStartFromArtifact(runId: string): Promise<number> {
+    const existing = await this.storage.get(runId);
+    if (!existing) {
+      throw new Error(`Run not found: ${runId}`);
+    }
+    if (!allowsBeginRunStartFromArtifact(existing.status, existing.pausedSandboxBasePath)) {
+      const hint =
+        existing.status === 'paused' && existing.pausedSandboxBasePath?.trim()
+          ? ` Use: saifctl run resume ${runId}`
+          : '';
+      throw new Error(
+        `Run "${runId}" cannot be started (status: "${existing.status}").` +
+          (hint ||
+            ` Only failed or completed runs can use run start; use run resume when paused with a sandbox.`),
+      );
+    }
+    const currentRev = existing.artifactRevision ?? 0;
+    const t = new Date().toISOString();
+    const next: RunArtifact = {
+      ...existing,
+      status: 'starting',
+      controlSignal: null,
+      updatedAt: t,
+    };
+    return this.saveRun(runId, next, { ifRevisionEquals: currentRev });
+  }
+
+  /**
+   * First persistence for a new run id (`feat run`): status `"starting"` before `"running"`.
+   * Fails if an artifact already exists for this id.
+   */
+  async setStatusStartingNewRun(runId: string, artifact: RunArtifact): Promise<number> {
+    const existing = await this.storage.get(runId);
+    if (existing != null) {
+      throw new RunAlreadyRunningError(runId);
+    }
+    return this.saveRun(runId, {
+      ...artifact,
+      status: 'starting',
+      inspectSession: artifact.inspectSession ?? null,
+    });
   }
 
   async deleteRun(runId: string): Promise<void> {

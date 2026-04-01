@@ -21,7 +21,16 @@ export interface RunListEntry {
   runId: string;
   featureName: string;
   specRef: string;
-  status: 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
+  status:
+    | 'failed'
+    | 'completed'
+    | 'running'
+    | 'paused'
+    | 'inspecting'
+    | 'starting'
+    | 'pausing'
+    | 'stopping'
+    | 'resuming';
   startedAt: string;
   updatedAt: string;
   taskId?: string;
@@ -68,6 +77,15 @@ const MOCK_RUN_ROWS: MockRunRow[] = [
     status: 'running',
     startedAt: '2026-03-21T12:00:00.000Z',
     updatedAt: '2026-03-21T14:02:00.000Z',
+    onlyBasename: 'project-agents',
+  },
+  {
+    runId: 'run-pause-demo',
+    featureName: 'Paused_Demo',
+    specRef: 'add-memory-module',
+    status: 'paused',
+    startedAt: '2026-03-21T10:00:00.000Z',
+    updatedAt: '2026-03-21T10:30:00.000Z',
     onlyBasename: 'project-agents',
   },
 ];
@@ -456,6 +474,30 @@ index 0000000..abc
   public async clearAllRuns(cwd: string): Promise<void> {
     await this.executeInBackground(await this.cliCommand(cwd, 'run clear'), cwd);
     vscode.window.showInformationMessage('Cleared all SaifCTL runs.');
+  }
+
+  /** Pause a running run (`saifctl run pause`). */
+  public async pauseRun(runId: string, cwd: string): Promise<void> {
+    await this.executeInBackground(
+      await this.cliCommand(cwd, `run pause ${escapeArg(runId)}`),
+      cwd,
+    );
+    vscode.window.showInformationMessage(`Pause requested for run: ${runId}`);
+  }
+
+  /** Stop a running or paused run (`saifctl run stop`). */
+  public async stopRun(runId: string, cwd: string): Promise<void> {
+    await this.executeInBackground(await this.cliCommand(cwd, `run stop ${escapeArg(runId)}`), cwd);
+    vscode.window.showInformationMessage(`Stop requested for run: ${runId}`);
+  }
+
+  /** Resume a paused run in the terminal (`saifctl run resume`). */
+  public async resumeRun(runId: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `run resume ${escapeArg(runId)}`),
+      terminalName: `SaifCTL resume: ${runId}`,
+      cwd,
+    });
   }
 }
 

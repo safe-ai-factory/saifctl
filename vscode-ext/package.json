@@ -209,6 +209,21 @@
         "icon": "$(close)"
       },
       {
+        "command": "saifctl.pauseRun",
+        "title": "Pause run",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "saifctl.stopRun",
+        "title": "Stop run",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "saifctl.resumeRun",
+        "title": "Resume run",
+        "icon": "$(debug-continue)"
+      },
+      {
         "command": "saifctl.fromArtifact",
         "title": "Start run",
         "icon": "$(play)"
@@ -426,19 +441,34 @@
           "group": "1_feature@5"
         },
         {
-          "command": "saifctl.fromArtifact",
-          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
+          "command": "saifctl.pauseRun",
+          "when": "viewItem == run_running",
           "group": "inline@1"
         },
         {
-          "command": "saifctl.inspectRun",
-          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
+          "command": "saifctl.resumeRun",
+          "when": "viewItem == run_paused",
+          "group": "inline@1"
+        },
+        {
+          "command": "saifctl.stopRun",
+          "when": "viewItem == run_running || viewItem == run_paused || viewItem == run_starting || viewItem == run_pausing || viewItem == run_stopping || viewItem == run_resuming",
           "group": "inline@2"
         },
         {
-          "command": "saifctl.testRun",
-          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
+          "command": "saifctl.fromArtifact",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting && viewItem != run_running && viewItem != run_paused && viewItem != run_starting && viewItem != run_pausing && viewItem != run_stopping && viewItem != run_resuming",
           "group": "inline@3"
+        },
+        {
+          "command": "saifctl.inspectRun",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting && viewItem != run_running && viewItem != run_paused && viewItem != run_starting && viewItem != run_pausing && viewItem != run_stopping && viewItem != run_resuming",
+          "group": "inline@4"
+        },
+        {
+          "command": "saifctl.testRun",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting && viewItem != run_running && viewItem != run_paused && viewItem != run_starting && viewItem != run_pausing && viewItem != run_stopping && viewItem != run_resuming",
+          "group": "inline@5"
         },
         {
           "command": "saifctl.attachInspectContainer",
@@ -447,13 +477,8 @@
         },
         {
           "command": "saifctl.removeRun",
-          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
-          "group": "inline@4"
-        },
-        {
-          "command": "saifctl.removeRun",
-          "when": "viewItem == run_inspecting",
-          "group": "inline@2"
+          "when": "viewItem == run_failed || viewItem == run_completed",
+          "group": "inline@6"
         },
         {
           "command": "saifctl.clearAllRuns",
@@ -464,6 +489,21 @@
           "command": "saifctl.attachInspectContainer",
           "when": "viewItem == run_inspecting",
           "group": "1_modification@0"
+        },
+        {
+          "command": "saifctl.pauseRun",
+          "when": "viewItem == run_running",
+          "group": "0_control@1"
+        },
+        {
+          "command": "saifctl.resumeRun",
+          "when": "viewItem == run_paused",
+          "group": "0_control@1"
+        },
+        {
+          "command": "saifctl.stopRun",
+          "when": "viewItem == run_running || viewItem == run_paused || viewItem == run_starting || viewItem == run_pausing || viewItem == run_stopping || viewItem == run_resuming",
+          "group": "0_control@2"
         },
         {
           "command": "saifctl.goToFeatureFromRun",

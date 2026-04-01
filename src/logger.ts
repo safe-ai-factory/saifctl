@@ -17,6 +17,8 @@
  * VS Code extension: duplicate defaults live in `vscode-ext/src/saifctl-logger.ts`.
  */
 
+import { writeSync } from 'node:fs';
+
 import { type ConsolaInstance, createConsola, LogLevels } from 'consola';
 
 export const logger: ConsolaInstance = createConsola({
@@ -47,6 +49,22 @@ export function setVerboseLogging(verbose: boolean): void {
 export function outputCliData(message: string): void {
   process.stdout.write(message);
   process.stdout.write('\n');
+}
+
+/**
+ * Sync newline on the real TTY so the shell prompt does not share a line with Consola output that
+ * flushes late after async teardown (e.g. inspect session after Ctrl+C).
+ */
+export function ensureStdoutNewline(): void {
+  try {
+    writeSync(process.stdout.fd, '\n');
+  } catch {
+    try {
+      process.stdout.write('\n');
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export { LogLevels };

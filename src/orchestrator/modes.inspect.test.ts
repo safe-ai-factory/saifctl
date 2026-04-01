@@ -485,7 +485,7 @@ describe('runInspect', () => {
         cliModelDelta: undefined,
         engineCli: undefined,
       }),
-    ).rejects.toThrow(/already running/);
+    ).rejects.toThrow(/cannot be inspected/);
   });
 
   it('throws when Run status is inspecting', async () => {

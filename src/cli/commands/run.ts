@@ -17,7 +17,7 @@
  *   rules         Manage user feedback rules on a Run (create, list, get, update, remove)
  *   pause         Pause a run. Resumable. Stops containers but does not delete them. Waits until paused or --timeout
  *   resume        Resume a paused run: reuse cached state if still present; otherwise continue like run start
- *   stop          Stop a running or paused run (full teardown). Waits up to --timeout for orchestrator to finish.
+ *   stop          Stop a running or paused run (full teardown). Waits up to --timeout; use --force if a run looks stuck.
  */
 
 import { defineCommand, runMain } from 'citty';
@@ -43,6 +43,7 @@ import {
 import { forkStoredRun } from '../../runs/fork.js';
 import { RunCannotPauseError, RunCannotStopError, type RunStatus } from '../../runs/types.js';
 import { toRunInfoJson } from '../../runs/utils/run-info.js';
+import { isRunStatusDeletable } from '../../runs/utils/statuses.js';
 import { omit } from '../../utils/omit.js';
 import {
   featFromArtifactArgs,
@@ -245,10 +246,10 @@ const rmCommand = defineCommand({
       process.exit(1);
     }
 
-    // Prevent removal if there's possibly live resources (e.g. ephemeral containers)
-    if (['running', 'paused'].includes(existing.status)) {
+    if (!isRunStatusDeletable(existing.status)) {
       consola.error(
-        `Run "${runId}" is active (status: "${existing.status}"). Stop it first with: 'saifctl run stop ${runId}' — then run rm.`,
+        `Run "${runId}" cannot be removed while status is "${existing.status}". ` +
+          `Only failed or completed runs can be deleted; stop or wait for other states first.`,
       );
       process.exit(1);
     }
@@ -472,13 +473,20 @@ const stopCommand = defineCommand({
   meta: {
     name: 'stop',
     description:
-      'Stop a running or paused run (full teardown). Waits up to --timeout for orchestrator to finish.',
+      'Stop a running or paused run (full teardown). Waits up to --timeout for the run to finish shutting down.',
   },
   args: {
     ...commonRunArgs,
     timeout: {
       ...runPauseStopTimeoutArg,
       description: 'Seconds. Max duration to wait for the run to finish stopping. Default: 60.',
+    },
+    force: {
+      type: 'boolean' as const,
+      alias: 'f' as const,
+      default: false,
+      description:
+        'Stop without waiting: shut down Docker and remove the saved workspace when possible.',
     },
     runId: {
       type: 'positional' as const,
@@ -497,8 +505,9 @@ const stopCommand = defineCommand({
     }
     const runId = parseRunId(args);
     const waitTimeoutMs = parseRunPauseStopTimeoutSec(args) * 1000;
+    const force = args.force === true;
     try {
-      await runStop({ runId, projectDir, runStorage, waitTimeoutMs });
+      await runStop({ runId, projectDir, runStorage, waitTimeoutMs, force });
     } catch (err) {
       if (err instanceof RunCannotStopError) {
         consola.error(err.message);

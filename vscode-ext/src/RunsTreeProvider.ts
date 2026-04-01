@@ -32,7 +32,16 @@ const HIDDEN_CONFIG_KEYS = new Set([
   'cedarScript',
 ]);
 
-export type RunStatus = 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
+export type RunStatus =
+  | 'failed'
+  | 'completed'
+  | 'running'
+  | 'paused'
+  | 'inspecting'
+  | 'starting'
+  | 'pausing'
+  | 'stopping'
+  | 'resuming';
 
 export interface SaifctlRunData {
   id: string;
@@ -108,8 +117,15 @@ export function collectRunDiffFileLeavesUnderDir(dir: RunDiffDirItem): RunDiffFi
   return out;
 }
 
-/** Repoll run list while any run is `inspecting` so the tree clears after terminal Ctrl+C updates storage. */
-const INSPECT_STATUS_POLL_MS = 5000;
+/** Repoll run list while any run may still change status (live + transitional). */
+const RUN_LIST_POLL_MS = 5000;
+
+/**
+ * After launching a terminal-based run (`feat run`, `run start`, `run resume`), storage may not
+ * show `running` immediately. Poll the list for this long so we still schedule refreshes until the
+ * artifact updates; once any run is `running`/`paused`/`inspecting`, normal polling continues.
+ */
+const LIVE_STATUS_POLL_BOOST_MS = 120_000;
 
 export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<RunTreeElement | undefined | void>();
@@ -118,6 +134,8 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
 
   private runsCache: SaifctlRunData[] = [];
   private _inspectPollTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Epoch ms; while `Date.now() < this`, keep polling even if `run list` has not flipped to `running` yet. */
+  private _liveStatusPollBoostUntil: number | undefined;
   private _filterText = '';
   private _filterStatuses = new Set<RunStatus>();
   /** Parsed file stats per run after expanding Changes (lazy). */
@@ -163,8 +181,18 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Call after starting a long-running SaifCTL command in the terminal so the Runs view refetches
+   * and keeps polling until statuses settle (same mechanism as inspect / running / paused).
+   */
+  kickLiveStatusPolling(durationMs: number = LIVE_STATUS_POLL_BOOST_MS): void {
+    this._liveStatusPollBoostUntil = Date.now() + durationMs;
+    this.refresh();
+  }
+
   dispose(): void {
     this.clearInspectPoll();
+    this._liveStatusPollBoostUntil = undefined;
     this._onDidChangeTreeData.dispose();
   }
 
@@ -175,14 +203,28 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     }
   }
 
-  /** After a successful root list load: poll until no run is `inspecting`. */
-  private scheduleInspectPollIfNeeded(merged: SaifctlRunData[]): void {
+  /** After a successful root list load: poll while any run needs live status updates. */
+  private scheduleRunListPollIfNeeded(merged: SaifctlRunData[]): void {
     this.clearInspectPoll();
-    if (!merged.some((r) => r.status === 'inspecting')) return;
+    const hasActiveStatus = merged.some((r) => {
+      const s = r.status;
+      return (
+        s === 'inspecting' ||
+        s === 'running' ||
+        s === 'paused' ||
+        s === 'starting' ||
+        s === 'pausing' ||
+        s === 'stopping' ||
+        s === 'resuming'
+      );
+    });
+    const boostActive =
+      this._liveStatusPollBoostUntil !== undefined && Date.now() < this._liveStatusPollBoostUntil;
+    if (!hasActiveStatus && !boostActive) return;
     this._inspectPollTimer = setTimeout(() => {
       this._inspectPollTimer = undefined;
       this._onDidChangeTreeData.fire();
-    }, INSPECT_STATUS_POLL_MS);
+    }, RUN_LIST_POLL_MS);
   }
 
   private matchesFilter(run: SaifctlRunData): boolean {
@@ -238,7 +280,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           }
         }
         this.runsCache = merged;
-        this.scheduleInspectPollIfNeeded(merged);
+        this.scheduleRunListPollIfNeeded(merged);
         if (!this.isFiltered) {
           return projects.map((p) => new RunProjectItem(p.name, p.projectPath));
         }
@@ -534,12 +576,38 @@ function statusIconPath(status: SaifctlRunData['status']): vscode.ThemeIcon {
     return new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
   }
   if (status === 'paused') {
-    return new vscode.ThemeIcon('debug-pause');
+    return new vscode.ThemeIcon('debug-pause', new vscode.ThemeColor('testing.iconQueued'));
   }
   if (status === 'inspecting') {
     return new vscode.ThemeIcon('debug-alt', new vscode.ThemeColor('testing.iconQueued'));
   }
   return new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('testing.iconQueued'));
+}
+
+/** Shown on the run row (tree item description) for quick scanning. */
+function formatRunStatusDescription(status: SaifctlRunData['status']): string {
+  switch (status) {
+    case 'running':
+      return 'Running';
+    case 'paused':
+      return 'Paused';
+    case 'failed':
+      return 'Failed';
+    case 'completed':
+      return 'Completed';
+    case 'inspecting':
+      return 'Inspecting';
+    case 'starting':
+      return 'Starting';
+    case 'pausing':
+      return 'Pausing';
+    case 'stopping':
+      return 'Stopping';
+    case 'resuming':
+      return 'Resuming';
+    default:
+      return status;
+  }
 }
 
 // Reuse the same colors for diff icons as VS Code uses for git diffs.
@@ -610,6 +678,7 @@ export class RunItem extends vscode.TreeItem {
     this.runTreeParent = parentProject;
     this.tooltip = `Run ID: ${runData.id}\nStatus: ${runData.status}\nProject: ${projectPath}`;
     this.contextValue = `run_${runData.status}`;
+    this.description = formatRunStatusDescription(runData.status);
 
     this.iconPath = statusIconPath(runData.status);
   }

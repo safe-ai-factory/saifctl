@@ -698,9 +698,18 @@ export async function runIterativeLoop(
   ) => {
     if (!runStorage || !runContext) return;
     const latest = await runStorage.getRun(runId);
+    const latestStatus = latest?.status;
+    /** Preserve transitional statuses from concurrent pause/stop/start handshakes; default to `running`. */
+    const persistedStatus: RunStatus =
+      latestStatus === 'pausing' ||
+      latestStatus === 'stopping' ||
+      latestStatus === 'starting' ||
+      latestStatus === 'resuming'
+        ? latestStatus
+        : 'running';
     await persistArtifact(
       {
-        status: 'running',
+        status: persistedStatus,
         controlSignal: latest?.controlSignal ?? null,
         pausedSandboxBasePath: null,
         liveInfra: currentLiveInfra !== undefined ? currentLiveInfra : (latest?.liveInfra ?? null),

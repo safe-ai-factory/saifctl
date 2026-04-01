@@ -306,7 +306,10 @@ export async function activate(context: vscode.ExtensionContext) {
         async (item?: vscode.TreeItem) => {
           const name = getItemName(item);
           const cwd = getCwdForFeature(item);
-          if (name) void cliService.runFeature(name, cwd);
+          if (name) {
+            void cliService.runFeature(name, cwd);
+            runsProvider.kickLiveStatusPolling();
+          }
         },
       ),
     ),
@@ -469,7 +472,59 @@ export async function activate(context: vscode.ExtensionContext) {
         async (item?: vscode.TreeItem) => {
           const runId = getRunId(item);
           const cwd = getCwdForRun(item);
-          if (runId) void cliService.fromArtifact(runId, cwd);
+          if (runId) {
+            void cliService.fromArtifact(runId, cwd);
+            runsProvider.kickLiveStatusPolling();
+          }
+        },
+      ),
+    ),
+  );
+
+  const pauseRunCmd = vscode.commands.registerCommand(
+    'saifctl.pauseRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.pauseRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (!runId) return;
+          await cliService.pauseRun(runId, cwd);
+          runsProvider.refresh();
+        },
+      ),
+    ),
+  );
+
+  const stopRunCmd = vscode.commands.registerCommand(
+    'saifctl.stopRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.stopRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (!runId) return;
+          await cliService.stopRun(runId, cwd);
+          runsProvider.refresh();
+        },
+      ),
+    ),
+  );
+
+  const resumeRunCmd = vscode.commands.registerCommand(
+    'saifctl.resumeRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.resumeRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) {
+            void cliService.resumeRun(runId, cwd);
+            runsProvider.kickLiveStatusPolling();
+          }
         },
       ),
     ),
@@ -485,6 +540,7 @@ export async function activate(context: vscode.ExtensionContext) {
           const cwd = getCwdForRun(item);
           if (!runId) return;
           void cliService.inspectRun(runId, cwd);
+          runsProvider.kickLiveStatusPolling();
           void waitAndAttachAfterInspectStart({
             cli: cliService,
             runId,
@@ -848,6 +904,9 @@ export async function activate(context: vscode.ExtensionContext) {
     filterRunsActiveCmd,
     clearFilterRunsCmd,
     fromArtifactCmd,
+    pauseRunCmd,
+    stopRunCmd,
+    resumeRunCmd,
     inspectRunCmd,
     attachInspectContainerCmd,
     testRunCmd,
@@ -900,7 +959,17 @@ function updateRunsViewDescription(
   treeView.description = parts.length > 0 ? `· ${parts.join(' · ')}` : undefined;
 }
 
-const RUN_STATUS_VALUES: RunStatus[] = ['running', 'failed', 'completed', 'paused', 'inspecting'];
+const RUN_STATUS_VALUES: RunStatus[] = [
+  'running',
+  'failed',
+  'completed',
+  'paused',
+  'inspecting',
+  'starting',
+  'pausing',
+  'stopping',
+  'resuming',
+];
 
 function isRunStatus(s: string | undefined): s is RunStatus {
   return s !== undefined && (RUN_STATUS_VALUES as string[]).includes(s);
@@ -910,9 +979,14 @@ function isRunStatus(s: string | undefined): s is RunStatus {
 function runStatusFilterQuickPickItems(): vscode.QuickPickItem[] {
   return [
     { label: '$(sync~spin) Running', description: 'running', alwaysShow: true },
+    { label: '$(sync~spin) Starting', description: 'starting', alwaysShow: true },
+    { label: '$(sync~spin) Pausing', description: 'pausing', alwaysShow: true },
+    { label: '$(sync~spin) Stopping', description: 'stopping', alwaysShow: true },
+    { label: '$(sync~spin) Resuming', description: 'resuming', alwaysShow: true },
     { label: '$(error) Failed', description: 'failed', alwaysShow: true },
     { label: '$(pass) Completed', description: 'completed', alwaysShow: true },
     { label: '$(debug-pause) Paused', description: 'paused', alwaysShow: true },
+    { label: '$(debug-alt) Inspecting', description: 'inspecting', alwaysShow: true },
   ];
 }
 
