@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import { type RunListEntry, type SaifctlCliService } from './cliService';
-import { discoverSaifctlProjects } from './projectDiscovery';
+import { discoverSaifctlProjectsInWorkspaceRoots } from './projectDiscovery';
 import {
   buildDiffDirTrie,
   type DiffDirTrieNode,
@@ -20,6 +20,12 @@ import {
   parsePatchUnmerged,
   sectionForFilePath,
 } from './runDiffParser';
+import {
+  OPTIMISTIC_RUN_STATUS_TTL_MS,
+  type OptimisticRunEntry,
+  optimisticRunKey,
+  resolveOptimisticRunStatusForFetch,
+} from './runsOptimistic';
 
 /** Config keys omitted from the tree (large script/policy bodies only; *File paths stay visible). */
 const HIDDEN_CONFIG_KEYS = new Set([
@@ -136,6 +142,8 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   private _inspectPollTimer: ReturnType<typeof setTimeout> | undefined;
   /** Epoch ms; while `Date.now() < this`, keep polling even if `run list` has not flipped to `running` yet. */
   private _liveStatusPollBoostUntil: number | undefined;
+  /** Until the next list fetch shows the server left {@link OptimisticRunEntry#prev}, show {@link OptimisticRunEntry#display}. */
+  private readonly _optimisticRunStatus = new Map<string, OptimisticRunEntry>();
   private _filterText = '';
   private _filterStatuses = new Set<RunStatus>();
   /** Parsed file stats per run after expanding Changes (lazy). */
@@ -145,7 +153,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   private readonly diffArtifactCache = new Map<string, RunDiffArtifactContext>();
 
   constructor(
-    private readonly workspaceRoot: string,
+    private readonly workspaceFolderPaths: readonly string[],
     private readonly cliService: SaifctlCliService,
   ) {}
 
@@ -190,9 +198,29 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this.refresh();
   }
 
+  /**
+   * Show {@link display} until `run list` reports a status other than {@link previous} for this run
+   * (or TTL). Triggers refresh + live polling so the UI updates immediately and then reconciles.
+   */
+  applyOptimisticRunStatus(opts: {
+    projectPath: string;
+    runId: string;
+    display: RunStatus;
+    previous: RunStatus;
+  }): void {
+    const { projectPath, runId, display, previous } = opts;
+    this._optimisticRunStatus.set(optimisticRunKey(projectPath, runId), {
+      display,
+      prev: previous,
+      setAt: Date.now(),
+    });
+    this.kickLiveStatusPolling();
+  }
+
   dispose(): void {
     this.clearInspectPoll();
     this._liveStatusPollBoostUntil = undefined;
+    this._optimisticRunStatus.clear();
     this._onDidChangeTreeData.dispose();
   }
 
@@ -253,7 +281,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
 
   async getChildren(element?: RunTreeElement): Promise<RunTreeElement[]> {
     // No workspace folder open — nothing to list.
-    if (!this.workspaceRoot) {
+    if (!this.workspaceFolderPaths.length) {
       this.clearInspectPoll();
       return [];
     }
@@ -261,11 +289,9 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     // Tree root: discover SaifCTL projects, merge runs from each via CLI, show project rows.
     if (!element) {
       try {
-        // Single VSCode workspace may contain directories,
-        // and those may contain multiple SaifCTL projects at different depths.
-        // discoverSaifctlProjects already finds all projects.
-        // We then, for each SaifCTL project, list all runs and merge them into a single list.
-        const projects = await discoverSaifctlProjects(this.workspaceRoot);
+        // Each VS Code workspace folder may contain directories with multiple SaifCTL projects
+        // at different depths. discoverSaifctlProjectsInWorkspaceRoots walks every root and dedupes.
+        const projects = await discoverSaifctlProjectsInWorkspaceRoots(this.workspaceFolderPaths);
         const merged: SaifctlRunData[] = [];
         for (const p of projects) {
           const raw = await this.cliService.listRuns(p.projectPath);
@@ -279,7 +305,15 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
             );
           }
         }
-        this.runsCache = merged;
+        const now = Date.now();
+        this.runsCache = merged.map((r) => {
+          const status = resolveOptimisticRunStatusForFetch(r, {
+            optimisticByRun: this._optimisticRunStatus,
+            now,
+            ttlMs: OPTIMISTIC_RUN_STATUS_TTL_MS,
+          }) as RunStatus;
+          return status === r.status ? r : { ...r, status };
+        });
         this.scheduleRunListPollIfNeeded(merged);
         if (!this.isFiltered) {
           return projects.map((p) => new RunProjectItem(p.name, p.projectPath));

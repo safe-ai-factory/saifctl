@@ -242,6 +242,10 @@ export class DockerEngine implements Engine {
       ([k, v]) => `${k}=${v}`,
     );
 
+    // Clear stale container from a prior failed attempt (e.g. missing sidecar binary after
+    // createContainer) so the next run does not hit Docker 409 name conflict.
+    await removeDockerContainerForce(containerName);
+
     const container = await docker.createContainer({
       Image: imageTag,
       name: containerName,
@@ -269,42 +273,50 @@ export class DockerEngine implements Engine {
       WorkingDir: '/workspace',
     });
 
-    // Inject sidecar binary only via putArchive (not baked into user images).
-    const sidecarBinary = await getSidecarBinary();
-    const tarBuffer = createTarArchive([
-      { filename: 'sidecar', content: sidecarBinary, mode: '0000755' },
-    ]);
-    await container.putArchive(tarBuffer, { path: '/saifctl' });
+    try {
+      // Inject sidecar binary only via putArchive (not baked into user images).
+      const sidecarBinary = await getSidecarBinary();
+      const tarBuffer = createTarArchive([
+        { filename: 'sidecar', content: sidecarBinary, mode: '0000755' },
+      ]);
+      await container.putArchive(tarBuffer, { path: '/saifctl' });
 
-    await container.start();
-    consola.log(`[docker] ${containerName} started`);
+      await container.start();
+      consola.log(`[docker] ${containerName} started`);
 
-    await logStagingContainerNetworkAliases({
-      container,
-      networkName,
-      containerName,
-    });
+      await logStagingContainerNetworkAliases({
+        container,
+        networkName,
+        containerName,
+      });
 
-    // New infra state after starting the staging container
-    nextInfra = dockerInfraWithContainer(nextInfra, containerName);
+      // New infra state after starting the staging container
+      nextInfra = dockerInfraWithContainer(nextInfra, containerName);
 
-    streamContainerLogs({
-      container,
-      source: 'staging',
-      containerLabel: containerName,
-      forwardLog: onLog,
-    });
+      streamContainerLogs({
+        container,
+        source: 'staging',
+        containerLabel: containerName,
+        forwardLog: onLog,
+      });
 
-    // Wait for sidecar health endpoint
-    await waitForContainerReady({ containerName, container, port: containerConfig.sidecarPort });
+      // Wait for sidecar health endpoint
+      await waitForContainerReady({ containerName, container, port: containerConfig.sidecarPort });
 
-    const sidecarUrl = `http://staging:${containerConfig.sidecarPort}${containerConfig.sidecarPath}`;
-    const targetUrl = containerConfig.baseUrl ?? sidecarUrl;
+      const sidecarUrl = `http://staging:${containerConfig.sidecarPort}${containerConfig.sidecarPath}`;
+      const targetUrl = containerConfig.baseUrl ?? sidecarUrl;
 
-    return {
-      stagingHandle: { targetUrl, sidecarUrl },
-      infra: nextInfra,
-    };
+      return {
+        stagingHandle: { targetUrl, sidecarUrl },
+        infra: nextInfra,
+      };
+    } catch (err) {
+      // Until nextInfra lists this container, teardown has no snapshot — remove orphan ourselves.
+      if (!nextInfra.containers.includes(containerName)) {
+        await removeDockerContainerForce(containerName);
+      }
+      throw err;
+    }
   }
 
   // ── 3. runTests ───────────────────────────────────────────────────────────
@@ -507,35 +519,38 @@ export class DockerEngine implements Engine {
 
     const containerName = leashTargetContainerName(sandboxBasePath);
 
-    // If a stopped coder container already exists (e.g. `run pause` / resume),
-    // restart it instead of creating a new one.
-    try {
-      const inf = await docker.getContainer(containerName).inspect();
-      const st = inf.State?.Status;
-      if (st === 'exited' || st === 'created') {
-        consola.log(
-          `[agent-runner] Resuming existing coder container ${containerName} (state: ${st})`,
-        );
-        const { exitCode, output } = await runDockerStartAttachCoderContainer({
-          containerName,
-          signal,
-          onAgentStdout,
-          onAgentStdoutEnd,
-          onLog,
-          timeoutMs: AGENT_TIMEOUT_MS,
-        }).catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          consola.error(`[agent-runner] Process error: ${msg}`);
-          return { exitCode: 1, output: msg };
-        });
-        consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
-        return {
-          agent: { success: exitCode === 0, exitCode, output },
-          infra: outInfra,
-        };
+    // Only for `--dangerous-no-leash`: `docker run` stores CMD in the container config, so
+    // `docker start -a` can resume. Leash-managed targets have no CMD / LEASH_ENTRY_COMMAND_B64;
+    // pause removes them so a fresh Leash invocation is required (see pauseInfra).
+    if (dangerousNoLeash) {
+      try {
+        const inf = await docker.getContainer(containerName).inspect();
+        const st = inf.State?.Status;
+        if (st === 'exited' || st === 'created') {
+          consola.log(
+            `[agent-runner] Resuming existing coder container ${containerName} (state: ${st})`,
+          );
+          const { exitCode, output } = await runDockerStartAttachCoderContainer({
+            containerName,
+            signal,
+            onAgentStdout,
+            onAgentStdoutEnd,
+            onLog,
+            timeoutMs: AGENT_TIMEOUT_MS,
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            consola.error(`[agent-runner] Process error: ${msg}`);
+            return { exitCode: 1, output: msg };
+          });
+          consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
+          return {
+            agent: { success: exitCode === 0, exitCode, output },
+            infra: outInfra,
+          };
+        }
+      } catch {
+        /* no container or inspect failed — fall through to fresh run */
       }
-    } catch {
-      /* no container or inspect failed — fall through to fresh run */
     }
 
     /** Set for `--dangerous-no-leash` so abort/error can `docker rm -f` the named container. */
@@ -919,18 +934,26 @@ export class DockerEngine implements Engine {
       }
     }
 
-    // Stop the coder target container
-    const coderContainerName = leashTargetContainerName(sandboxBasePath);
-    await dockerStopContainerBestEffort(coderContainerName);
+    // Remove Leash target + manager containers so resume always re-runs Leash (docker start
+    // cannot revive Leash targets: no CMD, command comes from the Leash parent + /leash volume).
+    const targetName = leashTargetContainerName(sandboxBasePath);
+    const managerName = leashManagerContainerName(sandboxBasePath);
+    await removeDockerContainerForce(managerName);
+    await removeDockerContainerForce(targetName);
 
-    consola.log('[docker] Paused coding infra (coder stopped; compose paused if configured).');
+    consola.log(
+      '[docker] Paused coding infra (coder container removed; compose paused if configured; file changes preserved).',
+    );
   }
 
   async resumeInfra(opts: EngineResumeInfraOpts): Promise<void> {
-    const { runId, projectDir } = opts;
+    const { runId, projectDir, sandboxBasePath } = opts;
+
+    // Defensive: stale exited containers after crash or old pause behavior would block Leash `docker run --name`.
+    await killSandboxCoderContainerBestEffort(sandboxBasePath);
 
     if (!this.composeFile) {
-      consola.log('[docker] No compose file configured — skipping resume.');
+      consola.log('[docker] No compose file configured — skipping compose resume.');
       return;
     }
 
@@ -958,14 +981,8 @@ export class DockerEngine implements Engine {
       return false;
     }
 
-    // Verify every container recorded on the infra exists (stopped or running).
-    for (const cname of infra.containers) {
-      try {
-        await docker.getContainer(cname).inspect();
-      } catch {
-        return false;
-      }
-    }
+    // After pause, Leash target + manager containers are removed intentionally; only the bridge
+    // network (and compose stack) must persist for run resume.
 
     // NOTE: No need to check for `DockerLiveInfra.stagingImages`,
     // we create them on the spot and track them only for cleanup.
@@ -1190,9 +1207,36 @@ function leashWorkspaceId(sandboxBasePath: string): string {
 /**
  * Docker container name for the coder target when `TARGET_CONTAINER` is set for Leash
  * (`leash-target-<workspaceId>`). Used for `--dangerous-no-leash` so names match Leash runs.
+ *
+ * Exported so callers (e.g. sandbox teardown on stale-dir cleanup) can stop the container
+ * by name without needing a live infra snapshot.
  */
-function leashTargetContainerName(sandboxBasePath: string): string {
+export function leashTargetContainerName(sandboxBasePath: string): string {
   return `leash-target-${leashWorkspaceId(sandboxBasePath)}`;
+}
+
+/**
+ * Leash manager container name (`defaultContainerBaseNames` in leash: `{target}-leash`).
+ * Shares the target's network namespace (`--network container:<target>`).
+ */
+export function leashManagerContainerName(sandboxBasePath: string): string {
+  return `${leashTargetContainerName(sandboxBasePath)}-leash`;
+}
+
+/** Best-effort: remove Leash manager + coder target containers for a sandbox path. */
+export async function killSandboxCoderContainerBestEffort(sandboxBasePath: string): Promise<void> {
+  const manager = leashManagerContainerName(sandboxBasePath);
+  const target = leashTargetContainerName(sandboxBasePath);
+  try {
+    await docker.getContainer(manager).remove({ force: true });
+  } catch {
+    /* absent or Docker unavailable */
+  }
+  try {
+    await docker.getContainer(target).remove({ force: true });
+  } catch {
+    /* absent or Docker unavailable */
+  }
 }
 
 /**
@@ -1296,15 +1340,6 @@ async function removeDockerContainerForce(nameOrId: string): Promise<void> {
     await docker.getContainer(nameOrId).remove({ force: true });
   } catch {
     /* absent, --rm race, etc. */
-  }
-}
-
-/** Best-effort `docker stop` (ignores not running / missing). */
-async function dockerStopContainerBestEffort(nameOrId: string): Promise<void> {
-  try {
-    await docker.getContainer(nameOrId).stop({ t: 15 });
-  } catch {
-    /* not running, absent */
   }
 }
 
@@ -1486,9 +1521,6 @@ function startLeashNetworkAttach(networkName: string, workspaceId: string): Netw
 
 let sidecarBinaryCache: Buffer | null = null;
 
-// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
-// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
-// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
 async function getSidecarBinary(): Promise<Buffer> {
   // Loaded lazily to avoid blocking startup.
   if (sidecarBinaryCache) return sidecarBinaryCache;

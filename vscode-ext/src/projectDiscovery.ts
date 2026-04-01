@@ -80,3 +80,19 @@ export async function discoverSaifctlProjects(workspaceRoot: string): Promise<Sa
   projects.sort((a, b) => a.name.localeCompare(b.name));
   return projects;
 }
+
+/**
+ * Discover SaifCTL projects under each workspace root path (multi-root), deduped by absolute path.
+ */
+export async function discoverSaifctlProjectsInWorkspaceRoots(
+  workspaceFolderPaths: readonly string[],
+): Promise<SaifctlProject[]> {
+  const byPath = new Map<string, SaifctlProject>();
+  for (const root of workspaceFolderPaths) {
+    const found = await discoverSaifctlProjects(root);
+    for (const p of found) {
+      byPath.set(p.projectPath, p);
+    }
+  }
+  return [...byPath.values()].sort((a, b) => a.name.localeCompare(b.name));
+}

@@ -382,6 +382,7 @@ export function createFeatRunWorkflow() {
         runCommits: opts.fromArtifact?.seedRunCommits ?? [],
         runId: persistedRunId,
         includeDirty: opts.includeDirty,
+        reuseExistingSandbox: !!opts.fromArtifact?.reuseExistingSandbox,
       });
 
       // ─── Set status to "running" ─────

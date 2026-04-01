@@ -25,5 +25,6 @@ suite('SaifCTL extension test suite', () => {
       'openFeatureProposal command is missing',
     );
     assert.ok(commands.includes('saifctl.showLogs'), 'showLogs command is missing');
+    assert.ok(commands.includes('saifctl.manageSecrets'), 'manageSecrets command is missing');
   });
 });

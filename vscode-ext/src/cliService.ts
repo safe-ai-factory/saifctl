@@ -13,6 +13,7 @@ import { basename, join } from 'node:path';
 import * as vscode from 'vscode';
 
 import { resolveCliInvocation, type ResolverLog } from './binaryResolver';
+import { type EnvManager } from './envManager';
 import { logger, saifctlOutputChannel } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
 
@@ -99,6 +100,22 @@ export class SaifctlCliService {
   private terminals: Map<string, vscode.Terminal> = new Map();
   private resolvedInvocationCache = new Map<string, string>();
 
+  constructor(private readonly envManager: EnvManager) {}
+
+  /** Drop cached handles when the user closes a terminal tab (stale refs would swallow sendText). */
+  public forgetClosedTerminal(closed: vscode.Terminal): void {
+    for (const [name, t] of this.terminals) {
+      if (t === closed) {
+        this.terminals.delete(name);
+      }
+    }
+  }
+
+  /** One tab per run for `run start` / `run resume` so resume reuses the visible session. */
+  private runSessionTerminalName(runId: string): string {
+    return `SaifCTL run: ${runId}`;
+  }
+
   /** Drop cached `saifctl` invocation strings (e.g. after install or settings change). */
   public invalidateCache(): void {
     this.resolvedInvocationCache.clear();
@@ -159,7 +176,8 @@ export class SaifctlCliService {
       return true;
     }
     try {
-      await spawnUserCmdCapture(await this.cliCommand(cwd, 'version'), { cwd });
+      const env = await this.envManager.resolveEnv(cwd);
+      await spawnUserCmdCapture(await this.cliCommand(cwd, 'version'), { cwd, env });
       return true;
     } catch {
       return false;
@@ -175,7 +193,8 @@ export class SaifctlCliService {
       logger.info(`Executing: ${command}`);
       logger.debug(`CWD: ${cwd}`);
 
-      const out = await spawnUserCmdCapture(command, { cwd });
+      const env = await this.envManager.resolveEnv(cwd);
+      const out = await spawnUserCmdCapture(command, { cwd, env });
       logger.trace(`Output: ${out}`);
       return out.trim();
     } catch (error: unknown) {
@@ -200,7 +219,8 @@ export class SaifctlCliService {
   private async executeInBackgroundSilent(command: string, cwd: string): Promise<string | null> {
     try {
       logger.info(`Executing (silent): ${command}`);
-      const out = await spawnUserCmdCapture(command, { cwd });
+      const env = await this.envManager.resolveEnv(cwd);
+      const out = await spawnUserCmdCapture(command, { cwd, env });
       return out.trim();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -213,20 +233,36 @@ export class SaifctlCliService {
    * Executes a command in a visible VS Code Terminal.
    * Use for long-running agent processes (run, design, validate).
    */
-  private executeInTerminal(opts: { command: string; terminalName: string; cwd: string }): void {
+  private async executeInTerminal(opts: {
+    command: string;
+    terminalName: string;
+    cwd: string;
+  }): Promise<void> {
     const { command, terminalName, cwd } = opts;
+    const env = await this.envManager.resolveEnv(cwd);
     let terminal = this.terminals.get(terminalName);
 
-    if (!terminal || terminal.exitStatus !== undefined) {
+    if (terminal && terminal.exitStatus !== undefined) {
+      this.terminals.delete(terminalName);
+      terminal = undefined;
+    }
+
+    if (!terminal) {
       terminal = vscode.window.createTerminal({
         name: terminalName,
         cwd,
+        env,
       });
       this.terminals.set(terminalName, terminal);
     }
 
     terminal.show(false);
-    terminal.sendText(command);
+    const si = terminal.shellIntegration;
+    if (si) {
+      si.executeCommand(command);
+    } else {
+      terminal.sendText(command, true);
+    }
   }
 
   // ============================================================================
@@ -242,7 +278,7 @@ export class SaifctlCliService {
   }
 
   public async runFeature(featureName: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `feat run -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL run: ${featureName}`,
       cwd,
@@ -250,7 +286,7 @@ export class SaifctlCliService {
   }
 
   public async designFeature(featureName: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `feat design -y -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL design: ${featureName}`,
       cwd,
@@ -258,7 +294,7 @@ export class SaifctlCliService {
   }
 
   public async designFeatureSpecsOnly(featureName: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `feat design-specs -y -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL design-specs: ${featureName}`,
       cwd,
@@ -266,7 +302,7 @@ export class SaifctlCliService {
   }
 
   public async validateFeatureTests(featureName: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `feat design-fail2pass -y -n ${escapeArg(featureName)}`),
       terminalName: `SaifCTL validate tests: ${featureName}`,
       cwd,
@@ -389,16 +425,16 @@ index 0000000..abc
   }
 
   public async fromArtifact(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run start ${escapeArg(runId)}`),
-      terminalName: `SaifCTL start: ${runId}`,
+      terminalName: this.runSessionTerminalName(runId),
       cwd,
     });
   }
 
   /** Idle coding container for a saved run (`saifctl run inspect`). */
   public async inspectRun(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run inspect ${escapeArg(runId)}`),
       terminalName: `SaifCTL inspect: ${runId}`,
       cwd,
@@ -407,7 +443,7 @@ index 0000000..abc
 
   /** Re-run tests for a saved run without the agent (`saifctl run test`). */
   public async testRun(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run test ${escapeArg(runId)}`),
       terminalName: `SaifCTL test: ${runId}`,
       cwd,
@@ -416,7 +452,7 @@ index 0000000..abc
 
   /** Apply run commits to the host repo as a branch (`saifctl run apply`). */
   public async applyRun(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run apply ${escapeArg(runId)}`),
       terminalName: `SaifCTL apply: ${runId}`,
       cwd,
@@ -425,7 +461,7 @@ index 0000000..abc
 
   /** Export run as a patch file (`saifctl run export`). */
   public async exportRun(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run export ${escapeArg(runId)}`),
       terminalName: `SaifCTL export: ${runId}`,
       cwd,
@@ -491,11 +527,20 @@ index 0000000..abc
     vscode.window.showInformationMessage(`Stop requested for run: ${runId}`);
   }
 
+  /** Force-stop a run (`saifctl run stop --force`). */
+  public async forceStopRun(runId: string, cwd: string): Promise<void> {
+    await this.executeInBackground(
+      await this.cliCommand(cwd, `run stop ${escapeArg(runId)} --force`),
+      cwd,
+    );
+    vscode.window.showInformationMessage(`Force stop requested for run: ${runId}`);
+  }
+
   /** Resume a paused run in the terminal (`saifctl run resume`). */
   public async resumeRun(runId: string, cwd: string): Promise<void> {
-    this.executeInTerminal({
+    await this.executeInTerminal({
       command: await this.cliCommand(cwd, `run resume ${escapeArg(runId)}`),
-      terminalName: `SaifCTL resume: ${runId}`,
+      terminalName: this.runSessionTerminalName(runId),
       cwd,
     });
   }

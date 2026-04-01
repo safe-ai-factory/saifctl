@@ -2,7 +2,7 @@
 
 Continue a **paused** Run (paused by [`run pause`](run-pause.md)).
 
-Reuses existing sandbox and Docker containers if they still exist.
+File changes and Docker services are reused. The coder container is recreated.
 
 If they are missing, behaves the same as [`run start`](run-start.md).
 
@@ -47,7 +47,7 @@ saifctl run resume biehp82 --storage runs=s3://my-bucket/runs
 
 ## Notes
 
-- If the paused sandbox or Docker containers are missing, **`run resume`** continues in the same way as [`run start`](run-start.md).
+- If the paused sandbox or Docker network are missing, **`run resume`** continues in the same way as [`run start`](run-start.md).
 
 - **`run resume` vs `run start`:** Use **`resume`** only when the artifact says **`paused`**. Use **`start`** for **`failed`**, **`completed`** (re-run), or interrupted states without a pause.
 

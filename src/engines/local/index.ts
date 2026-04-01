@@ -16,6 +16,7 @@ import type {
   EngineSetupOpts,
   EngineSetupResult,
   EngineTeardownOpts,
+  EngineVerifyResumeInfraOpts,
   RunAgentEngineResult,
   RunAgentOpts,
   RunTestsEngineResult,
@@ -50,7 +51,7 @@ export class LocalEngine implements Engine {
     // Host coding — no compose stack to unpause (orchestrator still calls this on fromArtifact resume).
   }
 
-  async verifyInfraToResume(_opts: EngineResumeInfraOpts): Promise<boolean> {
+  async verifyInfraToResume(_opts: EngineVerifyResumeInfraOpts): Promise<boolean> {
     // Host coding has no external infra; the sandbox directory check in runResumeCore is sufficient.
     return true;
   }

@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
+import { leashManagerContainerName, leashTargetContainerName } from '../engines/docker/index.js';
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
@@ -41,6 +42,14 @@ index 111aaaa..222bbbb 100644
 -{}
 +{"testCases":[]}
 `;
+
+describe('Leash container naming (pause/resume / stale cleanup)', () => {
+  it('manager name is target name with -leash suffix (matches leash runner)', () => {
+    const base = '/tmp/saifctl/sandboxes/saifctl-dummy-abc12';
+    const target = leashTargetContainerName(base);
+    expect(leashManagerContainerName(base)).toBe(`${target}-leash`);
+  });
+});
 
 describe('sandboxFromPausedBasePath', () => {
   it('derives code, saifctl, and host-base paths', () => {
@@ -517,7 +526,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
     }
   });
 
-  it('throws when sandbox dir already exists (collision)', async () => {
+  it('removes existing sandbox and recreates on collision unless reuseExistingSandbox', async () => {
     const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
     const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
@@ -588,11 +597,18 @@ describe('createSandbox + destroySandbox (integration)', () => {
       };
 
       const first = await createSandbox(baseOpts);
-      await expect(createSandbox(baseOpts)).rejects.toThrow(/Sandbox directory already exists/);
+      await expect(
+        createSandbox({ ...baseOpts, reuseExistingSandbox: true }),
+      ).resolves.toMatchObject({
+        sandboxBasePath: first.sandboxBasePath,
+        runId: 'resume-lock-1',
+      });
 
-      await destroySandbox(first.sandboxBasePath);
-      await createSandbox(baseOpts);
-      await destroySandbox(first.sandboxBasePath);
+      const afterReuse = await createSandbox(baseOpts);
+      expect(afterReuse.sandboxBasePath).toBe(first.sandboxBasePath);
+      expect(await pathExists(join(afterReuse.codePath, '.git'))).toBe(true);
+
+      await destroySandbox(afterReuse.sandboxBasePath);
     } finally {
       await rm(projectDir, { recursive: true, force: true });
       if (await pathExists(sandboxBaseDir)) {

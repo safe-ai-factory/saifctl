@@ -9,13 +9,16 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
+import { withApiKeyGuard } from './apiKeyGuard';
 import { findBestInstallCwd, type ResolverLog } from './binaryResolver';
 import { SaifctlCliService } from './cliService';
+import { EnvManager } from './envManager';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
 import { goToFeatureForRun } from './goToFeatureFromRun';
 import { attachFromRunInfo, waitAndAttachAfterInspectStart } from './inspectAttach';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
+import { pickAndOpenPrimaryEnvFile, showManageSecretsQuickPick } from './manageSecrets';
 import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
 import { RunDiffContentProvider, runDiffUri } from './runDiffContentProvider';
 import {
@@ -67,7 +70,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   logger.info('SaifCTL extension is now active!');
 
-  const cliService = new SaifctlCliService();
+  const envManager = new EnvManager(context);
 
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
@@ -77,6 +80,31 @@ export async function activate(context: vscode.ExtensionContext) {
     );
     return;
   }
+
+  const workspaceFolderPaths = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+
+  const cliService = new SaifctlCliService(envManager);
+  context.subscriptions.push(
+    vscode.window.onDidCloseTerminal((closed) => {
+      cliService.forgetClosedTerminal(closed);
+    }),
+  );
+
+  const openEnvFile = () => pickAndOpenPrimaryEnvFile();
+  const manageKeys = () => showManageSecretsQuickPick(envManager);
+
+  const apiKeyCallbacks = { onConfigureKeys: manageKeys, onOpenEnvFile: openEnvFile };
+
+  const withLlmKeys = <T extends unknown[]>(
+    getCwd: (...args: T) => string,
+    inner: (...args: T) => unknown | Promise<unknown>,
+  ) =>
+    withApiKeyGuard({
+      envManager,
+      getCwd,
+      callbacks: apiKeyCallbacks,
+      callback: inner,
+    });
 
   let isCliCurrentlyInstalled = false;
 
@@ -139,7 +167,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // 2. Tree Providers Setup
   // ============================================================================
 
-  const featuresProvider = new FeaturesTreeProvider(workspaceRoot);
+  const featuresProvider = new FeaturesTreeProvider(workspaceFolderPaths);
   const featuresTreeView = vscode.window.createTreeView('saifctl-features', {
     treeDataProvider: featuresProvider,
     showCollapseAll: true,
@@ -180,7 +208,7 @@ export async function activate(context: vscode.ExtensionContext) {
   binWatcher.onDidDelete(onBinFs('delete'));
   context.subscriptions.push(binWatcher);
 
-  const runsProvider = new RunsTreeProvider(workspaceRoot, cliService);
+  const runsProvider = new RunsTreeProvider(workspaceFolderPaths, cliService);
   const runsTreeView = vscode.window.createTreeView<RunTreeElement>('saifctl-runs', {
     treeDataProvider: runsProvider,
     showCollapseAll: true,
@@ -205,6 +233,9 @@ export async function activate(context: vscode.ExtensionContext) {
         runsProvider.refresh();
       })();
     }
+    if (e.affectsConfiguration('saifctl.envFiles')) {
+      logger.info(`SaifCTL settings: envFiles=${JSON.stringify(cfg.get('envFiles'))}`);
+    }
   });
   context.subscriptions.push(saifctlSettingsListener);
 
@@ -213,9 +244,18 @@ export async function activate(context: vscode.ExtensionContext) {
     return typeof item.label === 'string' ? item.label : item.label?.label;
   };
 
+  /** Walk `runTreeParent` from a child row (Status, Config, …) to the owning {@link RunItem}. */
+  function nearestRunItem(item?: vscode.TreeItem): RunItem | undefined {
+    let cur: vscode.TreeItem | undefined = item;
+    for (let depth = 0; depth < 24 && cur; depth++) {
+      if (cur instanceof RunItem) return cur;
+      cur = (cur as { runTreeParent?: vscode.TreeItem }).runTreeParent;
+    }
+    return undefined;
+  }
+
   /** SaifCTL run id for CLI commands — not the same as {@link vscode.TreeItem.id} (which is scoped for tree uniqueness). */
-  const getRunId = (item?: vscode.TreeItem): string | undefined =>
-    item instanceof RunItem ? item.runData.id : undefined;
+  const getRunId = (item?: vscode.TreeItem): string | undefined => nearestRunItem(item)?.runData.id;
 
   // ============================================================================
   // 3. Feature Management Commands
@@ -301,16 +341,19 @@ export async function activate(context: vscode.ExtensionContext) {
   const runFeatureCmd = vscode.commands.registerCommand(
     'saifctl.runFeature',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.runFeature', startDetail: logDetailFeatureCommand },
-        async (item?: vscode.TreeItem) => {
-          const name = getItemName(item);
-          const cwd = getCwdForFeature(item);
-          if (name) {
-            void cliService.runFeature(name, cwd);
-            runsProvider.kickLiveStatusPolling();
-          }
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForFeature(item),
+        loggedCommand(
+          { commandId: 'saifctl.runFeature', startDetail: logDetailFeatureCommand },
+          async (item?: vscode.TreeItem) => {
+            const name = getItemName(item);
+            const cwd = getCwdForFeature(item);
+            if (name) {
+              void cliService.runFeature(name, cwd);
+              runsProvider.kickLiveStatusPolling();
+            }
+          },
+        ),
       ),
     ),
   );
@@ -318,13 +361,16 @@ export async function activate(context: vscode.ExtensionContext) {
   const designFeatureCmd = vscode.commands.registerCommand(
     'saifctl.designFeature',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.designFeature', startDetail: logDetailFeatureCommand },
-        async (item?: vscode.TreeItem) => {
-          const name = getItemName(item);
-          const cwd = getCwdForFeature(item);
-          if (name) void cliService.designFeature(name, cwd);
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForFeature(item),
+        loggedCommand(
+          { commandId: 'saifctl.designFeature', startDetail: logDetailFeatureCommand },
+          async (item?: vscode.TreeItem) => {
+            const name = getItemName(item);
+            const cwd = getCwdForFeature(item);
+            if (name) void cliService.designFeature(name, cwd);
+          },
+        ),
       ),
     ),
   );
@@ -332,13 +378,16 @@ export async function activate(context: vscode.ExtensionContext) {
   const designFeatureSpecsCmd = vscode.commands.registerCommand(
     'saifctl.designFeatureSpecs',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.designFeatureSpecs', startDetail: logDetailFeatureCommand },
-        async (item?: vscode.TreeItem) => {
-          const name = getItemName(item);
-          const cwd = getCwdForFeature(item);
-          if (name) void cliService.designFeatureSpecsOnly(name, cwd);
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForFeature(item),
+        loggedCommand(
+          { commandId: 'saifctl.designFeatureSpecs', startDetail: logDetailFeatureCommand },
+          async (item?: vscode.TreeItem) => {
+            const name = getItemName(item);
+            const cwd = getCwdForFeature(item);
+            if (name) void cliService.designFeatureSpecsOnly(name, cwd);
+          },
+        ),
       ),
     ),
   );
@@ -346,13 +395,16 @@ export async function activate(context: vscode.ExtensionContext) {
   const validateFeatureTestsCmd = vscode.commands.registerCommand(
     'saifctl.validateFeatureTests',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.validateFeatureTests', startDetail: logDetailFeatureCommand },
-        async (item?: vscode.TreeItem) => {
-          const name = getItemName(item);
-          const cwd = getCwdForFeature(item);
-          if (name) void cliService.validateFeatureTests(name, cwd);
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForFeature(item),
+        loggedCommand(
+          { commandId: 'saifctl.validateFeatureTests', startDetail: logDetailFeatureCommand },
+          async (item?: vscode.TreeItem) => {
+            const name = getItemName(item);
+            const cwd = getCwdForFeature(item);
+            if (name) void cliService.validateFeatureTests(name, cwd);
+          },
+        ),
       ),
     ),
   );
@@ -454,7 +506,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   const getCwdForRun = (item?: vscode.TreeItem): string =>
-    item instanceof RunItem ? item.projectPath : workspaceRoot;
+    nearestRunItem(item)?.projectPath ?? workspaceRoot;
 
   const logDetailRunCommand = (item?: vscode.TreeItem): string => {
     const runId = getRunId(item) ?? getItemName(item);
@@ -467,16 +519,19 @@ export async function activate(context: vscode.ExtensionContext) {
   const fromArtifactCmd = vscode.commands.registerCommand(
     'saifctl.fromArtifact',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.fromArtifact', startDetail: logDetailRunCommand },
-        async (item?: vscode.TreeItem) => {
-          const runId = getRunId(item);
-          const cwd = getCwdForRun(item);
-          if (runId) {
-            void cliService.fromArtifact(runId, cwd);
-            runsProvider.kickLiveStatusPolling();
-          }
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForRun(item),
+        loggedCommand(
+          { commandId: 'saifctl.fromArtifact', startDetail: logDetailRunCommand },
+          async (item?: vscode.TreeItem) => {
+            const runId = getRunId(item);
+            const cwd = getCwdForRun(item);
+            if (runId) {
+              void cliService.fromArtifact(runId, cwd);
+              runsProvider.kickLiveStatusPolling();
+            }
+          },
+        ),
       ),
     ),
   );
@@ -487,11 +542,17 @@ export async function activate(context: vscode.ExtensionContext) {
       loggedCommand(
         { commandId: 'saifctl.pauseRun', startDetail: logDetailRunCommand },
         async (item?: vscode.TreeItem) => {
-          const runId = getRunId(item);
+          const run = nearestRunItem(item);
+          const runId = run?.runData.id;
           const cwd = getCwdForRun(item);
-          if (!runId) return;
+          if (!runId || !run) return;
           await cliService.pauseRun(runId, cwd);
-          runsProvider.refresh();
+          runsProvider.applyOptimisticRunStatus({
+            projectPath: run.projectPath,
+            runId,
+            display: 'pausing',
+            previous: run.runData.status,
+          });
         },
       ),
     ),
@@ -503,11 +564,39 @@ export async function activate(context: vscode.ExtensionContext) {
       loggedCommand(
         { commandId: 'saifctl.stopRun', startDetail: logDetailRunCommand },
         async (item?: vscode.TreeItem) => {
-          const runId = getRunId(item);
+          const run = nearestRunItem(item);
+          const runId = run?.runData.id;
           const cwd = getCwdForRun(item);
-          if (!runId) return;
+          if (!runId || !run) return;
           await cliService.stopRun(runId, cwd);
-          runsProvider.refresh();
+          runsProvider.applyOptimisticRunStatus({
+            projectPath: run.projectPath,
+            runId,
+            display: 'stopping',
+            previous: run.runData.status,
+          });
+        },
+      ),
+    ),
+  );
+
+  const forceStopRunCmd = vscode.commands.registerCommand(
+    'saifctl.forceStopRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.forceStopRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const run = nearestRunItem(item);
+          const runId = run?.runData.id;
+          const cwd = getCwdForRun(item);
+          if (!runId || !run) return;
+          await cliService.forceStopRun(runId, cwd);
+          runsProvider.applyOptimisticRunStatus({
+            projectPath: run.projectPath,
+            runId,
+            display: 'stopping',
+            previous: run.runData.status,
+          });
         },
       ),
     ),
@@ -516,16 +605,24 @@ export async function activate(context: vscode.ExtensionContext) {
   const resumeRunCmd = vscode.commands.registerCommand(
     'saifctl.resumeRun',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.resumeRun', startDetail: logDetailRunCommand },
-        async (item?: vscode.TreeItem) => {
-          const runId = getRunId(item);
-          const cwd = getCwdForRun(item);
-          if (runId) {
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForRun(item),
+        loggedCommand(
+          { commandId: 'saifctl.resumeRun', startDetail: logDetailRunCommand },
+          async (item?: vscode.TreeItem) => {
+            const run = nearestRunItem(item);
+            const runId = run?.runData.id;
+            const cwd = getCwdForRun(item);
+            if (!runId || !run) return;
             void cliService.resumeRun(runId, cwd);
-            runsProvider.kickLiveStatusPolling();
-          }
-        },
+            runsProvider.applyOptimisticRunStatus({
+              projectPath: run.projectPath,
+              runId,
+              display: 'resuming',
+              previous: run.runData.status,
+            });
+          },
+        ),
       ),
     ),
   );
@@ -573,13 +670,16 @@ export async function activate(context: vscode.ExtensionContext) {
   const testRunCmd = vscode.commands.registerCommand(
     'saifctl.testRun',
     withCliGuard(
-      loggedCommand(
-        { commandId: 'saifctl.testRun', startDetail: logDetailRunCommand },
-        async (item?: vscode.TreeItem) => {
-          const runId = getRunId(item);
-          const cwd = getCwdForRun(item);
-          if (runId) void cliService.testRun(runId, cwd);
-        },
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForRun(item),
+        loggedCommand(
+          { commandId: 'saifctl.testRun', startDetail: logDetailRunCommand },
+          async (item?: vscode.TreeItem) => {
+            const runId = getRunId(item);
+            const cwd = getCwdForRun(item);
+            if (runId) void cliService.testRun(runId, cwd);
+          },
+        ),
       ),
     ),
   );
@@ -857,6 +957,13 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  const manageSecretsCmd = vscode.commands.registerCommand(
+    'saifctl.manageSecrets',
+    loggedCommand('saifctl.manageSecrets', async () => {
+      await showManageSecretsQuickPick(envManager);
+    }),
+  );
+
   const recheckInstallCmd = vscode.commands.registerCommand(
     'saifctl.recheckInstall',
     loggedCommand(
@@ -906,6 +1013,7 @@ export async function activate(context: vscode.ExtensionContext) {
     fromArtifactCmd,
     pauseRunCmd,
     stopRunCmd,
+    forceStopRunCmd,
     resumeRunCmd,
     inspectRunCmd,
     attachInspectContainerCmd,
@@ -927,6 +1035,7 @@ export async function activate(context: vscode.ExtensionContext) {
     openRunFileDiffCmd,
     expandRunDiffDirRecursiveCmd,
     showLogsCmd,
+    manageSecretsCmd,
     recheckInstallCmd,
   );
 }

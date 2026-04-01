@@ -37,6 +37,7 @@
     "dist",
     "src/orchestrator/scripts",
     "src/orchestrator/policies",
+    "src/orchestrator/sidecars/cli-over-http/out",
     "src/sandbox-profiles",
     "src/agent-profiles",
     "src/test-profiles",

@@ -408,7 +408,8 @@ export interface Engine {
    * Check whether the paused infrastructure for a run is still present and intact.
    * Used by `run resume` before attempting to restore the sandbox.
    *
-   * Docker: verifies the bridge network and the stopped coder container both exist.
+   * Docker: verifies the bridge network still exists. Leash/coder containers are removed on pause
+   * and recreated on resume; they are not required to exist here.
    * Local: always returns `true` (no external infra to verify).
    */
   verifyInfraToResume(opts: EngineVerifyResumeInfraOpts): Promise<boolean>;

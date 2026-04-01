@@ -10,7 +10,7 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { discoverSaifctlProjects } from './projectDiscovery';
+import { discoverSaifctlProjectsInWorkspaceRoots } from './projectDiscovery';
 
 export type SaifctlTreeItem = ProjectItem | FeatureItem | FileItem | DirItem;
 
@@ -29,7 +29,7 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
 
   private _filterText = '';
 
-  constructor(private readonly workspaceRoot: string) {}
+  constructor(private readonly workspaceFolderPaths: readonly string[]) {}
 
   /** Current filter string (as entered; tree matches case-insensitively). */
   get filterText(): string {
@@ -77,7 +77,7 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
   }
 
   private parentProjectItemForFeature(feature: FeatureItem): vscode.ProviderResult<ProjectItem> {
-    return discoverSaifctlProjects(this.workspaceRoot).then((projects) => {
+    return discoverSaifctlProjectsInWorkspaceRoots(this.workspaceFolderPaths).then((projects) => {
       const meta = projects.find((p) => p.projectPath === feature.projectPath);
       const label = meta?.name ?? path.basename(feature.projectPath);
       const item = new ProjectItem(label, feature.projectPath);
@@ -86,7 +86,7 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
   }
 
   async getChildren(element?: SaifctlTreeItem): Promise<SaifctlTreeItem[]> {
-    if (!this.workspaceRoot) {
+    if (!this.workspaceFolderPaths.length) {
       return [];
     }
 
@@ -158,7 +158,7 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
   }
 
   public async getProjects(): Promise<ProjectItem[]> {
-    const discovered = await discoverSaifctlProjects(this.workspaceRoot);
+    const discovered = await discoverSaifctlProjectsInWorkspaceRoots(this.workspaceFolderPaths);
     return discovered.map((p) => new ProjectItem(p.name, p.projectPath));
   }
 

@@ -1,8 +1,6 @@
 # saifctl run pause
 
-Pause a **running** Run without tearing down the sandbox. Use [`run resume`](run-resume.md) to continue.
-
-All Docker containers stop, the network is kept.
+Pause a **running** Run. Resumable. Keeps file changes and Docker services. Use [`run resume`](run-resume.md) to continue.
 
 ## Usage
 

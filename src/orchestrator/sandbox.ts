@@ -34,7 +34,11 @@ import type { RunCommit } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitDiff, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, spawnAsync, spawnWait, writeUtf8 } from '../utils/io.js';
+import { isErrnoCode, retryWithBackoff } from '../utils/retry.js';
 import { replayRunCommits, SAIFCTL_DEFAULT_AUTHOR } from './patch.js';
+
+/** `fs.rm` can throw these while the agent or pnpm still touches a bind-mounted sandbox tree. */
+const RETRIABLE_RM_CODES = new Set(['ENOTEMPTY', 'EBUSY', 'EPERM', 'EAGAIN', 'EMFILE', 'ENFILE']);
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
@@ -207,6 +211,13 @@ export interface CreateSandboxOpts {
    * Ignored when {@link codeSourceDir} is set (from-artifact): always rsync from that directory.
    */
   includeDirty: boolean;
+  /**
+   * When true, if `{project}-{feature}-{runId}` already exists under {@link sandboxBaseDir}, reuse it:
+   * refresh `host-base.patch`, public `tests.json`, and mounted scripts — no rsync and no `git init`
+   * in `code/`. Used when `run resume` rebuilds from artifact but the paused sandbox tree is still
+   * on disk (e.g. Docker infra gone, directory left behind).
+   */
+  reuseExistingSandbox?: boolean;
 }
 
 /**
@@ -280,6 +291,134 @@ export async function diffUntrackedFilesVersusDevNull(projectDir: string): Promi
   return chunks.join('');
 }
 
+interface RefreshSandboxScriptsOpts {
+  projectDir: string;
+  copyWorkingTree: boolean;
+  hostBasePatchPath: string;
+  codePath: string;
+  saifctlPath: string;
+  feature: Feature;
+  gateScript: string;
+  startupScript: string;
+  agentInstallScript: string;
+  agentScript: string;
+  stageScript: string;
+  cedarScript: string;
+  gatePath: string;
+  startupPath: string;
+  agentInstallPath: string;
+  agentPath: string;
+  stagePath: string;
+  cedarPolicyPath: string;
+}
+
+/**
+ * Refresh the mutable parts of an existing sandbox without touching the code tree or git history.
+ *
+ * Called on the `run resume` path when the sandbox directory is still on disk but the coder/leash
+ * containers have been removed (they will be recreated by the engine). Updates:
+ * - `host-base.patch`   — recaptures the host's current working-tree diff so `applyPatchToHost`
+ *                         stays accurate if the user edited files between pause and resume.
+ * - `tests.json`        — re-filters the catalog so the agent only sees public tests.
+ * - shell scripts       — gate.sh, startup.sh, agent-install.sh, agent.sh, stage.sh, cedar policy,
+ *                         and the factory-provided coder-start.sh / staging-start.sh / reviewer.sh.
+ *
+ * This function is intentionally separate from `createSandbox` so the reuse branch remains easy to
+ * reason about and test in isolation.
+ */
+async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<void> {
+  const {
+    projectDir,
+    copyWorkingTree,
+    hostBasePatchPath,
+    codePath,
+    saifctlPath,
+    feature,
+    gateScript,
+    startupScript,
+    agentInstallScript,
+    agentScript,
+    stageScript,
+    cedarScript,
+    gatePath,
+    startupPath,
+    agentInstallPath,
+    agentPath,
+    stagePath,
+    cedarPolicyPath,
+  } = opts;
+
+  if (!(await pathExists(projectDir))) {
+    throw new Error(
+      `[sandbox] Source directory does not exist (cannot refresh host-base.patch). Path: ${projectDir}`,
+    );
+  }
+
+  // Re-capture host working-tree diff so applyPatchToHost stays accurate after pause/resume.
+  if (!copyWorkingTree) {
+    await writeUtf8(hostBasePatchPath, '');
+    consola.log('[sandbox] host-base.patch empty (sandbox matches HEAD; no uncommitted snapshot)');
+  } else {
+    const trackedPatch = await gitDiff({ cwd: projectDir, args: ['--binary', 'HEAD'] });
+    const untrackedPatch = await diffUntrackedFilesVersusDevNull(projectDir);
+    const parts: string[] = [];
+    if (trackedPatch.trim()) {
+      parts.push(trackedPatch.endsWith('\n') ? trackedPatch : `${trackedPatch}\n`);
+    }
+    if (untrackedPatch.trim()) {
+      parts.push(untrackedPatch.endsWith('\n') ? untrackedPatch : `${untrackedPatch}\n`);
+    }
+    const hostBasePatch = parts.join('');
+    await writeUtf8(hostBasePatchPath, hostBasePatch);
+    if (hostBasePatch.trim()) {
+      const lineCount = hostBasePatch.split('\n').length;
+      consola.log(
+        `[sandbox] Captured ${lineCount} lines of host uncommitted + untracked changes to host-base.patch`,
+      );
+    } else {
+      consola.log('[sandbox] Host working tree is clean — host-base.patch is empty');
+    }
+  }
+
+  // Re-filter tests.json so the agent only sees public test cases after resume.
+  const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
+  if (!(await pathExists(testsJsonPath))) {
+    throw new Error(
+      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
+    );
+  }
+  const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
+  const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
+  const publicCatalog: TestCatalog = {
+    ...catalog,
+    testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
+  };
+  await mkdir(inCodeTestsDir, { recursive: true });
+  await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
+  const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
+  const publicCount = publicCatalog.testCases.length;
+  consola.log(`[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`);
+
+  // Overwrite all mounted scripts so that changes between pause and resume are picked up.
+  await writeUtf8(gatePath, gateScript);
+  await chmod(gatePath, 0o755);
+  await writeUtf8(startupPath, startupScript);
+  await chmod(startupPath, 0o755);
+  await writeUtf8(agentInstallPath, agentInstallScript);
+  await chmod(agentInstallPath, 0o755);
+  await writeUtf8(agentPath, agentScript);
+  await chmod(agentPath, 0o755);
+  await writeUtf8(stagePath, stageScript);
+  await chmod(stagePath, 0o755);
+  await writeUtf8(cedarPolicyPath, cedarScript);
+  for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
+    const dest = join(saifctlPath, name);
+    await copyFile(join(SAIFCTL_SCRIPTS_DIR, name), dest);
+    await chmod(dest, 0o755);
+  }
+  consola.log(`[sandbox] Factory scripts refreshed in ${saifctlPath}`);
+}
+
 /**
  * Creates an isolated sandbox for the feature.
  *
@@ -291,8 +430,9 @@ export async function diffUntrackedFilesVersusDevNull(projectDir: string): Promi
  * 4. Create sandboxBasePath/saifctl/ and write gate.sh, startup.sh, agent-install.sh, agent.sh, stage.sh
  * 5. Copy factory scripts into saifctl/: coder-start.sh, staging-start.sh, reviewer.sh
  *
- * If `{projectName}-{feature}-{runId}` already exists under {@link CreateSandboxOpts#sandboxBaseDir},
- * throws immediately (avoids clobbering an in-flight or leaked sandbox).
+ * If `{projectName}-{feature}-{runId}` already exists under {@link CreateSandboxOpts#sandboxBaseDir}:
+ * - {@link CreateSandboxOpts#reuseExistingSandbox} true → refresh scripts/patch only (resume path).
+ * - Otherwise → remove the directory (full teardown via {@link destroySandbox}) and create a fresh sandbox.
  */
 export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const {
@@ -310,6 +450,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     verbose,
     runCommits = [],
     includeDirty,
+    reuseExistingSandbox,
   } = opts;
   const codeRsyncSource = opts.codeSourceDir ?? projectDir;
   const copyWorkingTree = !!opts.codeSourceDir || includeDirty;
@@ -327,15 +468,56 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const cedarPolicyPath = join(saifctlPath, SANDBOX_CEDAR_POLICY_BASENAME);
   const hostBasePatchPath = join(sandboxBasePath, 'host-base.patch');
 
-  if (await pathExists(sandboxBasePath)) {
-    throw new Error(
-      `[sandbox] Sandbox directory already exists: ${sandboxBasePath}\n` +
-        `Another \`feat run\` / \`run start\` may still be using it, or a previous run exited without cleanup. ` +
-        `Stop the other process, remove this directory, or wait until it finishes. ` +
-        `Use \`saifctl run fork <runId>\` to clone the Run to a new ID, then \`saifctl run start <newId>\`.`,
-    );
+  const dirAlreadyThere = await pathExists(sandboxBasePath);
+  const reuse = !!reuseExistingSandbox && dirAlreadyThere;
+
+  if (dirAlreadyThere && !reuse) {
+    consola.warn(`[sandbox] Removing stale sandbox directory (new run): ${sandboxBasePath}`);
+    await destroySandbox(sandboxBasePath);
   }
 
+  // Case: Reusing existing sandbox (resume path from pause).
+  if (reuse) {
+    if (!(await pathExists(codePath)) || !(await pathExists(saifctlPath))) {
+      throw new Error(
+        `[sandbox] Cannot reuse sandbox at ${sandboxBasePath}: expected code/ and saifctl/ directories.`,
+      );
+    }
+    consola.log(
+      `[sandbox] Reusing existing sandbox at ${sandboxBasePath} (refresh scripts + host-base.patch only)`,
+    );
+
+    await refreshSandboxScripts({
+      projectDir,
+      copyWorkingTree,
+      hostBasePatchPath,
+      codePath,
+      saifctlPath,
+      feature,
+      gateScript,
+      startupScript,
+      agentInstallScript,
+      agentScript,
+      stageScript,
+      cedarScript,
+      gatePath,
+      startupPath,
+      agentInstallPath,
+      agentPath,
+      stagePath,
+      cedarPolicyPath,
+    });
+
+    return {
+      sandboxBasePath,
+      codePath,
+      saifctlPath,
+      hostBasePatchPath,
+      runId,
+    };
+  }
+
+  // Case: Creating a new sandbox (start path from run).
   consola.log(`[sandbox] Creating isolated sandbox at ${sandboxBasePath}`);
   await mkdir(codePath, { recursive: true });
   await mkdir(saifctlPath, { recursive: true });
@@ -526,10 +708,58 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 /**
  * Removes the disposable sandbox directory.
  * Safe to call even if the directory does not exist.
+ *
+ * On Unix, retries up to 15 times on transient errors (e.g. ENOTEMPTY when the container or pnpm
+ * is still writing into the bind-mounted path), then falls back to the system `rm -rf` shell
+ * command if all retries are exhausted. Windows has no shell fallback, so it just retries.
  */
 export async function destroySandbox(sandboxBasePath: string): Promise<void> {
   consola.log(`[sandbox] Removing sandbox ${sandboxBasePath}`);
-  await rm(sandboxBasePath, { recursive: true, force: true });
+
+  const rmIfExists = async (): Promise<void> => {
+    try {
+      await rm(sandboxBasePath, { recursive: true, force: true });
+    } catch (err) {
+      if (isErrnoCode(err, new Set(['ENOENT']))) return;
+      throw err;
+    }
+  };
+
+  if (process.platform === 'win32') {
+    // No `rm -rf` fallback on Windows — just retry with backoff.
+    await retryWithBackoff({
+      fn: rmIfExists,
+      isRetriable: (err) => isErrnoCode(err, RETRIABLE_RM_CODES),
+      maxAttempts: 15,
+      backoffMs: (i) => Math.min(800, 40 * 2 ** Math.min(i, 4)),
+    });
+    ensureStdoutNewline();
+    return;
+  }
+
+  // Unix: retry with backoff, then fall back to the shell `rm -rf`.
+  try {
+    await retryWithBackoff({
+      fn: rmIfExists,
+      isRetriable: (err) => isErrnoCode(err, RETRIABLE_RM_CODES),
+      maxAttempts: 15,
+      backoffMs: (i) => Math.min(800, 40 * 2 ** Math.min(i, 4)),
+    });
+  } catch {
+    try {
+      await spawnAsync({
+        command: 'rm',
+        args: ['-rf', '--', sandboxBasePath],
+        cwd: '/',
+        stdio: 'pipe',
+      });
+    } catch (shellErr) {
+      consola.warn('[sandbox] rm -rf fallback failed:', shellErr);
+      // Re-attempt once more after shell failure so that the outer caller gets a real error.
+      await rmIfExists();
+    }
+  }
+
   ensureStdoutNewline();
 }
 

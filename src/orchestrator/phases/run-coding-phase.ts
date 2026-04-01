@@ -9,7 +9,7 @@
  * the user issues a `saifctl run pause` or `saifctl run stop` mid-run, and
  * handles each outcome distinctly:
  *
- *   - **pause** → `pauseInfra()` (freeze containers), emit `CodingPhaseResult { outcome: 'paused' }`
+ *   - **pause** → `pauseInfra()` (compose pause; remove Leash/coder containers), emit `CodingPhaseResult { outcome: 'paused' }`
  *   - **stop**  → `teardown()`, emit `CodingPhaseResult { outcome: 'stopped' }`
  *   - **normal exit** → `teardown()`, emit `CodingPhaseResult { outcome: 'completed' }`
  *

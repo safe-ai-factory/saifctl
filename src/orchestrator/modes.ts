@@ -180,6 +180,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
     seedRoundSummaries?: OuterAttemptSummary[];
     /**
      * `run resume` when paused sandbox still exists: reuse sandbox dir + Docker bridge from `run pause` (skips createSandbox).
+     * Leash/coder containers are removed on pause and recreated when the loop runs again.
      *
      * NOTE: Even if a run was paused, the sandbox may be lost if it's stored in /tmp/
      * and the system reboots.
@@ -192,6 +193,12 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
      * so the existing bridge/network is preserved. Always `null` for non-resume paths (`run start`, `fromArtifact`).
      */
     resumedCodingInfra: LiveInfra | null;
+    /**
+     * When true, {@link createSandbox} reuses an existing `{project}-{feature}-{runId}` directory
+     * (refresh patch + scripts only). Set when `run resume` falls back to from-artifact while the
+     * paused sandbox path is still on disk.
+     */
+    reuseExistingSandbox?: boolean;
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -623,6 +630,7 @@ async function runStartCore(
       runCommits: opts.fromArtifact?.seedRunCommits ?? [],
       runId: opts.fromArtifact?.persistedRunId ?? persistedRunIdForStorage,
       includeDirty: opts.includeDirty,
+      reuseExistingSandbox: !!opts.fromArtifact?.reuseExistingSandbox,
     }));
 
   const modeLabel = testOnly ? 'test' : opts.fromArtifact ? 'fromArtifact' : 'start';
@@ -759,6 +767,11 @@ export interface FromArtifactOpts {
   cli: OrchestratorCliInput;
   cliModelDelta: ModelOverrides | undefined;
   engineCli: string | undefined;
+  /**
+   * When true and the on-disk sandbox for this run still exists, {@link createSandbox} reuses it
+   * (`run resume` after Docker infra is gone but `/tmp/.../sandboxes/...` remains).
+   */
+  reuseSandboxIfPresent?: boolean;
 }
 
 /**
@@ -856,6 +869,7 @@ async function fromArtifactCore(
     persistedRunId: runId,
     artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
     resumedCodingInfra: null,
+    reuseExistingSandbox: !!opts.reuseSandboxIfPresent,
   };
 
   try {
@@ -870,8 +884,9 @@ async function fromArtifactCore(
 }
 
 /**
- * Resume a paused run when the sandbox directory and Docker bridge (and coder container) still
- * exist; otherwise clears pause metadata and continues via {@link fromArtifactCore} (same as `run start`).
+ * Resume a paused run when the sandbox directory and Docker bridge still exist; otherwise clears
+ * pause metadata and continues via {@link fromArtifactCore} (same as `run start`). Leash/coder
+ * containers are recreated by the agent loop (removed on pause).
  */
 async function runResumeCore(
   opts: FromArtifactOpts,
@@ -967,7 +982,7 @@ async function runResumeCore(
       },
       { ifRevisionEquals: rev },
     );
-    return fromArtifactCore(opts, registry);
+    return fromArtifactCore({ ...opts, reuseSandboxIfPresent: pathOk }, registry);
   }
 
   const revResume = artifact.artifactRevision ?? 0;

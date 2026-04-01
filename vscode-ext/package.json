@@ -55,14 +55,15 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "consola": "^3.4.2",
     "@eslint/js": "^9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25",
     "@types/vscode": "^1.86.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vscode/vsce": "^3",
+    "consola": "^3.4.2",
     "eslint": "^9",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
@@ -76,8 +77,7 @@
     "tsup": "^8",
     "typescript": "^5",
     "typescript-eslint": "^8",
-    "vitest": "^2",
-    "@vscode/vsce": "^3"
+    "vitest": "^2"
   },
   "contributes": {
     "viewsContainers": {
@@ -219,6 +219,11 @@
         "icon": "$(debug-stop)"
       },
       {
+        "command": "saifctl.forceStopRun",
+        "title": "Force stop run",
+        "icon": "$(stop-circle)"
+      },
+      {
         "command": "saifctl.resumeRun",
         "title": "Resume run",
         "icon": "$(debug-continue)"
@@ -324,6 +329,11 @@
         "command": "saifctl.showLogs",
         "title": "Show SaifCTL logs",
         "icon": "$(output)"
+      },
+      {
+        "command": "saifctl.manageSecrets",
+        "title": "Manage API Keys",
+        "icon": "$(key)"
       }
     ],
     "configuration": {
@@ -338,6 +348,17 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose logging for the SaifCTL extension."
+        },
+        "saifctl.envFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".saifctl.env",
+            ".env"
+          ],
+          "description": "Ordered list of env file names to load from each project directory (first existing file wins). Values from secure storage override file entries."
         }
       }
     },
@@ -384,6 +405,11 @@
           "group": "navigation@7"
         },
         {
+          "command": "saifctl.manageSecrets",
+          "when": "view == saifctl-features",
+          "group": "navigation@8"
+        },
+        {
           "command": "saifctl.filterRuns",
           "when": "view == saifctl-runs && !saifctl.runsFilterActive",
           "group": "navigation@1"
@@ -402,6 +428,11 @@
           "command": "saifctl.refreshRuns",
           "when": "view == saifctl-runs",
           "group": "navigation@3"
+        },
+        {
+          "command": "saifctl.manageSecrets",
+          "when": "view == saifctl-runs",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -504,6 +535,11 @@
           "command": "saifctl.stopRun",
           "when": "viewItem == run_running || viewItem == run_paused || viewItem == run_starting || viewItem == run_pausing || viewItem == run_stopping || viewItem == run_resuming",
           "group": "0_control@2"
+        },
+        {
+          "command": "saifctl.forceStopRun",
+          "when": "viewItem == run_running || viewItem == run_paused || viewItem == run_starting || viewItem == run_pausing || viewItem == run_stopping || viewItem == run_resuming",
+          "group": "0_control@23"
         },
         {
           "command": "saifctl.goToFeatureFromRun",
