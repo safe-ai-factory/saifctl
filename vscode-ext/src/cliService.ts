@@ -506,6 +506,56 @@ export class SaifctlCliService {
     return m?.[1] ?? null;
   }
 
+  /**
+   * Update rule text (`run rules update`). Returns true when CLI reports success.
+   */
+  public async updateRunRule(opts: {
+    runId: string;
+    cwd: string;
+    ruleId: string;
+    content: string;
+  }): Promise<boolean> {
+    const { runId, cwd, content, ruleId } = opts;
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return true;
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(
+        cwd,
+        `run rules update ${escapeArg(runId)} ${escapeArg(ruleId)} --content ${escapeArg(content)}`,
+      ),
+      cwd,
+    );
+    if (out === null) return false;
+    return /Updated rule /.test(out);
+  }
+
+  /**
+   * Remove a rule (`run rules remove`). Returns true when CLI reports success.
+   */
+  public async deleteRunRule(opts: {
+    runId: string;
+    cwd: string;
+    ruleId: string;
+  }): Promise<boolean> {
+    const { runId, cwd, ruleId } = opts;
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return true;
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(cwd, `run rules remove ${escapeArg(runId)} ${escapeArg(ruleId)}`),
+      cwd,
+    );
+    if (out === null) return false;
+    // Exit code 0 is authoritative; consola/TTY output may omit or reformat the success line.
+    if (/Removed rule /i.test(out)) return true;
+    const low = out.toLowerCase();
+    if (low.includes('not found') || low.includes('rule not found') || low.includes('error')) {
+      return false;
+    }
+    return true;
+  }
+
   private getMockRunList(cwd: string): RunListEntry[] {
     const key = basename(cwd);
     return MOCK_RUN_ROWS.filter((r) => !r.onlyBasename || r.onlyBasename === key).map(

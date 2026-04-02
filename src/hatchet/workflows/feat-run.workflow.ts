@@ -504,10 +504,12 @@ export function createFeatRunWorkflow() {
       let lastRunId = '';
       let runCommitsAccum: RunCommit[] = [...(fromArtifact?.seedRunCommits ?? [])];
       const roundSummaries: OuterAttemptSummary[] = [];
+      // Offset so attempt numbers continue from where prior invocations left off.
+      const attemptOffset = fromArtifact?.seedRoundSummaries?.length ?? 0;
 
       for (let attempt = 1; attempt <= maxRuns; attempt++) {
         consola.log(
-          `\n[hatchet] ===== ATTEMPT ${attempt}/${maxRuns} (run ${sandboxRaw.runId}) =====`,
+          `\n[hatchet] ===== ATTEMPT ${attempt + attemptOffset}/${maxRuns + attemptOffset} (run ${sandboxRaw.runId}) =====`,
         );
         const attemptStartedAt = new Date().toISOString();
 
@@ -560,7 +562,7 @@ export function createFeatRunWorkflow() {
           lastPatchContent = '';
           roundSummaries.push(
             buildOuterAttemptSummary({
-              attempt,
+              attempt: attempt + attemptOffset,
               phase: 'no_changes',
               innerRounds,
               commitCount: 0,
@@ -584,7 +586,7 @@ export function createFeatRunWorkflow() {
         if (testOut.status === 'passed') {
           roundSummaries.push(
             buildOuterAttemptSummary({
-              attempt,
+              attempt: attempt + attemptOffset,
               phase: 'tests_passed',
               innerRounds,
               commitCount: agentOut.commits.length,
@@ -594,7 +596,7 @@ export function createFeatRunWorkflow() {
           );
           return {
             success: true,
-            attempt,
+            attempt: attempt + attemptOffset,
             patchPath: agentOut.patchPath,
             lastRunId,
             rules: rulesState,
@@ -613,7 +615,7 @@ export function createFeatRunWorkflow() {
           );
           roundSummaries.push(
             buildOuterAttemptSummary({
-              attempt,
+              attempt: attempt + attemptOffset,
               phase: 'aborted',
               innerRounds,
               commitCount: agentOut.commits.length,
@@ -623,7 +625,7 @@ export function createFeatRunWorkflow() {
           );
           return {
             success: false,
-            attempt,
+            attempt: attempt + attemptOffset,
             patchPath: null,
             lastRunId: testOut.testRunId,
             lastPatchContent: agentOut.patchContent,
@@ -644,7 +646,7 @@ export function createFeatRunWorkflow() {
 
         roundSummaries.push(
           buildOuterAttemptSummary({
-            attempt,
+            attempt: attempt + attemptOffset,
             phase: 'tests_failed',
             innerRounds,
             commitCount: agentOut.commits.length,
@@ -669,7 +671,7 @@ export function createFeatRunWorkflow() {
       consola.error(`\n[hatchet] Max runs (${maxRuns}) reached without success.`);
       return {
         success: false,
-        attempt: maxRuns,
+        attempt: maxRuns + attemptOffset, // total attempts across all invocations
         patchPath: null,
         lastRunId,
         lastPatchContent,

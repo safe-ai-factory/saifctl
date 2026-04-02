@@ -40,10 +40,19 @@ export type HostMessage =
   | { type: 'tabClosed'; runId: string }
   | { type: 'activeTabChanged'; runId: string | null }
   | { type: 'rulePending'; runId: string; entry: Extract<TimelineEntry, { kind: 'rule' }> }
-  | { type: 'ruleError'; runId: string; message: string };
+  | { type: 'ruleError'; runId: string; message: string }
+  | { type: 'ruleUpdated'; runId: string; ruleId: string; content: string }
+  | { type: 'ruleDeleted'; runId: string; ruleId: string }
+  | { type: 'ruleConfirmed'; runId: string; pendingId: string; rule: RunRule }
+  | { type: 'ruleRestored'; runId: string; rule: RunRule };
 
 export type WebviewMessage =
   | { type: 'ready' }
   | { type: 'switchTab'; runId: string }
   | { type: 'closeTab'; runId: string }
-  | { type: 'submitFeedback'; runId: string; content: string; scope: 'once' | 'always' };
+  | { type: 'closeOtherTabs'; runId: string }
+  | { type: 'renameTab'; runId: string; name: string }
+  | { type: 'reorderTabs'; orderedRunIds: string[] }
+  | { type: 'submitFeedback'; runId: string; content: string; scope: 'once' | 'always' }
+  | { type: 'updateRule'; runId: string; ruleId: string; content: string }
+  | { type: 'deleteRule'; runId: string; ruleId: string };

@@ -615,7 +615,9 @@ export async function runIterativeLoop(
   let roundSummaries: OuterAttemptSummary[] = [...(seedRoundSummaries ?? [])];
 
   let errorFeedback = initialErrorFeedback ?? '';
-  let attempts = 0;
+  // Start from the number of already-completed rounds so attempt numbers are
+  // monotonically increasing across multiple 'run start' / 'run resume' calls.
+  let attempts = seedRoundSummaries?.length ?? 0;
   let sandboxDestroyed = false;
 
   let pauseSnapshotLiveInfra: RunLiveInfra | null = null;
@@ -898,9 +900,10 @@ export async function runIterativeLoop(
     // Main Loop - 'run start'
     //////////////////////////////////////////////////
 
-    while (attempts < maxRuns) {
+    const maxAttempts = (seedRoundSummaries?.length ?? 0) + maxRuns;
+    while (attempts < maxAttempts) {
       attempts++;
-      consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} (run ${runId}) =====`);
+      consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxAttempts} (run ${runId}) =====`);
 
       //////////////////////////////////////////////////
       // Prep
@@ -1266,7 +1269,10 @@ export async function runIterativeLoop(
 
     consola.error(`\n[orchestrator] Max runs (${maxRuns}) reached without success.`);
 
-    return controlResult('failed', `Failed after ${maxRuns} runs. Last error:\n${errorFeedback}`);
+    return controlResult(
+      'failed',
+      `Failed after ${attempts} attempt(s). Last error:\n${errorFeedback}`,
+    );
   });
 }
 
