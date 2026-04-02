@@ -12,7 +12,7 @@ import type {
 } from '../../config/schema.js';
 import { getGitProvider } from '../../git/index.js';
 import type { GitProvider } from '../../git/types.js';
-import type { ModelOverrides } from '../../llm-config.js';
+import type { LlmOverrides } from '../../llm-config.js';
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
 import type { PatchExcludeRule } from '../../orchestrator/sandbox.js';
 import { resolveTestProfile, type TestProfile } from '../../test-profiles/index.js';
@@ -51,7 +51,8 @@ export type SerializedLoopOpts = {
   featureName: string;
   projectDir: string;
   maxRuns: number;
-  overrides: ModelOverrides;
+  /** Effective LLM config (models + base URLs) for this run. */
+  llm: LlmOverrides;
   saifctlDir: string;
   projectName: string;
   testImage: string;
@@ -138,10 +139,13 @@ export function deserializeArtifactConfig(serialized: SerializedLoopOpts): Omit<
     testProfileId,
     patchExcludeStr,
     agentSecretFiles: _agentSecretFilesIn,
+    llm,
     ...rest
   } = serialized;
+
   return {
     ...rest,
+    llm,
     agentSecretKeys: serialized.agentSecretKeys ?? [],
     agentSecretFiles: serialized.agentSecretFiles ?? [],
     gitProvider: getGitProvider(gitProviderId),

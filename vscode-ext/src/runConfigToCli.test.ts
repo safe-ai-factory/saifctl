@@ -12,7 +12,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       agentProfileId: 'openhands',
       projectDir: '/tmp/proj',
       maxRuns: 5,
-      overrides: {},
+      llm: {},
       saifctlDir: 'saifctl',
       projectName: 'test-pkg',
       testImage: 'test:latest',
@@ -50,7 +50,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       projectDir: '/other/root',
       saifctlDir: 'saifctl',
       projectName: 'p',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -69,7 +69,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       saifctlDir: 'saifctl',
       projectName: 'p',
       reviewerEnabled: false,
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -80,12 +80,12 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
     expect(buildFeatRunCliFromArtifactConfig(config, '/w')).toContain('--no-reviewer');
   });
 
-  it('serializes model overrides', () => {
+  it('serializes llm config from artifact', () => {
     const config = {
       featureName: 'x',
       saifctlDir: 'saifctl',
       projectName: 'p',
-      overrides: {
+      llm: {
         globalModel: 'anthropic/claude-3-5-sonnet-latest',
         globalBaseUrl: 'https://api.anthropic.com/v1',
       },
@@ -107,7 +107,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       featureName: 'x',
       saifctlDir: 'saifctl',
       projectName: 'p',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -129,7 +129,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       projectDir: '/w',
       cedarPolicyPath:
         '/repo/node_modules/@safe-ai-factory/saifctl/src/orchestrator/policies/default.cedar',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -146,7 +146,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       projectName: 'p',
       projectDir: '/w',
       cedarPolicyPath: '/w/policies/custom.cedar',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -165,7 +165,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       projectName: 'p',
       projectDir: '/w',
       gateScriptFile: 'scripts/my-gate.sh',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],
@@ -183,7 +183,7 @@ describe('buildFeatRunCliFromArtifactConfig', () => {
       projectDir: '/w',
       gateScriptFile:
         '/x/node_modules/@safe-ai-factory/saifctl/src/sandbox-profiles/node-pnpm-python/gate.sh',
-      overrides: {},
+      llm: {},
       agentEnv: {},
       agentSecretKeys: [],
       agentSecretFiles: [],

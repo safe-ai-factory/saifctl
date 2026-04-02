@@ -26,7 +26,7 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   featureRelativePath: string;
   projectDir: string;
   maxRuns: number;
-  overrides: Record<string, unknown>;
+  llm: Record<string, unknown>;
   saifctlDir: string;
   projectName: string;
   testImage: string;
@@ -152,7 +152,7 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     },
     projectDir: s.projectDir,
     maxRuns: s.maxRuns,
-    overrides: s.overrides as OrchestratorOpts['overrides'],
+    llm: s.llm,
     saifctlDir: s.saifctlDir,
     projectName: s.projectName,
     testImage: s.testImage,

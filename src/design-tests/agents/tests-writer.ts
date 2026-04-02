@@ -1,6 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 
-import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../../llm-config.js';
 import { type TestProfile } from '../../test-profiles/index.js';
 import { type DrainableChunk, drainFullStream } from '../../utils/drain-stream.js';
 import type { TestCase } from '../schema.js';
@@ -30,12 +30,12 @@ General rules:
  * plus the helpers file source, and produces a complete, executable spec file in
  * the language/framework described by the TestProfile.
  */
-function createTestsWriterAgent(overrides: ModelOverrides = {}) {
+function createTestsWriterAgent(llm: LlmOverrides = {}) {
   return new Agent({
     id: 'tests-writer',
     name: 'TestsWriter',
     instructions: CODER_INSTRUCTIONS,
-    model: resolveAgentModel('tests-writer', overrides),
+    model: resolveAgentModel('tests-writer', llm),
   });
 }
 
@@ -48,8 +48,8 @@ export interface RunTestsWriterAgentOpts {
   helpersContent: string;
   /** Test profile determines language, framework, import rules, assertion style. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
   /** Called with each text delta from the LLM */
   onThought?: (delta: string) => void;
   onEvent?: (chunk: DrainableChunk) => void;
@@ -65,7 +65,7 @@ export async function runTestsWriterAgent(opts: RunTestsWriterAgentOpts): Promis
     testCases,
     helpersContent,
     testProfile,
-    overrides = {},
+    llm = {},
     onThought,
     onEvent,
     abortSignal,
@@ -99,12 +99,9 @@ ${testCasesSection}
 
 Output ONLY the ${testProfile.language} source code for the spec file. No explanations.`;
 
-  const output = await createTestsWriterAgent(overrides).stream(
-    [{ role: 'user', content: prompt }],
-    {
-      ...(abortSignal ? { abortSignal } : {}),
-    },
-  );
+  const output = await createTestsWriterAgent(llm).stream([{ role: 'user', content: prompt }], {
+    ...(abortSignal ? { abortSignal } : {}),
+  });
 
   let text = '';
   await drainFullStream(output.fullStream as ReadableStream<DrainableChunk>, {

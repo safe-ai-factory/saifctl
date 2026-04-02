@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import type { Tool } from '@mastra/core/tools';
 
 import type { IndexerProfile } from '../indexer-profiles/index.js';
-import { type ModelOverrides } from '../llm-config.js';
+import { type LlmOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
@@ -43,8 +43,8 @@ export interface RunTestsDesignOpts {
   projectName: string;
   /** Test profile determines entrypoint naming rules for catalog generation. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
   /** Called with each text delta from the LLM (for live display) */
   onThought?: (delta: string) => void;
   /** Called with every fullStream chunk */
@@ -132,7 +132,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
     indexerProfile,
     projectName,
     testProfile,
-    overrides = {},
+    llm = {},
     onThought,
     onEvent,
     abortSignal,
@@ -170,7 +170,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
 
   // Step 1a: Planner agent → Markdown test plan
   const plannerPrompt = buildPlannerPrompt(featureFiles, extraPrompt);
-  const plannerAgent = createTestsPlannerAgent(indexerTool, overrides);
+  const plannerAgent = createTestsPlannerAgent(indexerTool, llm);
 
   // Run the planner agent
   // prettier-ignore
@@ -217,7 +217,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
       extraPrompt,
       indexerTool,
       testProfile,
-      overrides,
+      llm,
       onThought,
       onEvent,
       abortSignal,

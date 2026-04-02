@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 
 import { withApiKeyGuard } from './apiKeyGuard';
 import { findBestInstallCwd, type ResolverLog } from './binaryResolver';
+import { ChatWebviewProvider } from './ChatWebviewProvider';
 import { SaifctlCliService } from './cliService';
 import { EnvManager } from './envManager';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
@@ -21,6 +22,7 @@ import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
 import { pickAndOpenPrimaryEnvFile, showManageSecretsQuickPick } from './manageSecrets';
 import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
 import { RunDiffContentProvider, runDiffUri } from './runDiffContentProvider';
+import { RunInfoStore } from './runInfoStore';
 import {
   collectRunDiffFileLeavesUnderDir,
   formatRunConfigAsPrettyJson,
@@ -208,13 +210,30 @@ export async function activate(context: vscode.ExtensionContext) {
   binWatcher.onDidDelete(onBinFs('delete'));
   context.subscriptions.push(binWatcher);
 
-  const runsProvider = new RunsTreeProvider(workspaceFolderPaths, cliService);
+  const runInfoStore = new RunInfoStore();
+  const runsProvider = new RunsTreeProvider(workspaceFolderPaths, {
+    cliService,
+    runInfoStore,
+  });
   const runsTreeView = vscode.window.createTreeView<RunTreeElement>('saifctl-runs', {
     treeDataProvider: runsProvider,
     showCollapseAll: true,
   });
   context.subscriptions.push(runsTreeView);
   context.subscriptions.push(new vscode.Disposable(() => runsProvider.dispose()));
+
+  const chatProvider = new ChatWebviewProvider({
+    extensionUri: context.extensionUri,
+    cli: cliService,
+    runsProvider,
+    runInfoStore,
+    workspaceState: context.workspaceState,
+  });
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(ChatWebviewProvider.viewId, chatProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
+  );
 
   const saifctlSettingsListener = vscode.workspace.onDidChangeConfiguration((e) => {
     if (!e.affectsConfiguration('saifctl')) return;
@@ -556,12 +575,17 @@ export async function activate(context: vscode.ExtensionContext) {
         loggedCommand(
           { commandId: 'saifctl.fromArtifact', startDetail: logDetailRunCommand },
           async (item?: vscode.TreeItem) => {
-            const runId = getRunId(item);
+            const run = nearestRunItem(item);
+            const runId = run?.runData.id;
             const cwd = getCwdForRun(item);
-            if (runId) {
-              void cliService.fromArtifact(runId, cwd);
-              runsProvider.kickLiveStatusPolling();
-            }
+            if (!runId || !run) return;
+            void cliService.fromArtifact(runId, cwd);
+            runsProvider.applyOptimisticRunStatus({
+              projectPath: run.projectPath,
+              runId,
+              display: 'starting',
+              previous: run.runData.status,
+            });
           },
         ),
       ),
@@ -576,9 +600,10 @@ export async function activate(context: vscode.ExtensionContext) {
         loggedCommand(
           { commandId: 'saifctl.fromArtifactWith', startDetail: logDetailRunCommand },
           async (item?: vscode.TreeItem) => {
-            const runId = getRunId(item);
+            const run = nearestRunItem(item);
+            const runId = run?.runData.id;
             const cwd = getCwdForRun(item);
-            if (!runId) return;
+            if (!runId || !run) return;
             const defaultExtra = vscode.workspace
               .getConfiguration('saifctl')
               .get<string>('extraArgs', '');
@@ -590,7 +615,12 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             if (extra === undefined) return;
             void cliService.fromArtifactWithArgs({ runId, cwd, extraArgs: extra });
-            runsProvider.kickLiveStatusPolling();
+            runsProvider.applyOptimisticRunStatus({
+              projectPath: run.projectPath,
+              runId,
+              display: 'starting',
+              previous: run.runData.status,
+            });
           },
         ),
       ),
@@ -875,6 +905,21 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  const openChatCmd = vscode.commands.registerCommand(
+    'saifctl.openChat',
+    withCliGuard(
+      loggedCommand('saifctl.openChat', (item?: vscode.TreeItem) => {
+        const run = nearestRunItem(item);
+        if (!run) return;
+        chatProvider.openTab({
+          runId: run.runData.id,
+          runName: run.runData.name,
+          projectPath: run.runData.projectPath,
+        });
+      }),
+    ),
+  );
+
   const copyRunIdCmd = vscode.commands.registerCommand(
     'saifctl.copyRunId',
     loggedCommand('saifctl.copyRunId', async (item?: vscode.TreeItem) => {
@@ -1088,6 +1133,7 @@ export async function activate(context: vscode.ExtensionContext) {
     removeRunCmd,
     clearAllRunsCmd,
     goToFeatureFromRunCmd,
+    openChatCmd,
     copyRunIdCmd,
     copyRunNameCmd,
     copyRunStatusCmd,

@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import type { Tool } from '@mastra/core/tools';
 
-import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../../llm-config.js';
 
 const PLANNER_INSTRUCTIONS = `You are a senior SDET (Software Development Engineer in Test) specializing in black-box testing.
 
@@ -41,12 +41,12 @@ Output ONLY the Markdown plan — no commentary, no preamble.`;
  * When `indexerTool` is provided (from an IndexerProfile), the agent can call the
  * `queryCodebaseIndex` tool to explore the actual codebase structure while planning tests.
  */
-export function createTestsPlannerAgent(indexerTool?: Tool, overrides: ModelOverrides = {}) {
+export function createTestsPlannerAgent(indexerTool?: Tool, llm: LlmOverrides = {}) {
   return new Agent({
     id: 'tests-planner',
     name: 'TestsPlanner',
     instructions: PLANNER_INSTRUCTIONS,
-    model: resolveAgentModel('tests-planner', overrides),
+    model: resolveAgentModel('tests-planner', llm),
     tools: indexerTool ? { queryCodebaseIndex: indexerTool } : {},
   });
 }

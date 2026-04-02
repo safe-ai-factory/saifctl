@@ -55,7 +55,7 @@ Example of the default **pretty-printed** output:
     "sandboxProfileId": "vitest",
     "projectDir": "/path/to/repo",
     "maxRuns": 5,
-    "overrides": {},
+    "llm": {},
     "saifctlDir": "saifctl",
     "projectName": "my-app",
     "testImage": "safe-ai-factory-test:latest",

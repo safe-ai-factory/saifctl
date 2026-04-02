@@ -110,9 +110,9 @@ export function dummyInspectLlmConfig(): LlmConfig {
 }
 
 /**
- * CLI-level overrides parsed from command flags.
+ * Effective LLM configuration for model resolution: global + per-agent models and base URLs.
  *
- * Examples:
+ * Examples (CLI):
  * ```
  * --model anthropic/claude-3-5-sonnet-latest
  * --model coder=openai/o3,pr-summarizer=openai/gpt-4o-mini
@@ -123,7 +123,7 @@ export function dummyInspectLlmConfig(): LlmConfig {
  * Built from config baseline + optional artifact + CLI delta, threaded through from command
  * entry points down to any function that resolves an agent model.
  */
-export interface ModelOverrides {
+export interface LlmOverrides {
   /** Global model; value of `--model` — applies to all agents. */
   globalModel?: string;
   /** Global base URL; value of `--base-url` — applies to all agents. */
@@ -368,18 +368,18 @@ function parseModelString(raw: string): { provider: string; modelId: string } {
  *   3. Auto-discovery from standard API keys (ANTHROPIC_API_KEY, etc.)
  *
  * @param agentName - Canonical agent name (e.g. "coder", "vague-specs-check") used in `--model` agent=model parts.
- * @param overrides - Effective model overrides (merged layers; see `mergeModelOverridesLayers`).
+ * @param llm - Effective LLM overrides (merged layers; see `mergeLlmOverridesLayers`).
  */
-export function resolveAgentLlmConfig(agentName: string, overrides: ModelOverrides): LlmConfig {
+export function resolveAgentLlmConfig(agentName: string, llm: LlmOverrides): LlmConfig {
   if (!isSupportedAgentName(agentName)) {
     throw new Error(
       `Unknown agent "${agentName}". Supported: ${SUPPORTED_AGENT_NAMES.join(', ')}.`,
     );
   }
   // 1. Per-agent CLI flag
-  const agentModelRaw = overrides.agentModels?.[agentName];
+  const agentModelRaw = llm.agentModels?.[agentName];
   // 2. Global CLI flag
-  const globalModelRaw = overrides.globalModel;
+  const globalModelRaw = llm.globalModel;
 
   const modelRaw = agentModelRaw ?? globalModelRaw;
 
@@ -410,8 +410,8 @@ export function resolveAgentLlmConfig(agentName: string, overrides: ModelOverrid
 
   // Base URL: per-agent override → global override → provider default
   const baseURL =
-    overrides.agentBaseUrls?.[agentName] ??
-    overrides.globalBaseUrl ??
+    llm.agentBaseUrls?.[agentName] ??
+    llm.globalBaseUrl ??
     PROVIDER_LOOKUP[provider.toLowerCase()]?.baseURL;
 
   return { modelId, provider, fullModelString, apiKey, baseURL };
@@ -465,8 +465,8 @@ export function createProviderModel(config: LlmConfig): LanguageModelV3 {
  * Convenience wrapper for the common case in Mastra agent factories.
  *
  * @param agentName - Canonical agent name used in `--model` agent=model parts.
- * @param overrides - Effective model overrides (merged layers; see `mergeModelOverridesLayers`).
+ * @param llm - Effective LLM overrides (merged layers; see `mergeLlmOverridesLayers`).
  */
-export function resolveAgentModel(agentName: string, overrides: ModelOverrides): LanguageModelV3 {
-  return createProviderModel(resolveAgentLlmConfig(agentName, overrides));
+export function resolveAgentModel(agentName: string, llm: LlmOverrides): LanguageModelV3 {
+  return createProviderModel(resolveAgentLlmConfig(agentName, llm));
 }

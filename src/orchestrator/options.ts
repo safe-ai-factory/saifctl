@@ -1,5 +1,5 @@
 /**
- * Orchestrator option merge and resolution: CLI/artifact layers, model overrides, and full {@link OrchestratorOpts} resolution.
+ * Orchestrator option merge and resolution: CLI/artifact layers, LLM config, and full {@link OrchestratorOpts} resolution.
  */
 
 import { DEFAULT_AGENT_PROFILE, resolveAgentProfile } from '../agent-profiles/index.js';
@@ -34,7 +34,7 @@ import {
 } from '../constants.js';
 import { getGitProvider } from '../git/index.js';
 import type { GitProvider } from '../git/types.js';
-import { isSupportedAgentName, type ModelOverrides, SUPPORTED_AGENT_NAMES } from '../llm-config.js';
+import { isSupportedAgentName, type LlmOverrides, SUPPORTED_AGENT_NAMES } from '../llm-config.js';
 import { consola } from '../logger.js';
 import type { RunArtifact } from '../runs/types.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
@@ -50,7 +50,7 @@ import type { OrchestratorOpts } from './modes.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
 
 // ---------------------------------------------------------------------------
-// Model overrides: config baseline → artifact → CLI delta
+// LLM overrides: config baseline → artifact → CLI delta
 // ---------------------------------------------------------------------------
 
 /** Agent name (key before =) must not contain comma, whitespace, or equals. */
@@ -58,14 +58,14 @@ const MODEL_AGENT_NAME_PATTERN = /^[^,\s=]+$/;
 
 /** Order: config baseline → artifact → CLI delta (later wins per field / map merge). */
 /* eslint-disable-next-line max-params -- three explicit layers */
-export function mergeModelOverridesLayers(
-  configBaseline: ModelOverrides,
-  artifact?: ModelOverrides,
-  cliDelta?: ModelOverrides,
-): ModelOverrides {
-  const out: ModelOverrides = { ...configBaseline };
+export function mergeLlmOverridesLayers(
+  configBaseline: LlmOverrides,
+  artifact?: LlmOverrides,
+  cliDelta?: LlmOverrides,
+): LlmOverrides {
+  const out: LlmOverrides = { ...configBaseline };
 
-  const apply = (layer?: ModelOverrides) => {
+  const apply = (layer?: LlmOverrides) => {
     if (!layer) return;
     if (layer.globalModel !== undefined) out.globalModel = layer.globalModel;
     if (layer.globalBaseUrl !== undefined) out.globalBaseUrl = layer.globalBaseUrl;
@@ -79,29 +79,29 @@ export function mergeModelOverridesLayers(
 }
 
 /** `config.defaults` model fields only (baseline before artifact / CLI deltas). */
-export function modelOverridesFromSaifctlConfig(config?: SaifctlConfig): ModelOverrides {
-  const overrides: ModelOverrides = {};
+export function llmOverridesFromSaifctlConfig(config?: SaifctlConfig): LlmOverrides {
+  const llm: LlmOverrides = {};
   const d = config?.defaults;
-  if (d?.globalModel) overrides.globalModel = d.globalModel;
-  if (d?.globalBaseUrl) overrides.globalBaseUrl = d.globalBaseUrl;
-  if (d?.agentModels) overrides.agentModels = { ...d.agentModels };
-  if (d?.agentBaseUrls) overrides.agentBaseUrls = { ...d.agentBaseUrls };
-  return overrides;
+  if (d?.globalModel) llm.globalModel = d.globalModel;
+  if (d?.globalBaseUrl) llm.globalBaseUrl = d.globalBaseUrl;
+  if (d?.agentModels) llm.agentModels = { ...d.agentModels };
+  if (d?.agentBaseUrls) llm.agentBaseUrls = { ...d.agentBaseUrls };
+  return llm;
 }
 
 /**
  * Parses **only** `--model` / `--base-url` from the current CLI invocation — the “CLI delta” layer.
  *
- * Unlike {@link mergeModelOverridesLayers} with a config baseline, this does **not** merge `config.defaults` model fields.
+ * Unlike {@link mergeLlmOverridesLayers} with a config baseline, this does **not** merge `config.defaults` model fields.
  * That matters for **from-artifact** and **test-from-run**: final LLM overrides are built in
- * {@link mergeModelOverridesLayers} as **config baseline → Run artifact → CLI delta**.
+ * {@link mergeLlmOverridesLayers} as **config baseline → Run artifact → CLI delta**.
  * If the user omits both flags here, returning `undefined` means the delta layer adds nothing.
  */
-export function parseModelOverridesCliDelta(args: {
+export function parseLlmOverridesCliDelta(args: {
   model?: string;
   'base-url'?: string;
-}): ModelOverrides | undefined {
-  const overrides: ModelOverrides = {};
+}): LlmOverrides | undefined {
+  const overrides: LlmOverrides = {};
   const modelRaw = typeof args.model === 'string' ? args.model.trim() : '';
   if (modelRaw) {
     const parsed = parseCommaSeparatedOverrides({
@@ -224,7 +224,7 @@ export type OrchestratorCliInput = {
 
 /**
  * Shallow merge: `overlay` keys that are not `undefined` replace `base`.
- * Does not touch `overrides` — resolved separately via {@link mergeModelOverridesLayers}.
+ * Does not touch `llm` — resolved separately via {@link mergeLlmOverridesLayers}.
  */
 function mergeDefinedOrchestratorOpts(
   base: OrchestratorOpts,
@@ -262,11 +262,7 @@ async function applyOrchestratorBaseline(
   const noCli = undefined;
 
   const maxRuns = config?.defaults?.maxRuns ?? DEFAULT_ORCHESTRATOR_MAX_RUNS;
-  const overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifctlConfig(config),
-    undefined,
-    undefined,
-  );
+  const llm = mergeLlmOverridesLayers(llmOverridesFromSaifctlConfig(config), undefined, undefined);
   const sandboxBaseDir = resolveSandboxBaseDir(config);
   const projectName = await resolveProjectName({ projectDir, config });
   const testProfile = pickTestProfile(noCli, config);
@@ -335,7 +331,7 @@ async function applyOrchestratorBaseline(
     feature,
     projectDir,
     maxRuns,
-    overrides,
+    llm,
     saifctlDir,
     sandboxBaseDir,
     projectName,
@@ -389,7 +385,7 @@ export interface ResolveOrchestratorOptsParams {
   /** Resolved feature (prompt/CLI for start; from artifact for from-artifact/test-from-run). */
   feature: Feature;
   cli: OrchestratorCliInput;
-  cliModelDelta: ModelOverrides | undefined;
+  cliModelDelta: LlmOverrides | undefined;
   artifact: RunArtifact | null;
   /**
    * Optional `--engine` string: global `docker` | `helm` | `local`, or `coding=…,staging=…`.
@@ -400,7 +396,7 @@ export interface ResolveOrchestratorOptsParams {
 }
 
 /**
- * `defaults → artifact (when present) → cli (defined fields only)`; `overrides` use
+ * `defaults → artifact (when present) → cli (defined fields only)`; `llm` uses
  * `config → artifact → cliModelDelta`.
  */
 export async function resolveOrchestratorOpts(
@@ -426,12 +422,10 @@ export async function resolveOrchestratorOpts(
 
   const merged = mergeDefinedOrchestratorOpts(base, cli);
 
-  const artifactOverrides = artifact
-    ? deserializeArtifactConfig(artifact.config).overrides
-    : undefined;
-  merged.overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifctlConfig(config),
-    artifactOverrides,
+  const artifactLlm = artifact ? deserializeArtifactConfig(artifact.config).llm : undefined;
+  merged.llm = mergeLlmOverridesLayers(
+    llmOverridesFromSaifctlConfig(config),
+    artifactLlm,
     cliModelDelta,
   );
 

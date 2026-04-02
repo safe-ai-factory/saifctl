@@ -1,5 +1,5 @@
 /**
- * Unit tests for orchestrator option merge and model override parsing.
+ * Unit tests for orchestrator option merge and LLM CLI delta parsing.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,10 +11,10 @@ import {
   applyEngineCliToOrchestratorOpts,
   normalizeStagingEnvironmentRaw,
   parseEngineCliSpec,
-  parseModelOverridesCliDelta,
+  parseLlmOverridesCliDelta,
 } from './options.js';
 
-describe('parseModelOverridesCliDelta', () => {
+describe('parseLlmOverridesCliDelta', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let consolaErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -30,7 +30,7 @@ describe('parseModelOverridesCliDelta', () => {
   });
 
   it('rejects unknown agent in --model', () => {
-    parseModelOverridesCliDelta({ model: 'bad-agent=openai/gpt-4o' });
+    parseLlmOverridesCliDelta({ model: 'bad-agent=openai/gpt-4o' });
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(consolaErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('unknown agent "bad-agent"'),
@@ -39,7 +39,7 @@ describe('parseModelOverridesCliDelta', () => {
 
   it('rejects unknown agent in --base-url', () => {
     // KEY_EQ_PATTERN (\w+=) only matches keys without hyphens; use badagent so it's parsed as key=value
-    parseModelOverridesCliDelta({ 'base-url': 'badagent=https://api.example.com/v1' });
+    parseLlmOverridesCliDelta({ 'base-url': 'badagent=https://api.example.com/v1' });
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(consolaErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('unknown agent "badagent"'),
@@ -47,12 +47,12 @@ describe('parseModelOverridesCliDelta', () => {
   });
 
   it('accepts valid agent names', () => {
-    const overrides = parseModelOverridesCliDelta({
+    const delta = parseLlmOverridesCliDelta({
       model: 'coder=openai/gpt-4o,vague-specs-check=openai/gpt-4o-mini',
     });
     expect(exitSpy).not.toHaveBeenCalled();
-    expect(overrides).toBeDefined();
-    expect(overrides!.agentModels).toEqual({
+    expect(delta).toBeDefined();
+    expect(delta!.agentModels).toEqual({
       coder: 'openai/gpt-4o',
       'vague-specs-check': 'openai/gpt-4o-mini',
     });

@@ -68,13 +68,13 @@ Command code keeps **citty’s parsed `args`** separate from **final values** (p
 
 1. **Read** — thin helpers that return only what the user passed (e.g. `readProjectDirFromCli`, `readSaifctlDirFromCli`, `readStorageStringFromCli`, `readDiscoveryCliReads`, `readAgentEnvPairSegmentsFromCli`, `readAgentEnvFileRawFromCli`).
 2. **Resolve / merge** — combine those reads with `cwd`, loaded **`SaifctlConfig`**, and defaults (`resolveCliProjectDir`, `resolveSaifctlDirRelative`, `resolveStorageOverrides`, `resolveRunStorage`, `resolveDiscoveryOptions`, `mergeAgentEnvFromReads`).
-3. **Models / base URLs** — the CLI supplies a **delta** only: **`parseModelOverridesCliDelta`** in `src/orchestrator/options.ts`. The full stack is **`mergeModelOverridesLayers(modelOverridesFromSaifctlConfig(config), artifact?, cliDelta)`** (config → optional stored-run artifact → CLI).
+3. **Models / base URLs** — the CLI supplies a **delta** only: **`parseLlmOverridesCliDelta`** in `src/orchestrator/options.ts`. The full stack is **`mergeLlmOverridesLayers(llmOverridesFromSaifctlConfig(config), artifact?, cliDelta)`** (config → optional stored-run artifact → CLI).
 
 Comma-separated flag bodies are still tokenized by **`parseCommaSeparatedOverrides`** in `utils.ts`.
 
 ## Further reading
 
 - `src/cli/utils.ts` — reads, resolves, discovery, agent-env merge, and comma parsing; storage merge is **`resolveStorageOverrides`** (raw string from **`readStorageStringFromCli`**).
-- `src/orchestrator/options.ts` — **`parseModelOverridesCliDelta`**, **`mergeModelOverridesLayers`**, **`modelOverridesFromSaifctlConfig`**.
+- `src/orchestrator/options.ts` — **`parseLlmOverridesCliDelta`**, **`mergeLlmOverridesLayers`**, **`llmOverridesFromSaifctlConfig`**.
 - `src/cli/args.ts` — reusable `defineCommand` arg fragments.
 - Per-command files under `src/cli/commands/*.ts`.

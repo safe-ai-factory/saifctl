@@ -22,7 +22,7 @@ import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 
 import type { AssertionResult, AssertionSuiteResult } from '../../engines/types.js';
-import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../../llm-config.js';
 import { consola } from '../../logger.js';
 import { type DrainableChunk, drainFullStream } from '../../utils/drain-stream.js';
 
@@ -55,12 +55,12 @@ Your output must be a JSON object with these fields:
 
 Output ONLY valid JSON, no other text.`;
 
-function createVagueSpecsCheckerAgent(overrides: ModelOverrides = {}) {
+function createVagueSpecsCheckerAgent(llm: LlmOverrides = {}) {
   return new Agent({
     id: 'vague-specs-check',
     name: 'VagueSpecsChecker',
     instructions: VAGUE_SPECS_CHECKER_INSTRUCTIONS,
-    model: resolveAgentModel('vague-specs-check', overrides),
+    model: resolveAgentModel('vague-specs-check', llm),
   });
 }
 
@@ -86,8 +86,8 @@ export interface RunVagueSpecsCheckerOpts {
   specContent: string;
   /** Failing test cases from the vitest JSON report */
   failingSuites: AssertionSuiteResult[];
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
   /** Called with each text delta from the LLM (for live display) */
   onThought?: (delta: string) => void;
   /** Called with every fullStream chunk */
@@ -129,8 +129,8 @@ function formatFailures(suites: AssertionSuiteResult[]): string {
 export async function runVagueSpecsChecker(
   opts: RunVagueSpecsCheckerOpts,
 ): Promise<VagueSpecsCheckResult> {
-  const { specContent, failingSuites, overrides = {}, onThought, onEvent, abortSignal } = opts;
-  const vagueSpecsCheckerAgent = createVagueSpecsCheckerAgent(overrides);
+  const { specContent, failingSuites, llm = {}, onThought, onEvent, abortSignal } = opts;
+  const vagueSpecsCheckerAgent = createVagueSpecsCheckerAgent(llm);
 
   const failureBlock = formatFailures(failingSuites);
 

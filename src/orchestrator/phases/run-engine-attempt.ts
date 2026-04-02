@@ -71,7 +71,7 @@ export interface RunEngineAttemptOpts {
   signal: AbortSignal | null;
   opts: Pick<
     IterativeLoopOpts,
-    | 'overrides'
+    | 'llm'
     | 'projectDir'
     | 'projectName'
     | 'feature'
@@ -124,7 +124,7 @@ export async function runEngineAttempt(
   } = input;
 
   const {
-    overrides,
+    llm,
     projectDir,
     projectName,
     feature,
@@ -149,12 +149,12 @@ export async function runEngineAttempt(
   const agentProfile = resolveAgentProfile(agentProfileId);
   const coderLlmConfig = inspectMode
     ? dummyInspectLlmConfig()
-    : resolveAgentLlmConfig('coder', overrides);
+    : resolveAgentLlmConfig('coder', llm);
   const reviewer =
     inspectMode || !reviewerEnabled
       ? null
       : {
-          llmConfig: resolveAgentLlmConfig('reviewer', overrides),
+          llmConfig: resolveAgentLlmConfig('reviewer', llm),
           argusBinaryPath: await getArgusBinaryPath(),
         };
 

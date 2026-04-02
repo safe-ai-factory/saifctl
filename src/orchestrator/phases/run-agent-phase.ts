@@ -39,7 +39,7 @@ export interface RunAgentPhaseInput {
   patchExclude: PatchExcludeRule[];
   opts: Pick<
     IterativeLoopOpts,
-    | 'overrides'
+    | 'llm'
     | 'projectDir'
     | 'projectName'
     | 'feature'

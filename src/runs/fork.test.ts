@@ -31,7 +31,7 @@ function makeSourceArtifact(runId: string): RunArtifact {
       agentProfileId: 'openhands',
       projectDir: '/ignored-on-merge',
       maxRuns: 5,
-      overrides: {},
+      llm: {},
       saifctlDir: 'saifctl',
       projectName: 'proj',
       testImage: 'test:latest',

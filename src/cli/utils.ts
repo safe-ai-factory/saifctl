@@ -1301,7 +1301,7 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     feature: undefined,
     projectDir: undefined,
     maxRuns,
-    overrides: undefined,
+    llm: undefined,
     saifctlDir: saifctlDirCli,
     sandboxBaseDir,
     projectName,

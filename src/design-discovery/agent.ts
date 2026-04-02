@@ -12,7 +12,7 @@
 import { Agent } from '@mastra/core/agent';
 import type { Tool } from '@mastra/core/tools';
 
-import { type ModelOverrides, resolveAgentModel } from '../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../llm-config.js';
 
 const DISCOVERY_PREAMBLE = `You are the Context Discovery Agent working on a feature proposal.
 
@@ -36,16 +36,17 @@ ${userPrompt.trim()}`;
  * Creates the Discovery agent with the given tools.
  * @param userPrompt - Optional user instructions (from `--discovery-prompt` or `--discovery-prompt-file`)
  */
-export function createDiscoveryAgent(
-  tools: Record<string, Tool>,
-  modelConfig: ModelOverrides = {},
-  userPrompt?: string,
-): Agent {
+export function createDiscoveryAgent(opts: {
+  tools: Record<string, Tool>;
+  llm: LlmOverrides;
+  userPrompt?: string;
+}): Agent {
+  const { tools, llm, userPrompt } = opts;
   return new Agent({
     id: 'discovery',
     name: 'DiscoveryAgent',
     instructions: buildDiscoverySystemPrompt(userPrompt),
-    model: resolveAgentModel('discovery', modelConfig),
+    model: resolveAgentModel('discovery', llm),
     tools,
   });
 }

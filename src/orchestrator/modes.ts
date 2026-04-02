@@ -23,7 +23,7 @@ import {
   createFeatRunWorkflow,
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
-import { type ModelOverrides } from '../llm-config.js';
+import { type LlmOverrides } from '../llm-config.js';
 import { consola, ensureStdoutNewline } from '../logger.js';
 import { cloneRunRules } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
@@ -765,7 +765,7 @@ export interface FromArtifactOpts {
   config: SaifctlConfig;
   runStorage: RunStorage;
   cli: OrchestratorCliInput;
-  cliModelDelta: ModelOverrides | undefined;
+  cliModelDelta: LlmOverrides | undefined;
   engineCli: string | undefined;
   /**
    * When true and the on-disk sandbox for this run still exists, {@link createSandbox} reuses it
@@ -1651,7 +1651,7 @@ async function runApplyCore(
       push: mergedOpts.push,
       pr: mergedOpts.pr,
       gitProvider: mergedOpts.gitProvider,
-      overrides: mergedOpts.overrides,
+      llm: mergedOpts.llm,
       env: gitEnv,
     });
   } finally {

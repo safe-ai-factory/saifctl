@@ -142,7 +142,7 @@ For modes that need a full `OrchestratorOpts`, resolution is centralized in `src
 2. **Artifact** — When a Run exists (resume / test-from-run), deserialized loop config from the artifact is merged on top (`mergeArtifactOntoDefaults` in the same module).
 3. **CLI** — `buildOrchestratorCliInputFromFeatArgs` in `src/cli/utils.ts` produces an `OrchestratorCliInput`: only flags the user actually set are non-`undefined`. `mergeDefinedOrchestratorOpts` in `src/orchestrator/options.ts` copies those keys onto the merged object; **`undefined` means “do not override”** the layer below (so resume keeps artifact values unless the user passes an override).
 
-**Model / base URL overrides** (`--model`, `--base-url`) use a separate merge: **config.defaults → artifact → CLI delta** via `mergeModelOverridesLayers` in `src/orchestrator/options.ts`, where the CLI delta comes from `parseModelOverridesCliDelta` (flags only, no config merge inside the delta).
+**Model / base URL overrides** (`--model`, `--base-url`) use a separate merge: **config.defaults → artifact → CLI delta** via `mergeLlmOverridesLayers` in `src/orchestrator/options.ts`, where the CLI delta comes from `parseLlmOverridesCliDelta` (flags only, no config merge inside the delta).
 
 ### 7. CLI (citty — `src/cli/commands/feat.ts`, `src/cli/commands/run.ts`)
 

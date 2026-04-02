@@ -237,7 +237,7 @@ export function createFeatRunIterationWorkflow() {
         task,
         patchExclude,
         opts: {
-          overrides: opts.overrides,
+          llm: opts.llm,
           projectDir: opts.projectDir,
           projectName: opts.projectName,
           feature: opts.feature,
@@ -329,7 +329,7 @@ export function createFeatRunIterationWorkflow() {
         testSuites: testOut.testSuites,
         resolveAmbiguity: opts.resolveAmbiguity,
         testProfile: opts.testProfile,
-        overrides: opts.overrides,
+        llm: opts.llm,
       });
 
       return { sanitizedHint: vagueResult.sanitizedHint };
@@ -716,7 +716,7 @@ export function createFeatRunWorkflow() {
         push: opts.push,
         pr: opts.pr,
         gitProvider: opts.gitProvider,
-        overrides: opts.overrides,
+        llm: opts.llm,
         verbose: !!opts.verbose,
         targetBranch: opts.targetBranch,
         startCommit: input.runContext.baseCommitSha?.trim() || undefined,

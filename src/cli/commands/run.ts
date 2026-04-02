@@ -24,7 +24,7 @@ import { defineCommand, runMain } from 'citty';
 
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
-import type { ModelOverrides } from '../../llm-config.js';
+import type { LlmOverrides } from '../../llm-config.js';
 import { consola, outputCliData, setVerboseLogging } from '../../logger.js';
 import {
   fromArtifact,
@@ -38,7 +38,7 @@ import {
 } from '../../orchestrator/modes.js';
 import {
   type OrchestratorCliInput,
-  parseModelOverridesCliDelta,
+  parseLlmOverridesCliDelta,
 } from '../../orchestrator/options.js';
 import { forkStoredRun } from '../../runs/fork.js';
 import { RunCannotPauseError, RunCannotStopError, type RunStatus } from '../../runs/types.js';
@@ -74,7 +74,7 @@ async function parseFromArtifactOrchestratorCli(args: FeatRunArgs): Promise<{
   saifctlDir: string;
   config: SaifctlConfig;
   cli: OrchestratorCliInput;
-  cliModelDelta: ModelOverrides | undefined;
+  cliModelDelta: LlmOverrides | undefined;
   engineCli: string | undefined;
 }> {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
@@ -82,7 +82,7 @@ async function parseFromArtifactOrchestratorCli(args: FeatRunArgs): Promise<{
   const config = await loadSaifctlConfig(saifctlDir, projectDir);
   setVerboseLogging(args.verbose === true);
   const cli = await buildOrchestratorCliInputFromFeatArgs(args, { projectDir, saifctlDir, config });
-  const cliModelDelta = parseModelOverridesCliDelta(args);
+  const cliModelDelta = parseLlmOverridesCliDelta(args);
   const engineCli = readEngineCliFromCli(args);
   return { projectDir, saifctlDir, config, cli, cliModelDelta, engineCli };
 }
@@ -679,7 +679,7 @@ const testCommand = defineCommand({
       saifctlDir,
       config,
     });
-    const cliModelDelta = parseModelOverridesCliDelta(runArgs);
+    const cliModelDelta = parseLlmOverridesCliDelta(runArgs);
     const engineCli = readEngineCliFromCli(runArgs);
 
     consola.log(`\nRe-testing Run: ${runId}`);
@@ -734,7 +734,7 @@ const applyCommand = defineCommand({
       saifctlDir,
       config,
     });
-    const cliModelDelta = parseModelOverridesCliDelta(runArgs);
+    const cliModelDelta = parseLlmOverridesCliDelta(runArgs);
     const engineCli = readEngineCliFromCli(runArgs);
 
     consola.log(`\nApplying Run to host: ${runId}`);

@@ -98,6 +98,11 @@
         {
           "id": "saifctl-runs",
           "name": "Runs"
+        },
+        {
+          "id": "saifctl-chats",
+          "name": "Chats",
+          "type": "webview"
         }
       ]
     },
@@ -116,6 +121,16 @@
         "view": "saifctl-runs",
         "contents": "No runs found.\n\nRight-click a feature in **Features** and select **Run** to start your swarm.",
         "when": "saifctl.isCliInstalled"
+      },
+      {
+        "view": "saifctl-chats",
+        "contents": "No chats open.\n\nIn **Runs**, use the chat icon on a run row, or right-click the run and choose **Open in Chat**.",
+        "when": "saifctl.isCliInstalled"
+      },
+      {
+        "view": "saifctl-chats",
+        "contents": "Install SaifCTL to use Chats.\n\n[Refresh Status](command:saifctl.recheckInstall)",
+        "when": "!saifctl.isCliInstalled"
       }
     ],
     "commands": [
@@ -344,6 +359,11 @@
         "command": "saifctl.manageSecrets",
         "title": "Manage API Keys",
         "icon": "$(key)"
+      },
+      {
+        "command": "saifctl.openChat",
+        "title": "Open in Chat",
+        "icon": "$(comment-discussion)"
       }
     ],
     "configuration": {
@@ -448,6 +468,11 @@
           "command": "saifctl.manageSecrets",
           "when": "view == saifctl-runs",
           "group": "navigation@4"
+        },
+        {
+          "command": "saifctl.showLogs",
+          "when": "view == saifctl-chats",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -567,9 +592,19 @@
           "group": "0_control@23"
         },
         {
+          "command": "saifctl.openChat",
+          "when": "viewItem =~ /^run_/",
+          "group": "inline@0"
+        },
+        {
           "command": "saifctl.goToFeatureFromRun",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@1"
+        },
+        {
+          "command": "saifctl.openChat",
+          "when": "viewItem =~ /^run_/",
+          "group": "1_modification@0"
         },
         {
           "command": "saifctl.copyRunId",

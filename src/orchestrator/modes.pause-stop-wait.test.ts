@@ -19,7 +19,7 @@ const baseArtifact: RunArtifact = {
     agentProfileId: 'openhands',
     projectDir: '/tmp',
     maxRuns: 5,
-    overrides: {},
+    llm: {},
     saifctlDir: 'saifctl',
     projectName: 'p',
     testImage: 't',

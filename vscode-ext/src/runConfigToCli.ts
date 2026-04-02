@@ -111,8 +111,8 @@ function formatAgentEnvRecord(env: unknown): string | undefined {
   return pairs.join(',');
 }
 
-function appendModelFlags(parts: string[], overrides: unknown): void {
-  const o = asRecord(overrides);
+function appendModelFlags(parts: string[], llm: unknown): void {
+  const o = asRecord(llm);
   if (!o) return;
 
   const globalModel = str(o.globalModel);
@@ -329,7 +329,7 @@ export function buildFeatRunCliFromArtifactConfig(
     }
   }
 
-  appendModelFlags(parts, config.overrides);
+  appendModelFlags(parts, config.llm);
 
   const codingEngine = engineOf(config.codingEnvironment);
   const stagingEngine = engineOf(config.stagingEnvironment);

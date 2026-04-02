@@ -51,6 +51,58 @@ export interface RunFullArtifact {
   [k: string]: unknown;
 }
 
+/** User feedback rule on a run (`run info` / `run rules create`). */
+export interface RunRule {
+  id: string;
+  content: string;
+  scope: 'once' | 'always';
+  createdAt: string;
+  updatedAt: string;
+  consumedAt?: string;
+}
+
+export type InnerRoundPhase =
+  | 'agent_failed'
+  | 'gate_passed'
+  | 'gate_failed'
+  | 'reviewer_passed'
+  | 'reviewer_failed';
+
+export interface InnerRoundSummary {
+  round: number;
+  phase: InnerRoundPhase;
+  gateOutput?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
+export type OuterAttemptPhase = 'no_changes' | 'tests_passed' | 'tests_failed' | 'aborted';
+
+export interface OuterAttemptSummary {
+  attempt: number;
+  phase: OuterAttemptPhase;
+  innerRoundCount: number;
+  innerRounds: InnerRoundSummary[];
+  commitCount: number;
+  patchBytes: number;
+  errorFeedback?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
+/** Chat payload from `saifctl run info` (no commit diffs). */
+export interface RunInfoForChat {
+  runId: string;
+  status: string;
+  specRef?: string;
+  startedAt?: string;
+  updatedAt?: string;
+  rules?: RunRule[];
+  roundSummaries?: OuterAttemptSummary[];
+  lastFeedback?: string;
+  config?: Record<string, unknown>;
+}
+
 type MockRunRow = RunListEntry & { onlyBasename?: string };
 
 const MOCK_RUN_ROWS: MockRunRow[] = [
@@ -409,6 +461,51 @@ export class SaifctlCliService {
     }
   }
 
+  /**
+   * Chat-tier fetch: `run info` with rules and roundSummaries (no diffs).
+   * Rules are also available here; `run rules list` has no JSON mode.
+   */
+  public async getRunInfoForChat(runId: string, cwd: string): Promise<RunInfoForChat | null> {
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return this.getMockRunInfoForChat(runId);
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(cwd, `run info ${escapeArg(runId)} --no-pretty`),
+      cwd,
+    );
+    if (out === null) return null;
+    try {
+      return JSON.parse(out) as RunInfoForChat;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Append user feedback (`run rules create`). Parses rule id from CLI stdout.
+   */
+  public async createRunRule(opts: {
+    runId: string;
+    cwd: string;
+    content: string;
+    scope: 'once' | 'always';
+  }): Promise<string | null> {
+    const { runId, cwd, content, scope } = opts;
+    if (process.env.SAIF_MOCK_RUNS === '1') {
+      return `mock${Math.random().toString(16).slice(2, 8)}`;
+    }
+    const out = await this.executeInBackgroundSilent(
+      await this.cliCommand(
+        cwd,
+        `run rules create ${escapeArg(runId)} --content ${escapeArg(content)} --scope ${scope}`,
+      ),
+      cwd,
+    );
+    if (out === null) return null;
+    const m = /Created rule ([a-f0-9]+) on run/.exec(out);
+    return m?.[1] ?? null;
+  }
+
   private getMockRunList(cwd: string): RunListEntry[] {
     const key = basename(cwd);
     return MOCK_RUN_ROWS.filter((r) => !r.onlyBasename || r.onlyBasename === key).map(
@@ -428,6 +525,99 @@ export class SaifctlCliService {
         model: 'gpt-4o',
         projectDir: row.runId.includes('abc') ? '/tmp/project-alpha' : '/tmp/project-agents',
       },
+    };
+  }
+
+  private getMockRunInfoForChat(runId: string): RunInfoForChat | null {
+    const row = MOCK_RUN_ROWS.map(stripMockFilter).find((r) => r.runId === runId);
+    if (!row) return null;
+    const base = this.getMockRunInfo(runId);
+    if (!base) return null;
+
+    const roundSummaries: OuterAttemptSummary[] = [
+      {
+        attempt: 1,
+        phase: 'tests_failed',
+        innerRoundCount: 2,
+        innerRounds: [
+          {
+            round: 1,
+            phase: 'gate_failed',
+            gateOutput: 'error TS2322: Type string is not assignable to type number',
+            startedAt: '2026-03-21T12:05:00.000Z',
+            completedAt: '2026-03-21T12:06:00.000Z',
+          },
+          {
+            round: 2,
+            phase: 'gate_passed',
+            startedAt: '2026-03-21T12:07:00.000Z',
+            completedAt: '2026-03-21T12:08:00.000Z',
+          },
+        ],
+        commitCount: 2,
+        patchBytes: 1200,
+        errorFeedback:
+          'An external service attempted to use this project and failed. Re-read the plan and fix types.',
+        startedAt: '2026-03-21T12:04:00.000Z',
+        completedAt: '2026-03-21T12:09:00.000Z',
+      },
+      {
+        attempt: 2,
+        phase: 'tests_passed',
+        innerRoundCount: 1,
+        innerRounds: [
+          {
+            round: 1,
+            phase: 'reviewer_passed',
+            startedAt: '2026-03-21T12:20:00.000Z',
+            completedAt: '2026-03-21T12:22:00.000Z',
+          },
+        ],
+        commitCount: 1,
+        patchBytes: 400,
+        startedAt: '2026-03-21T12:19:00.000Z',
+        completedAt: '2026-03-21T12:23:00.000Z',
+      },
+    ];
+
+    const rules: RunRule[] = [
+      {
+        id: 'a1b2c3',
+        content: 'Prefer async/await over raw promises.',
+        scope: 'always',
+        createdAt: '2026-03-21T12:00:00.000Z',
+        updatedAt: '2026-03-21T12:00:00.000Z',
+      },
+      {
+        id: 'd4e5f6',
+        content: 'Fix the race in concurrent tests.',
+        scope: 'once',
+        createdAt: '2026-03-21T12:03:00.000Z',
+        updatedAt: '2026-03-21T12:03:00.000Z',
+        consumedAt: '2026-03-21T12:08:00.000Z',
+      },
+      {
+        id: '789abc',
+        content: 'Add logging around the rate limiter.',
+        scope: 'once',
+        createdAt: '2026-03-21T12:18:00.000Z',
+        updatedAt: '2026-03-21T12:18:00.000Z',
+      },
+    ];
+
+    return {
+      runId: row.runId,
+      status: row.status,
+      specRef: row.specRef,
+      startedAt: row.startedAt,
+      updatedAt: row.updatedAt,
+      rules,
+      roundSummaries,
+      lastFeedback:
+        row.status === 'running'
+          ? 'An external service attempted to use this project and failed. Check edge cases.'
+          : undefined,
+      config: base.config as Record<string, unknown>,
     };
   }
 

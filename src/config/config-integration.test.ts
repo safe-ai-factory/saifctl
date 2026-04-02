@@ -11,9 +11,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { readStorageStringFromCli, resolveStorageOverrides } from '../cli/utils.js';
 import {
-  mergeModelOverridesLayers,
-  modelOverridesFromSaifctlConfig,
-  parseModelOverridesCliDelta,
+  llmOverridesFromSaifctlConfig,
+  mergeLlmOverridesLayers,
+  parseLlmOverridesCliDelta,
 } from '../orchestrator/options.js';
 import { writeUtf8 } from '../utils/io.js';
 import { loadSaifctlConfig } from './load.js';
@@ -79,7 +79,7 @@ describe('config integration', () => {
       expect(overrides.globalStorage).toBe('memory'); // CLI didn't override global
     });
 
-    it('mergeModelOverridesLayers uses globalModel and agentModels from config', async () => {
+    it('mergeLlmOverridesLayers uses globalModel and agentModels from config', async () => {
       const saifctlDir = join(projectDir, 'saifctl');
       await mkdir(saifctlDir, { recursive: true });
       await writeUtf8(
@@ -93,14 +93,14 @@ describe('config integration', () => {
       );
 
       const config = await loadSaifctlConfig('saifctl', projectDir);
-      const overrides = mergeModelOverridesLayers(
-        modelOverridesFromSaifctlConfig(config),
+      const llm = mergeLlmOverridesLayers(
+        llmOverridesFromSaifctlConfig(config),
         undefined,
-        parseModelOverridesCliDelta({}),
+        parseLlmOverridesCliDelta({}),
       );
 
-      expect(overrides.globalModel).toBe('anthropic/claude-sonnet-4');
-      expect(overrides.agentModels).toEqual({
+      expect(llm.globalModel).toBe('anthropic/claude-sonnet-4');
+      expect(llm.agentModels).toEqual({
         coder: 'openai/gpt-4o',
         'vague-specs-check': 'openai/gpt-4o-mini',
       });

@@ -20,6 +20,7 @@ import {
   parsePatchUnmerged,
   sectionForFilePath,
 } from './runDiffParser';
+import type { RunInfoStore } from './runInfoStore';
 import {
   OPTIMISTIC_RUN_STATUS_TTL_MS,
   type OptimisticRunEntry,
@@ -58,6 +59,8 @@ export interface SaifctlRunData {
   projectLabel: string;
   status: RunStatus;
   specRef: string;
+  /** From `run list` row; used to drop stale cached run info when the server row changes. */
+  listUpdatedAt: string;
   /** From `run info` after expanding the run (starts empty). */
   artifactConfig: Record<string, unknown>;
 }
@@ -126,6 +129,11 @@ export function collectRunDiffFileLeavesUnderDir(dir: RunDiffDirItem): RunDiffFi
 /** Repoll run list while any run may still change status (live + transitional). */
 const RUN_LIST_POLL_MS = 5000;
 
+export interface RunsTreeProviderDeps {
+  cliService: SaifctlCliService;
+  runInfoStore: RunInfoStore;
+}
+
 /**
  * After launching a terminal-based run (`feat run`, `run start`, `run resume`), storage may not
  * show `running` immediately. Poll the list for this long so we still schedule refreshes until the
@@ -154,8 +162,16 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
 
   constructor(
     private readonly workspaceFolderPaths: readonly string[],
-    private readonly cliService: SaifctlCliService,
+    private readonly deps: RunsTreeProviderDeps,
   ) {}
+
+  private get cliService(): SaifctlCliService {
+    return this.deps.cliService;
+  }
+
+  private get runInfoStore(): RunInfoStore {
+    return this.deps.runInfoStore;
+  }
 
   get filterText(): string {
     return this._filterText;
@@ -186,6 +202,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this.diffCache.clear();
     this.diffArtifactCache.clear();
     this.diffLoadFailed.clear();
+    this.runInfoStore.clear();
     this._onDidChangeTreeData.fire();
   }
 
@@ -314,6 +331,24 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           }) as RunStatus;
           return status === r.status ? r : { ...r, status };
         });
+        this.runInfoStore.invalidateAbsent(
+          this.runsCache.map((r) => ({ projectPath: r.projectPath, runId: r.id })),
+        );
+        for (const r of this.runsCache) {
+          const cached = this.runInfoStore.get(r.projectPath, r.id);
+          if (!cached) continue;
+          if (cached.status !== r.status) {
+            this.runInfoStore.invalidate(r.projectPath, r.id);
+            continue;
+          }
+          if (
+            r.listUpdatedAt &&
+            cached.updatedAt !== undefined &&
+            r.listUpdatedAt !== cached.updatedAt
+          ) {
+            this.runInfoStore.invalidate(r.projectPath, r.id);
+          }
+        }
         this.scheduleRunListPollIfNeeded(merged);
         if (!this.isFiltered) {
           return projects.map((p) => new RunProjectItem(p.name, p.projectPath));
@@ -353,10 +388,11 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       // Run list only has rows with minimal data (`run list`).
       // Each Run's config is filled on first expand via `run info`.
       if (idx >= 0 && Object.keys(this.runsCache[idx]!.artifactConfig).length === 0) {
-        const info = await this.cliService.getRunInfo(
-          element.runData.id,
-          element.runData.projectPath,
-        );
+        const info = await this.runInfoStore.fetch({
+          cli: this.cliService,
+          runId: element.runData.id,
+          projectPath: element.runData.projectPath,
+        });
         const cfg = info?.config;
         if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
           this.runsCache[idx] = {
@@ -598,6 +634,7 @@ function toSaifctlRunData(opts: {
     projectLabel,
     status: entry.status,
     specRef: specName,
+    listUpdatedAt: entry.updatedAt,
     artifactConfig: {},
   };
 }

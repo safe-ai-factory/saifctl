@@ -16,7 +16,7 @@ export function isSupportedStorageKey(name: string): boolean {
 }
 
 /**
- * Parsed --storage overrides (mirrors ModelOverrides pattern).
+ * Parsed --storage overrides (mirrors layered-merge pattern used for LLM config).
  * Global applies when a DB has no specific override.
  */
 export interface StorageOverrides {

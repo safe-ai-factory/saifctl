@@ -15,7 +15,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { getSaifctlRoot } from '../constants.js';
-import { type ModelOverrides } from '../llm-config.js';
+import { type LlmOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
@@ -41,8 +41,8 @@ export interface GenerateTestsOpts {
   force?: boolean;
   /** Test profile determines language, templates, and coder agent instructions. Defaults to vitest. */
   testProfile: TestProfile;
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
   /** Called with text deltas from LLM generation (for live display) */
   onThought?: (delta: string) => void;
   /** Called with each fullStream chunk */
@@ -75,15 +75,7 @@ export interface GenerateTestsResult {
  * Expects tests.json to already exist (produced by `saifctl feat design`).
  */
 export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTestsResult> {
-  const {
-    feature,
-    force = false,
-    testProfile,
-    overrides = {},
-    onThought,
-    onEvent,
-    abortSignal,
-  } = opts;
+  const { feature, force = false, testProfile, llm = {}, onThought, onEvent, abortSignal } = opts;
 
   const testsDir = join(feature.absolutePath, 'tests');
   const catalogPath = join(testsDir, 'tests.json');
@@ -177,7 +169,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
           testCases,
           helpersContent,
           testProfile,
-          overrides,
+          llm,
           onThought,
           onEvent,
           abortSignal,

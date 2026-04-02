@@ -48,7 +48,7 @@ describe('generatePRSummary', () => {
   const baseOpts = {
     feature: baseFeature,
     patchFile: '/sandbox/patch.diff',
-    overrides: { globalModel: 'openai/gpt-4o' },
+    llm: { globalModel: 'openai/gpt-4o' },
   };
 
   it('returns the agent structured output as PRSummary', async () => {

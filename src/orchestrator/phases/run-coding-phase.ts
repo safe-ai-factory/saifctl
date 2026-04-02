@@ -70,7 +70,7 @@ export interface RunCodingPhaseOpts {
   registry: CleanupRegistry | null;
   opts: Pick<
     IterativeLoopOpts,
-    | 'overrides'
+    | 'llm'
     | 'projectDir'
     | 'projectName'
     | 'feature'

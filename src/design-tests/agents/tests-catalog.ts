@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import type { Tool } from '@mastra/core/tools';
 
-import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../../llm-config.js';
 import { type TestProfile } from '../../test-profiles/index.js';
 import { type DrainableChunk, drainFullStream } from '../../utils/drain-stream.js';
 import { TestCatalogSchema } from '../schema.js';
@@ -44,12 +44,12 @@ When available, use queryCodebaseIndex to resolve file paths, module names, or t
  * When `indexerTool` is provided (from an IndexerProfile), the agent can call
  * `queryCodebaseIndex` to resolve file paths and traceability.
  */
-export function createTestsCatalogAgent(indexerTool?: Tool, overrides: ModelOverrides = {}) {
+export function createTestsCatalogAgent(indexerTool?: Tool, llm: LlmOverrides = {}) {
   return new Agent({
     id: 'tests-catalog',
     name: 'TestsCatalog',
     instructions: CATALOG_INSTRUCTIONS,
-    model: resolveAgentModel('tests-catalog', overrides),
+    model: resolveAgentModel('tests-catalog', llm),
     tools: indexerTool ? { queryCodebaseIndex: indexerTool } : {},
   });
 }
@@ -65,8 +65,8 @@ export interface RunCatalogAgentOpts {
   testProfile: TestProfile;
   /** Optional codebase index tool from an IndexerProfile. When provided, agent can query the codebase. */
   indexerTool?: Tool;
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
   onThought?: (delta: string) => void;
   onEvent?: (chunk: DrainableChunk) => void;
   abortSignal?: AbortSignal;
@@ -84,7 +84,7 @@ export async function runCatalogAgent(opts: RunCatalogAgentOpts) {
     extraPrompt,
     testProfile,
     indexerTool,
-    overrides = {},
+    llm = {},
     onThought,
     onEvent,
     abortSignal,
@@ -142,7 +142,7 @@ ${schemaHint}
 
 Produce the complete JSON test catalog. Output ONLY valid JSON, no other text.`;
 
-  const agent = createTestsCatalogAgent(indexerTool, overrides);
+  const agent = createTestsCatalogAgent(indexerTool, llm);
 
   const output = await agent.stream([{ role: 'user', content: prompt }], {
     ...(abortSignal ? { abortSignal } : {}),

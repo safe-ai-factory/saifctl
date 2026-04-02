@@ -26,13 +26,13 @@ import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
-import type { ModelOverrides } from '../../llm-config.js';
+import type { LlmOverrides } from '../../llm-config.js';
 import { consola, setVerboseLogging } from '../../logger.js';
 import { runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import {
-  mergeModelOverridesLayers,
-  modelOverridesFromSaifctlConfig,
-  parseModelOverridesCliDelta,
+  llmOverridesFromSaifctlConfig,
+  mergeLlmOverridesLayers,
+  parseLlmOverridesCliDelta,
   pickAgentInstallScript,
   pickAgentProfile,
   pickAgentScript,
@@ -276,17 +276,17 @@ async function _runDesignDiscovery(args: {
     );
     process.exit(1);
   }
-  const overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifctlConfig(config),
+  const llm = mergeLlmOverridesLayers(
+    llmOverridesFromSaifctlConfig(config),
     undefined,
-    parseModelOverridesCliDelta(args),
+    parseLlmOverridesCliDelta(args),
   );
   consola.log(`\nDiscovery (context gathering): ${feature.name}`);
   await runDiscovery({
     feature,
     projectDir,
     discovery,
-    overrides,
+    llm,
   });
   return { feature, projectDir, saifctlDir };
 }
@@ -313,10 +313,10 @@ async function _runDesignSpecs(args: {
   }
   const feature = await getFeatOrPrompt(args, projectDir);
   const designerProfile = pickDesignerProfile(readDesignerProfileIdFromCli(args), config);
-  const overrides = mergeModelOverridesLayers(
-    modelOverridesFromSaifctlConfig(config),
+  const llm = mergeLlmOverridesLayers(
+    llmOverridesFromSaifctlConfig(config),
     undefined,
-    parseModelOverridesCliDelta(args),
+    parseLlmOverridesCliDelta(args),
   );
 
   const designerBaseOpts = { cwd: projectDir, feature, saifctlDir };
@@ -374,7 +374,7 @@ async function _runDesignSpecs(args: {
     feature,
     projectDir,
     saifctlDir,
-    overrides,
+    llm,
     config,
   };
 }
@@ -427,7 +427,7 @@ interface DesignTestsOptions {
   projectDir: string;
   skipCatalog: boolean;
   force: boolean;
-  overrides: ModelOverrides;
+  llm: LlmOverrides;
   config?: SaifctlConfig;
   args: {
     'test-profile'?: string;
@@ -442,7 +442,7 @@ async function _runDesignTests({
   projectDir,
   skipCatalog,
   force,
-  overrides,
+  llm,
   config,
   args,
 }: DesignTestsOptions) {
@@ -462,7 +462,7 @@ async function _runDesignTests({
       testProfile,
       indexerProfile,
       projectName,
-      overrides,
+      llm,
     });
     consola.log(`  Test plan:  ${designResult.testPlanPath}`);
     consola.log(`  Catalog:    ${designResult.catalogPath}`);
@@ -476,7 +476,7 @@ async function _runDesignTests({
     feature,
     force,
     testProfile,
-    overrides,
+    llm,
   });
 
   consola.log(`\nTest scaffolding complete:`);
@@ -510,10 +510,10 @@ const designTestsCommand = defineCommand({
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
-    const overrides = mergeModelOverridesLayers(
-      modelOverridesFromSaifctlConfig(config),
+    const llm = mergeLlmOverridesLayers(
+      llmOverridesFromSaifctlConfig(config),
       undefined,
-      parseModelOverridesCliDelta(args),
+      parseLlmOverridesCliDelta(args),
     );
 
     const skipCatalog = args['skip-catalog'] === true;
@@ -523,7 +523,7 @@ const designTestsCommand = defineCommand({
       projectDir,
       skipCatalog,
       force,
-      overrides,
+      llm,
       config,
       args,
     });
@@ -685,14 +685,14 @@ const designCommand = defineCommand({
 
     // 1. Generate specs
     const designSpecsResult = await _runDesignSpecs(args);
-    const { feature, overrides } = designSpecsResult;
+    const { feature, llm } = designSpecsResult;
     // 2. Generate tests
     await _runDesignTests({
       feature,
       projectDir,
       skipCatalog: false,
       force: !!args.force,
-      overrides,
+      llm,
       config,
       args,
     });
@@ -749,7 +749,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
     saifctlDir,
     config,
   });
-  const cliModelDelta = parseModelOverridesCliDelta(runArgs);
+  const cliModelDelta = parseLlmOverridesCliDelta(runArgs);
 
   const engineCli = readEngineCliFromCli(runArgs);
 

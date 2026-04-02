@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { generatePRSummary } from '../../git/agents/pr-summarizer.js';
 import type { GitProvider } from '../../git/types.js';
-import type { ModelOverrides } from '../../llm-config.js';
+import type { LlmOverrides } from '../../llm-config.js';
 import { consola } from '../../logger.js';
 import type { RunCommit } from '../../runs/types.js';
 import type { Feature } from '../../specs/discover.js';
@@ -92,7 +92,7 @@ export interface PushHostApplyBranchOpts {
   push: string | null;
   pr: boolean;
   gitProvider: GitProvider;
-  overrides: ModelOverrides;
+  llm: LlmOverrides;
   /** Forwarded to `git push` (e.g. GIT_* author vars). */
   env?: NodeJS.ProcessEnv;
 }
@@ -112,7 +112,7 @@ export async function pushHostApplyBranch(opts: PushHostApplyBranchOpts): Promis
     push,
     pr,
     gitProvider,
-    overrides,
+    llm,
     env,
   } = opts;
 
@@ -142,7 +142,7 @@ export async function pushHostApplyBranch(opts: PushHostApplyBranchOpts): Promis
         const summary = await generatePRSummary({
           feature,
           patchFile,
-          overrides,
+          llm,
         });
         prTitle = summary.title;
         prBody = summary.body + `\n\n---\n_Run ID: \`${runId}\`_`;
@@ -201,8 +201,8 @@ export interface ApplyPatchOpts {
   pr: boolean;
   /** Git hosting provider. Default: GitHubProvider. */
   gitProvider: GitProvider;
-  /** CLI-level model overrides forwarded to the PR summarizer agent. */
-  overrides: ModelOverrides;
+  /** Effective LLM config forwarded to the PR summarizer agent. */
+  llm: LlmOverrides;
   /** When true, verbose logs are enabled. */
   verbose?: boolean;
   /** Target branch name (`--branch`); when null/undefined, use default `saifctl/...-<diffHash>`. */
@@ -240,7 +240,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
     push,
     pr,
     gitProvider,
-    overrides,
+    llm,
     verbose,
     targetBranch,
     startCommit,
@@ -328,7 +328,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
       push,
       pr,
       gitProvider,
-      overrides,
+      llm,
       env: gitEnv,
     });
   } finally {

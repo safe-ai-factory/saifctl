@@ -7,7 +7,7 @@
 import { join } from 'node:path';
 
 import type { DiscoveryOptions } from '../cli/utils.js';
-import type { ModelOverrides } from '../llm-config.js';
+import type { LlmOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
@@ -18,7 +18,7 @@ export interface RunDiscoveryOpts {
   feature: Feature;
   projectDir: string;
   discovery: DiscoveryOptions;
-  overrides?: ModelOverrides;
+  llm?: LlmOverrides;
   onThought?: (delta: string) => void;
   onEvent?: (chunk: DrainableChunk) => void;
   abortSignal?: AbortSignal;
@@ -41,7 +41,7 @@ async function resolveDiscoveryPrompt(opts: DiscoveryOptions): Promise<string | 
  * Runs the discovery agent and writes discovery.md.
  */
 export async function runDiscovery(opts: RunDiscoveryOpts): Promise<string> {
-  const { feature, projectDir, discovery, overrides = {}, onThought, onEvent, abortSignal } = opts;
+  const { feature, projectDir, discovery, llm = {}, onThought, onEvent, abortSignal } = opts;
 
   const proposalPath = join(feature.absolutePath, 'proposal.md');
   const proposalContent = (await pathExists(proposalPath))
@@ -55,7 +55,7 @@ export async function runDiscovery(opts: RunDiscoveryOpts): Promise<string> {
     throw new Error('Discovery has no tools. Configure discoveryMcps or discoveryTools (or both).');
   }
 
-  const agent = createDiscoveryAgent(tools, overrides, userPrompt);
+  const agent = createDiscoveryAgent({ tools, llm, userPrompt });
 
   const userMessage = `Here is the feature proposal:
 

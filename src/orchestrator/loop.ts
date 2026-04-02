@@ -27,7 +27,7 @@ import {
 } from '../engines/types.js';
 import { parseJUnitXmlString } from '../engines/utils/test-parser.js';
 import type { GitProvider } from '../git/types.js';
-import { type ModelOverrides } from '../llm-config.js';
+import { type LlmOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
 import {
   activeOnceRuleIds,
@@ -134,15 +134,15 @@ export interface IterativeLoopOpts {
   /** Max full pipeline runs before giving up. Default: 5 */
   maxRuns: number;
   /**
-   * CLI-level LLM overrides (--model, --base-url).
+   * Effective LLM config (--model, --base-url) after config → artifact → CLI merge.
    *
-   * The orchestrator uses this to resolve the coder agent's model config via
-   * `resolveAgentLlmConfig('coder', 'coder', overrides)` and to pass overrides
-   * through to Mastra agents (vague-specs-check, pr-summarizer, tests pipeline).
+   * The orchestrator uses this to resolve the coder agent's model via
+   * `resolveAgentLlmConfig('coder', llm)` and passes it through to Mastra agents
+   * (vague-specs-check, pr-summarizer, tests pipeline).
    *
-   * When omitted, all agents fall back to env-var tier overrides then auto-discovery.
+   * When empty, agents fall back to env-var tier defaults then auto-discovery.
    */
-  overrides: ModelOverrides;
+  llm: LlmOverrides;
   /**
    * Saifctl directory name relative to repo root (e.g. 'saifctl').
    * Resolved by caller (e.g. readSaifctlDirFromCli + resolveSaifctlDirRelative).
@@ -377,7 +377,7 @@ export async function runStagingTestVerification(params: {
     testImage,
     resolveAmbiguity,
     testProfile,
-    overrides,
+    llm,
     testRetries,
     stagingEnvironment,
   } = params.orchestratorOpts;
@@ -507,7 +507,7 @@ export async function runStagingTestVerification(params: {
         testSuites,
         resolveAmbiguity,
         testProfile,
-        overrides,
+        llm,
       });
 
       if (vagueResult.ambiguityResolved) {
@@ -560,7 +560,7 @@ export async function runIterativeLoop(
     feature,
     projectDir,
     maxRuns,
-    overrides,
+    llm,
     saifctlDir,
     projectName,
     registry,
@@ -850,7 +850,7 @@ export async function runIterativeLoop(
           push,
           pr,
           gitProvider,
-          overrides,
+          llm,
           verbose,
           targetBranch,
           startCommit: runContext?.baseCommitSha?.trim() || undefined,
@@ -976,7 +976,7 @@ export async function runIterativeLoop(
           await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
         },
         opts: {
-          overrides,
+          llm,
           projectDir,
           projectName,
           feature,
@@ -1159,7 +1159,7 @@ export async function runIterativeLoop(
           push,
           pr,
           gitProvider,
-          overrides,
+          llm,
           verbose,
           targetBranch,
           startCommit: runContext?.baseCommitSha?.trim() || undefined,
@@ -1287,8 +1287,8 @@ interface RunVagueSpecsCheckerForFailureOpts {
    * - `prompt`: pause and ask human to confirm/edit proposed clarification before updating.
    */
   resolveAmbiguity: 'prompt' | 'ai';
-  /** CLI-level model overrides — forwarded to vague-specs-check and tests pipeline. */
-  overrides: ModelOverrides;
+  /** Effective LLM config — forwarded to vague-specs-check and tests pipeline. */
+  llm: LlmOverrides;
 }
 
 interface VagueSpecsCheckerForFailureResult {
@@ -1315,8 +1315,7 @@ interface VagueSpecsCheckerForFailureResult {
 export async function runVagueSpecsCheckerForFailure(
   opts: RunVagueSpecsCheckerForFailureOpts,
 ): Promise<VagueSpecsCheckerForFailureResult> {
-  const { projectDir, feature, testSuites, resolveAmbiguity, testProfile, projectName, overrides } =
-    opts;
+  const { projectDir, feature, testSuites, resolveAmbiguity, testProfile, projectName, llm } = opts;
 
   const specPath = join(feature.absolutePath, 'specification.md');
   const specContent = (await pathExists(specPath))
@@ -1346,7 +1345,7 @@ export async function runVagueSpecsCheckerForFailure(
   const verdict = await runVagueSpecsChecker({
     specContent,
     failingSuites: testSuites,
-    overrides,
+    llm,
     onThought: onVagueSpecsCheckThought,
     onEvent: onVagueSpecsCheckEvent,
   });
@@ -1413,9 +1412,9 @@ export async function runVagueSpecsCheckerForFailure(
       projectDir,
       testProfile,
       projectName,
-      overrides,
+      llm,
     });
-    await generateTests({ feature, testProfile, overrides });
+    await generateTests({ feature, testProfile, llm });
     consola.log('[vague-specs-check] Tests regenerated successfully.');
   } catch (err) {
     consola.warn(`[vague-specs-check] Test regeneration failed (non-fatal): ${String(err)}`);

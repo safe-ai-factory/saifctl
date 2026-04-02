@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RunArtifact } from '../types.js';
+import type { RunArtifact, RunCommit } from '../types.js';
 import { toRunInfoJson } from './run-info.js';
 
 const minimalArtifact: RunArtifact = {
@@ -19,7 +19,7 @@ const minimalArtifact: RunArtifact = {
     agentProfileId: 'openhands',
     projectDir: '/p',
     maxRuns: 3,
-    overrides: {},
+    llm: {},
     saifctlDir: 'saifctl',
     projectName: 'proj',
     testImage: 'img',
@@ -115,5 +115,11 @@ describe('toRunInfoJson', () => {
     const copy = structuredClone(minimalArtifact);
     toRunInfoJson(minimalArtifact);
     expect(minimalArtifact).toEqual(copy);
+  });
+
+  it('treats missing runCommits as empty (legacy or partial artifacts)', () => {
+    const art = { ...minimalArtifact, runCommits: undefined as unknown as RunCommit[] };
+    const view = toRunInfoJson(art);
+    expect(view.runCommits).toEqual([]);
   });
 });

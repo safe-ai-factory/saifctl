@@ -42,7 +42,7 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       agentProfileId: 'openhands',
       projectDir: '/tmp',
       maxRuns: 5,
-      overrides: {},
+      llm: {},
       saifctlDir: 'saifctl',
       projectName: 'test',
       testImage: 'test:latest',

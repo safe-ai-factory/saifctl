@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 
-import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
+import { type LlmOverrides, resolveAgentModel } from '../../llm-config.js';
 import type { Feature } from '../../specs/discover.js';
 
 /** Maximum diff size (bytes) to pass verbatim; larger diffs are summarised to file headers only. */
@@ -53,12 +53,12 @@ Body rules:
 
 Do NOT invent changes that are not in the diff. Do NOT add any section other than the three listed above.`;
 
-function createPRSummarizerAgent(overrides: ModelOverrides = {}) {
+function createPRSummarizerAgent(llm: LlmOverrides = {}) {
   return new Agent({
     name: 'PRSummarizer',
     id: 'pr-summarizer',
     instructions: PR_SUMMARIZER_INSTRUCTIONS,
-    model: resolveAgentModel('pr-summarizer', overrides),
+    model: resolveAgentModel('pr-summarizer', llm),
   });
 }
 
@@ -124,8 +124,8 @@ export interface GeneratePRSummaryOpts {
   feature: Feature;
   /** Absolute path to the patch.diff file written by extractPatch. */
   patchFile: string;
-  /** CLI-level model overrides (--model). */
-  overrides?: ModelOverrides;
+  /** Effective LLM config (--model / --base-url). */
+  llm?: LlmOverrides;
 }
 
 /**
@@ -135,8 +135,8 @@ export interface GeneratePRSummaryOpts {
  * if the diff file is missing or the agent fails, the caller should use generic strings.
  */
 export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PRSummary> {
-  const { feature, patchFile, overrides = {} } = opts;
-  const prSummarizerAgent = createPRSummarizerAgent(overrides);
+  const { feature, patchFile, llm = {} } = opts;
+  const prSummarizerAgent = createPRSummarizerAgent(llm);
 
   const specContent = await readFileSafe(join(feature.absolutePath, 'specification.md'));
   const proposalContent = await readFileSafe(join(feature.absolutePath, 'proposal.md'));

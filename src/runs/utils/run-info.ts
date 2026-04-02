@@ -44,7 +44,8 @@ export type RunArtifactInfo = Omit<RunArtifact, 'basePatchDiff' | 'runCommits'> 
 export function toRunInfoJson(artifact: RunArtifact): RunArtifactInfo {
   const clone = structuredClone(artifact) as RunArtifactInfo;
   delete (clone as RunArtifact).basePatchDiff;
-  clone.runCommits = runCommitsToInfoRows(artifact.runCommits);
+  const commits = artifact.runCommits ?? [];
+  clone.runCommits = runCommitsToInfoRows(commits);
 
   const cfg = clone.config;
   for (const k of SCRIPT_BODY_KEYS) {
