@@ -2,3 +2,7 @@
 	path = vendor/argus
 	url = https://github.com/JuroOravec/argus.git
 	branch = main
+[submodule "vendor/leash"]
+	path = vendor/leash
+	url = git@github.com:JuroOravec/leash.git
+	branch = workaround/h2patch-image
