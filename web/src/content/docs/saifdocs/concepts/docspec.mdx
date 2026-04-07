@@ -1,0 +1,82 @@
+# The docspec/ directory: your documentation blueprint
+
+The `docspec/` directory is not documentation. It is the **intent tree** — a structured declaration of what documentation should exist, who it is for, and what source material the generator needs to write it. The actual markdown pages live in `docs/`. `docspec/` is the recipe; `docs/` is the dish.
+
+Understanding this separation is the foundation for everything else in saifdocs.
+
+## Blueprint, not content
+
+When you write a file like `docspec/products/myapp/product.md`, you are telling saifdocs:
+
+- There is a product called `myapp`.
+- Here is how to describe it to an AI agent.
+
+You are not writing the docs page itself. `saifdocs gen` reads your intent tree, builds a manifest of every page that needs to exist, and hands that manifest to a [saifctl](../../saifctl/concepts/what-is-saifctl.md) sandbox that generates each file in the right order — references first, then concepts, then how-to's, then tutorials, then landing pages.
+
+Think of `docspec/` the way you think of a sitemap: it defines structure and intent, while the actual site lives elsewhere.
+
+## How the tree is organized
+
+A `docspec/` directory follows a consistent layout:
+
+<DocCodeBlock code="ZG9jc3BlYy8K4pSU4pSA4pSAIHByb2R1Y3RzLwogICAg4pSU4pSA4pSAIG15YXBwLwogICAgICAgIOKUnOKUgOKUgCBwcm9kdWN0Lm1kICAgICAgICAgICAgICAgICAgIyBwcm9kdWN0IGRlc2NyaXB0aW9uCiAgICAgICAg4pSc4pSA4pSAIHJ1bGVzLm1kICAgICAgICAgICAgICAgICAgICAjIHdyaXRpbmcgcnVsZXMgZm9yIGFsbCBwYWdlcyBpbiB0aGlzIHByb2R1Y3QKICAgICAgICDilJzilIDilIAgcGVyc29uYXMvCiAgICAgICAg4pSCICAg4pSU4pSA4pSAIHBsYXRmb3JtLWVuZ2luZWVyLwogICAgICAgIOKUgiAgICAgICDilJzilIDilIAgcGVyc29uYS5tZCAgICAgICAgICAjIHdobyB0aGlzIGF1ZGllbmNlIGlzCiAgICAgICAg4pSCICAgICAgIOKUnOKUgOKUgCBydWxlcy5tZCAgICAgICAgICAgICMgd3JpdGluZyBydWxlcyBmb3IgdGhpcyBwZXJzb25hJ3MgcGFnZXMKICAgICAgICDilIIgICAgICAg4pSU4pSA4pSAIHRhc2tzLwogICAgICAgIOKUgiAgICAgICAgICAg4pSU4pSA4pSAIGRlcGxveS1hcHAubWQgICAjIHRhc2sgaW50ZW50IChsaW5rcyB0byBhIGhvdy10bykKICAgICAgICDilJzilIDilIAgY29uY2VwdHMvCiAgICAgICAg4pSCICAg4pSU4pSA4pSAIGNvbmZpZy1zY2hlbWEubWQgICAgICAgICMgY29uY2VwdCBpbnRlbnQKICAgICAgICDilJzilIDilIAgaG93LXRvcy8KICAgICAgICDilIIgICDilJTilIDilIAgZGVwbG95LWFwcC5tZCAgICAgICAgICAgIyBob3ctdG8gaW50ZW50CiAgICAgICAg4pSU4pSA4pSAIHR1dG9yaWFscy8KICAgICAgICAgICAg4pSc4pSA4pSAIGluZGV4LnlhbWwgICAgICAgICAgICAgICMgb3B0aW9uYWwgb3JkZXJpbmcKICAgICAgICAgICAg4pSU4pSA4pSAIGdldHRpbmctc3RhcnRlZC5tZCAgICAgICMgdHV0b3JpYWwgaW50ZW50" />
+
+Each layer has a specific role.
+
+### Products
+
+A product groups everything related to one tool or service. The `product.md` file describes what the product does, its primary outcome, and its secondary workflows. The generator uses this framing to give every page the right context — without it, pages would be written without knowing what the tool is for.
+
+### Personas
+
+Personas describe the audience for a product's documentation. A persona file (`persona.md`) explains who this reader is, what they care about, and what they already know. A persona's `rules.md` can add or override writing conventions — for example, "always show exact CLI flags" or "link to product on first mention."
+
+Rules are applied in order: persona rules override product rules, which override global rules.
+
+Personas exist separately from tasks because the same audience segment can appear across multiple products, and because the generator needs to reason about the reader independently of any specific task.
+
+### Tasks
+
+Tasks live under a persona and describe what that audience wants to accomplish. A task file is the intent behind a how-to or tutorial page — it answers "why does this page need to exist?" and "what does success look like for this reader?"
+
+Tasks and how-to/tutorial files are separate because the task captures the reader's goal (from their perspective), while the how-to captures the procedure (from the documentation's perspective).
+
+### Concepts
+
+Concepts are reusable explanatory units. A concept intent file describes what a reader should understand after reading the page, what analogies might help, and what outcomes the explanation should deliver. How-to's and tutorials declare `prereq_concepts` in their frontmatter to build on these explanations without duplicating them.
+
+### How-to's and tutorials
+
+`how-tos/` and `tutorials/` contain intent files for task-oriented pages. Each file carries frontmatter (persona, goal, success criteria) plus a short body that the generator expands. Tutorials can include an `index.yaml` to control ordering when a series needs a specific sequence.
+
+### References
+
+References point to source files — CLI command definitions, config schemas, API specs — that the generator reads directly. They are generated first in the pipeline because concepts, how-to's, and tutorials may link to them.
+
+## What the generator reads
+
+`saifdocs gen` walks the entire `docspec/` tree and builds a `.manifest.json` — one entry per output file, each listing which source files must be read to produce it. That manifest is the build plan the sandbox executes. Understanding the manifest is covered in [The manifest and build plan](/product/saifdocs/concepts/manifest-build-plan).
+
+## Why the separation matters
+
+Keeping intent separate from content means:
+
+- **Regeneration is safe.** `docs/` files are outputs. You can re-run the generator when your source changes without touching your intent tree.
+- **Staleness is detectable.** Because the manifest records when each file was generated and from what inputs, `saifdocs validate` can report which pages are out of date without re-running generation.
+- **The intent tree is reviewable.** Before a single page is written, you can inspect `docspec/` to see whether the right personas, tasks, and concepts are declared. `saifdocs gen --dry-run` builds the manifest without generating files, so you can verify the plan.
+
+## What goes where
+
+| You want to... | File to create or edit |
+|---|---|
+| Describe a new product | `docspec/products/myapp/product.md` |
+| Add a new audience segment | `docspec/products/myapp/personas/newpersona/persona.md` |
+| Declare a task for that audience | `docspec/products/myapp/personas/newpersona/tasks/mytask.md` |
+| Explain a concept | `docspec/products/myapp/concepts/myconcept.md` |
+| Add a how-to page | `docspec/products/myapp/how-tos/mytask.md` |
+| Set writing conventions | `docspec/products/myapp/rules.md` (product-wide) or persona `rules.md` |
+
+## Next steps
+
+- To generate your first pages from a `docspec/` tree, see [Generate docs for the first time](/product/saifdocs/how-tos/generate-first-docs).
+- To understand how the generator turns the intent tree into a build plan, see [The manifest and build plan](/product/saifdocs/concepts/manifest-build-plan).

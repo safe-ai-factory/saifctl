@@ -1,0 +1,31 @@
+# Docker isolation
+
+When you run `saifctl sandbox`, OpenClaw runs inside a Docker container — not directly on your machine. This page explains what that means for your project files and when changes actually land on your working tree.
+
+## What the agent sees
+
+Before the run starts, SaifCTL mounts a copy of your project into the container. From openclaw's perspective, it has a complete workspace to read, write, and experiment with. From your perspective, that workspace is isolated: a sandpit beside your real project. The agent digs in the sandpit; your files stay outside.
+
+## What stays in the container
+
+Every change the agent makes — new files, edits, deletions — exists only inside that container. When the run ends, the container is discarded. Nothing propagates back to your working tree automatically.
+
+This is the default because most of the time you want to see what the agent would do before committing to it, or the agent's task (drafting, summarising, researching) produces no output that belongs in your repo.
+
+## Getting changes back: `--extract`
+
+`--extract` is the opt-in gate. When you pass it, SaifCTL reads the git changes OpenClaw made inside the container and applies them to your real working tree after the run.
+
+Without `--extract`, the run is effectively read-only from your machine's point of view, regardless of what happens inside the container.
+
+Two companion flags narrow what comes back:
+
+- `--extract-include` — limit extraction to a specific path prefix
+- `--extract-exclude` — exclude a path prefix from an already-included set (requires `--extract-include`)
+
+For the full flag syntax, see the [`saifctl sandbox` reference](/product/saifctl/references/commands/sandbox).
+
+## See also
+
+- [Run an agent safely](/product/saifbox/how-tos/run-agent-safely) — how to start a sandboxed run
+- [Apply agent changes](/product/saifbox/how-tos/apply-agent-changes) — when and how to use `--extract`

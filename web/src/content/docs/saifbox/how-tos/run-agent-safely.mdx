@@ -1,0 +1,34 @@
+# Run an agent safely in Saifbox
+
+This guide shows how to start an agent CLI inside a Saifbox container so the agent cannot reach your host filesystem, environment variables, or credentials.
+
+## Prerequisites
+
+- Docker installed and running
+- `saifctl` installed (`npm install -g saifctl` or from the GitHub release)
+- An agent CLI installed (for example, OpenClaw)
+
+## Steps
+
+**1. Open a terminal in your project directory**
+
+<DocCodeBlock lang="bash" code="Y2QgL3BhdGgvdG8veW91ci9wcm9qZWN0" />
+
+**2. Start the sandbox**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXc=" />
+
+Saifbox mounts a copy of your project into the container. The agent sees that copy, not your real files.
+
+**3. Confirm the run completes**
+
+The terminal streams the agent's output. When the run ends, the container is destroyed. Your working tree is unchanged.
+
+## What happens if the agent tries to write files
+
+All writes go into the container filesystem. Nothing is applied to your project unless you pass `--extract` (see [Apply agent changes](/product/saifbox/how-tos/apply-agent-changes)).
+
+## See also
+
+- [Docker isolation](/product/saifbox/concepts/docker-isolation) — why the container boundary matters
+- [Apply agent changes](/product/saifbox/how-tos/apply-agent-changes) — opt in to applying the agent's output

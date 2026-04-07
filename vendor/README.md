@@ -97,8 +97,6 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
 
 **Avoid** only `git tag` + `git push` **without** a release: the upload job expects a **release** for that tag (same as our first successful flow).
 
----
-
 ### Updating the binaries (new upstream version)
 
 1. **Sync upstream changes into the fork (in the submodule):**
@@ -142,3 +140,94 @@ Optionally bump the submodule pointer after syncing the fork:
 git add vendor/argus
 git commit -m "chore(vendor): bump argus submodule to v${VERSION}"
 ```
+
+---
+
+## Leash (`vendor/leash`) — git submodule (temporary workaround)
+
+The Leash fork is tracked as a **git submodule** pointing at:
+
+**<https://github.com/JuroOravec/leash>** (`branch = workaround/h2patch-image`)
+
+Upstream: [strongdm/leash](https://github.com/strongdm/leash) (npm: `@strongdm/leash`)
+
+> **This submodule is a temporary workaround.** The upstream Leash MITM proxy does not support
+> HTTP/2 — clients that negotiate HTTP/2 via ALPN (e.g. the Cursor CLI, gRPC tools) fail with
+> "malformed HTTP request/response" errors inside sandboxed containers. The fix is submitted
+> upstream at [strongdm/leash#71](https://github.com/strongdm/leash/pull/71).
+> Tracked locally at [#73](https://github.com/safe-ai-factory/saifctl/issues/73).
+>
+> Once the upstream PR merges and a new `@strongdm/leash` npm release ships a fixed Docker image,
+> follow the **Removal** steps below.
+
+### What this submodule is used for
+
+The submodule itself is **not imported as Go source**. It contains only `Dockerfile.h2patch`,
+which was used to build a patched Leash Docker image and push it to GHCR:
+
+```bash
+cd vendor/leash
+docker buildx build --platform linux/arm64,linux/amd64 --push \
+  -f Dockerfile.h2patch \
+  -t ghcr.io/jurooravec/leash:h2patch-6ca7cf9 \
+  -t ghcr.io/jurooravec/leash:latest-h2patch \
+  .
+```
+
+The image is then used as the default Leash daemon image via `DEFAULT_LEASH_IMAGE` in
+`src/constants.ts`, which saifctl injects as `LEASH_IMAGE` when spawning Leash (unless the user
+has already set `LEASH_IMAGE` themselves).
+
+### Clone this repo
+
+```bash
+git clone --recurse-submodules <YOUR_SAFE_AI_FACTORY_REMOTE>
+cd safe-ai-factory
+```
+
+If you cloned without `--recurse-submodules`:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Rebuilding the image (e.g. after syncing upstream commits)
+
+```bash
+cd vendor/leash
+
+# Sync the upstream fix branch into our fork
+git fetch origin
+git checkout workaround/h2patch-image
+
+# Rebuild and push (replace SHA tag with the new HEAD short SHA)
+SHA=$(git rev-parse --short HEAD)
+docker buildx build --platform linux/arm64,linux/amd64 --push \
+  -f Dockerfile.h2patch \
+  -t ghcr.io/jurooravec/leash:h2patch-${SHA} \
+  -t ghcr.io/jurooravec/leash:latest-h2patch \
+  .
+```
+
+Then update the pinned SHA tag in `src/constants.ts` (`DEFAULT_LEASH_IMAGE`) and bump the
+submodule pointer:
+
+```bash
+cd ../..
+git add vendor/leash src/constants.ts
+git commit -m "chore(vendor): rebuild leash HTTP/2 workaround image (${SHA})"
+```
+
+### Removal (once strongdm/leash#71 is merged and shipped)
+
+1. Delete `DEFAULT_LEASH_IMAGE` from `src/constants.ts`.
+2. Delete the `WORKAROUND(leash-http2)` block and its `DEFAULT_LEASH_IMAGE` import from
+   `src/engines/docker/index.ts`.
+3. Run:
+   ```bash
+   git submodule deinit vendor/leash
+   git rm vendor/leash
+   ```
+4. Remove the `[submodule "vendor/leash"]` entry from `.gitmodules`.
+5. Bump `@strongdm/leash` in `package.json` to the version that includes the fix.
+6. Close [#73](https://github.com/safe-ai-factory/saifctl/issues/73).

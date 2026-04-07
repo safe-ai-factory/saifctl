@@ -1,0 +1,81 @@
+# Staleness tracking: keeping generated docs in sync
+
+Every page saifdocs generates is produced from a specific set of input files — the `read` list baked into that page's manifest entry. When any of those files changes, the generated page may no longer accurately reflect the current intent. Staleness tracking is how saifdocs detects that drift and tells you — or fixes it — without regenerating everything.
+
+## The staleness rule
+
+An entry is stale when **any file in its `read` list has a modification time strictly newer than `generatedAt`**.
+
+That single comparison is the entire rule. saifdocs uses no content hashing, no diffing, no checksums — just filesystem modification times compared against the ISO timestamp recorded in `generatedAt` when the page was last written.
+
+Three other conditions also mark an entry as stale:
+
+- **`generatedAt` is `null`** — the page was planned by `saifdocs gen` but has never been generated.
+- **The output file is missing** — `generatedAt` exists but the file at `output` has been deleted or never extracted.
+- **`generatedAt` is unparseable** — the timestamp field in `.manifest.json` is corrupt.
+
+In all four cases saifdocs treats the entry as stale for the same reason: the generated output can no longer be trusted to reflect its inputs.
+
+## What `validate` and `update` do with staleness
+
+Staleness detection lives in a shared function (`validateManifest`) that both `saifdocs validate` and `saifdocs update` call. The commands differ only in what they do afterward.
+
+**`saifdocs validate`** reports staleness and exits. It reads `.manifest.json`, evaluates every entry in scope, and exits with a non-zero code if any entry is stale. It never writes anything.
+
+<DocCodeBlock code="c2FpZmRvY3MgdmFsaWRhdGUKIyBbdmFsaWRhdGVdIDIgc3RhbGUsIDE0IHVwLXRvLWRhdGUsIDAgb3V0IG9mIHNjb3BlIChvZiAxNiBlbnRyaWVzIGNoZWNrZWQpCiMgICBTVEFMRSAgY29uY2VwdC0tbXlhcHAtLXJldHJ5LXNlbWFudGljcwojICAgICAgICAgIG91dHB1dDogZG9jcy9wcm9kdWN0cy9teWFwcC9jb25jZXB0cy9yZXRyeS1zZW1hbnRpY3MubWQKIyAgICAgICAgICBzdGFsZSBzaW5jZTogMjAyNS0xMS0wM1QxNDoyMjowMS4wMDBaCiMgICAgICAgICAgLSBkb2NzcGVjL3Byb2R1Y3RzL215YXBwL3BlcnNvbmFzL2FwaS11c2VyL3BlcnNvbmEubWQ=" />
+
+The stale output names the specific `read` path that changed — so you know immediately which source file triggered the drift.
+
+**`saifdocs update`** applies the same staleness check and then fixes it. It calls the sandbox only for the stale entry IDs, keeping the rest of the manifest — and all the fresh `generatedAt` timestamps — untouched. The full manifest is passed into the generation step so unaffected entries are never rebuilt.
+
+<DocCodeBlock code="c2FpZmRvY3MgdXBkYXRlCiMgW3VwZGF0ZV0gUmVnZW5lcmF0aW5nIDIgc3RhbGUgcGFnZShzKeKApgojIFt1cGRhdGVdIERvbmUuIDIgcGFnZShzKSByZWdlbmVyYXRlZC4=" />
+
+`update` is intentionally narrow. If your `docspec/` structure changes — a new persona, a new product, a renamed concept file — you need `saifdocs gen` to rebuild the manifest. `update` operates only on entries that already exist in the manifest; it does not detect structural additions or removals.
+
+## An analogy: `make` rebuild-if-newer
+
+The staleness model is the same one `make` has used for decades. Each manifest entry is a build target. The `read` list is the target's prerequisite list. `generatedAt` plays the role of the output file's modification time. When any prerequisite is newer than the output, the target is out of date and needs to be rebuilt.
+
+`saifdocs update` is the equivalent of running `make` in a repository where some source files have changed: it rebuilds exactly the targets that are out of date and skips the rest.
+
+## Shared inputs and cascading staleness
+
+Because `generatedAt` is compared against the mtime of each file in `read` individually, updating a single shared file can mark many pages stale at once.
+
+For example, if you revise the persona description at `docspec/products/myapp/personas/api-user/persona.md`, every page that lists that file in its `read` array will be flagged stale on the next `validate` or `update` run. That is intentional: a persona description affects how every page for that persona is written, so saifdocs asks you to regenerate all of them.
+
+The same applies to any other shared file: a `product.md`, a `rules.md`, a global `docspec/rules.md`. The more pages a file feeds into, the wider the ripple when it changes.
+
+## Using `validate` in CI
+
+Because `saifdocs validate` reads only `.manifest.json` and the filesystem, it is fast and cheap — no AI calls, no sandbox. This makes it well-suited to a CI check that catches docs drift before it reaches production.
+
+A minimal CI step:
+
+<DocCodeBlock lang="yaml" code="LSBuYW1lOiBDaGVjayBkb2NzIGFyZSB1cCB0byBkYXRlCiAgcnVuOiBzYWlmZG9jcyB2YWxpZGF0ZSAtLWFsbG93LW1pc3NpbmctbWFuaWZlc3Q=" />
+
+`--allow-missing-manifest` makes the command exit `0` when no `.manifest.json` exists (for example, on a fresh clone that has never run `saifdocs gen`). Without it, a missing manifest is a hard error.
+
+When staleness is detected, the CI step exits `1` and the output names every stale entry and the input file that changed. You can resolve the drift by running `saifdocs update` locally and committing the regenerated pages.
+
+`validate` also accepts a `--types` flag to limit the check to a subset of page types (`references`, `concepts`, `how-tos`, `tutorials`, `landing-pages`), which is useful if you generate different page types on different schedules.
+
+<DocCodeBlock code="c2FpZmRvY3MgdmFsaWRhdGUgLS10eXBlcyBjb25jZXB0cyxob3ctdG9z" />
+
+## The boundary between `update` and `gen`
+
+The distinction is worth restating because it affects how you think about the workflow:
+
+| When to use | Command |
+|---|---|
+| Docspec content changed (a concept spec, a persona description, a rules file) | `saifdocs update` |
+| Docspec structure changed (new product, new persona, new page, renamed file) | `saifdocs gen` |
+| You want to check for drift without regenerating | `saifdocs validate` |
+
+`saifdocs update` never rebuilds the manifest. Only `saifdocs gen` does that. If you add a new concept file to `docspec/` and run `update`, the new page will not be generated — it is not in the manifest yet. Run `gen` first, then `update` for subsequent changes.
+
+## Summary
+
+Staleness tracking in saifdocs is mtime-based and manifest-driven. An entry is stale when any file in its `read` list is newer than `generatedAt`, or when the page has never been generated or its output is missing. `saifdocs validate` surfaces that staleness without touching anything — ideal for CI. `saifdocs update` fixes it by regenerating only the affected entries, leaving everything else untouched. And `saifdocs gen` is the one command that rebuilds the manifest itself when the shape of your `docspec/` tree changes.
+
+For the full picture of what the manifest contains and how it is built, see [The manifest: saifdocs' build plan](/product/saifdocs/concepts/manifest-build-plan).

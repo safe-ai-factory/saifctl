@@ -1,0 +1,44 @@
+# Tutorial: your first sandbox run
+
+This tutorial takes you from a fresh install to a completed agent run in an isolated container. By the end you will have run an agent, inspected its output, and optionally applied its changes to your working tree.
+
+## What you will need
+
+- Docker Desktop (or Docker Engine) running on your machine
+- `saifctl` installed — run `saifctl doctor` to verify
+- A project directory with at least one file tracked by git
+
+## Step 1 — Verify your setup
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBkb2N0b3I=" />
+
+The doctor command checks that Docker is reachable and your install is complete. Fix any warnings before continuing.
+
+## Step 2 — Start a sandboxed run
+
+Navigate to your project and run:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXc=" />
+
+You will see the container start, the agent receive your project, and the run output stream to your terminal.
+
+## Step 3 — Inspect what the agent did (without applying it)
+
+The run exits cleanly. Your working tree is unchanged. To see what the agent would have changed:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXcgLS1kcnktcnVu" />
+
+The diff is printed to stdout but not applied.
+
+## Step 4 — Apply the changes
+
+When you are ready to bring the agent's output into your project:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXcgLS1leHRyYWN0" />
+
+Review with `git diff`. Stage and commit what you want to keep.
+
+## Next steps
+
+- [Apply agent changes](/product/saifbox/how-tos/apply-agent-changes) — fine-grained control with `--extract-include`
+- [Docker isolation](/product/saifbox/concepts/docker-isolation) — understand the container boundary

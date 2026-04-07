@@ -1,0 +1,54 @@
+{
+  "product": "saifbox",
+  "sections": [
+    {
+      "type": "landing-pages",
+      "label": "Overview",
+      "items": [
+        {
+          "slug": "",
+          "title": "Saifbox",
+          "path": "/product/saifbox"
+        }
+      ]
+    },
+    {
+      "type": "tutorials",
+      "label": "Tutorials",
+      "items": [
+        {
+          "slug": "tutorials/first-sandbox-run",
+          "title": "Tutorial: your first sandbox run",
+          "path": "/product/saifbox/tutorials/first-sandbox-run"
+        }
+      ]
+    },
+    {
+      "type": "how-tos",
+      "label": "How-tos",
+      "items": [
+        {
+          "slug": "how-tos/run-agent-safely",
+          "title": "Run an agent safely in Saifbox",
+          "path": "/product/saifbox/how-tos/run-agent-safely"
+        },
+        {
+          "slug": "how-tos/apply-agent-changes",
+          "title": "Apply agent changes to your working tree",
+          "path": "/product/saifbox/how-tos/apply-agent-changes"
+        }
+      ]
+    },
+    {
+      "type": "concepts",
+      "label": "Concepts",
+      "items": [
+        {
+          "slug": "concepts/docker-isolation",
+          "title": "Docker isolation",
+          "path": "/product/saifbox/concepts/docker-isolation"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Saifbox
+
+**Saifbox** is the isolated sandbox layer of the Safe AI Factory stack. It runs any agent CLI — OpenClaw, Claude Code, or others — inside an ephemeral Docker container so the agent never touches your host filesystem, secrets, or credentials unless you explicitly opt in.
+
+## Who this is for
+
+- Developers who want to run AI coding agents without giving them unrestricted host access.
+- Teams evaluating agent output before applying it to a real working tree.
+
+## Where to go next
+
+- [Docker isolation](/product/saifbox/concepts/docker-isolation) — how the container boundary works
+- [Run an agent safely](/product/saifbox/how-tos/run-agent-safely) — start a sandboxed run in one command
+- [Apply agent changes](/product/saifbox/how-tos/apply-agent-changes) — use `--extract` to bring changes back
+- [Your first sandbox run](/product/saifbox/tutorials/first-sandbox-run) — hands-on from zero

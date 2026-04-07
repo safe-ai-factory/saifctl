@@ -1,0 +1,31 @@
+{
+  "product": "saifdocs",
+  "sections": [
+    {
+      "type": "concepts",
+      "label": "Concepts",
+      "items": [
+        {
+          "slug": "concepts/docspec",
+          "title": "The docspec/ directory: your documentation blueprint",
+          "path": "/product/saifdocs/concepts/docspec"
+        },
+        {
+          "slug": "concepts/generation-pipeline",
+          "title": "The Generation Pipeline",
+          "path": "/product/saifdocs/concepts/generation-pipeline"
+        },
+        {
+          "slug": "concepts/manifest-build-plan",
+          "title": "The manifest: saifdocs' build plan",
+          "path": "/product/saifdocs/concepts/manifest-build-plan"
+        },
+        {
+          "slug": "concepts/staleness-tracking",
+          "title": "Staleness tracking: keeping generated docs in sync",
+          "path": "/product/saifdocs/concepts/staleness-tracking"
+        }
+      ]
+    }
+  ]
+}

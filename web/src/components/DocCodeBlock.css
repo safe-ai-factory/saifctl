@@ -1,0 +1,84 @@
+/* ─── Terminal chrome wrapper ─────────────────────────────────────────────── */
+.doc-code-block {
+  position: relative;
+  padding-top: 1.7rem !important;
+  border-radius: 0.5rem;
+  border-left: 3px solid oklch(68% 0.13 240 / 35%) !important;
+  box-shadow:
+    0 0 0 1px var(--c-border-subtle),
+    0 0 28px oklch(68% 0.13 240 / 4%);
+  overflow: hidden;
+}
+
+/* dark header bar */
+.doc-code-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.7rem;
+  background: var(--c-surface-3);
+  border-bottom: 1px solid var(--c-border-subtle);
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* traffic-light dots */
+.doc-code-block::after {
+  content: '';
+  position: absolute;
+  top: 0.55rem;
+  left: 0.75rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #ff5f57;
+  box-shadow: 1.1rem 0 0 #febc2e, 2.2rem 0 0 #28c840;
+}
+
+/* ─── Language label ──────────────────────────────────────────────────────── */
+.doc-code-lang {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 1.7rem;
+  line-height: 1.7rem;
+  font-size: 0.65rem;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  color: var(--c-fg-subtle);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ─── Copy button ─────────────────────────────────────────────────────────── */
+.doc-code-copy {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.6rem;
+  height: 1.2rem;
+  padding: 0 0.5rem;
+  font-size: 0.6rem;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-fg-subtle);
+  background: transparent;
+  border: 1px solid var(--c-border);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+
+.doc-code-copy:hover {
+  color: var(--c-link);
+  border-color: oklch(68% 0.13 240 / 50%);
+}
+
+.doc-code-copy--copied {
+  color: var(--c-link) !important;
+  border-color: oklch(68% 0.13 240 / 60%) !important;
+}

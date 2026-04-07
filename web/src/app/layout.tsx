@@ -1,8 +1,13 @@
 import './globals.css';
+import 'highlight.js/styles/tokyo-night-dark.css';
+import '../components/DocCodeBlock.css';
 
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import PlausibleProvider from 'next-plausible';
+
+import { Mascot } from '../components/Mascot/Mascot';
+import { WaitlistModalProvider } from '../components/WaitlistModal.context';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,10 +20,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SaifCTL',
-  description: 'Zero-trust orchestrator for containerized AI swarms.',
+  title: 'Safe AI Factory',
+  description: "Open-source tools for autonomous AI agents that can't cheat, leak, or wreak havoc.",
   icons: {
-    icon: '/saifctl-icon-green.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: '16x16 32x32', type: 'image/x-icon' },
+      { url: '/logo/saif_512_circ_color.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/logo/apple-touch-icon.png',
   },
 };
 
@@ -32,11 +41,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0F0F0F] text-white font-sans selection:bg-[#00FF66] selection:text-black`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-bg text-fg font-sans selection:bg-accent selection:text-bg`}
       >
         <PlausibleProvider domain={domain} trackOutboundLinks enabled={!!domain}>
-          {children}
+          <WaitlistModalProvider>{children}</WaitlistModalProvider>
         </PlausibleProvider>
+        <Mascot />
       </body>
     </html>
   );

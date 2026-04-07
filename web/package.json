@@ -3,29 +3,44 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "sync-docs": "npx tsx scripts/sync-docs.ts",
+    "dev": "npx tsx scripts/sync-docs.ts && next dev",
+    "build": "npx tsx scripts/sync-docs.ts && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "mascot:sprites:build": "tsx public/mascot/frames/build.mts",
+    "mascot:sprites:extract": "tsx public/mascot/frames/extract.mts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.2",
+    "gray-matter": "^4.0.3",
     "lucide-react": "^0.577.0",
     "next": "^15.0.0",
+    "next-mdx-remote": "^6.0.0",
     "next-plausible": "^3.12.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^3.5.0"
+    "rehype-highlight": "^7.0.2",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-html": "^16.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "tailwind-merge": "^3.5.0",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.19.3",
     "typescript": "^5.0.0"
   }
 }

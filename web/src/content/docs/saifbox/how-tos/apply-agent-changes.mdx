@@ -1,0 +1,36 @@
+# Apply agent changes to your working tree
+
+By default, Saifbox discards everything the agent wrote when the container exits. This guide explains how to selectively extract the agent's git changes back to your host.
+
+## Prerequisites
+
+A completed (or paused) Saifbox run. See [Run an agent safely](/product/saifbox/how-tos/run-agent-safely).
+
+## Steps
+
+**1. Re-run with `--extract`**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXcgLS1leHRyYWN0" />
+
+After the agent finishes, Saifbox reads the git diff inside the container and applies it to your real working tree as unstaged changes.
+
+**2. Review the changes**
+
+<DocCodeBlock lang="bash" code="Z2l0IGRpZmY=" />
+
+The applied patch is identical to what the agent committed inside the container. Nothing is staged or committed on your behalf.
+
+**3. Narrow what comes back (optional)**
+
+Use `--extract-include` to limit extraction to a path prefix:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXcgLS1leHRyYWN0IC0tZXh0cmFjdC1pbmNsdWRlIHNyYy8=" />
+
+Use `--extract-exclude` to drop a sub-path within an already-included prefix:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tYWdlbnQgb3BlbmNsYXcgLS1leHRyYWN0IC0tZXh0cmFjdC1pbmNsdWRlIHNyYy8gLS1leHRyYWN0LWV4Y2x1ZGUgc3JjL2dlbmVyYXRlZC8=" />
+
+## See also
+
+- [Docker isolation](/product/saifbox/concepts/docker-isolation) — what stays in the container
+- [`saifctl sandbox` reference](/product/saifctl/references/commands/sandbox) — full flag documentation

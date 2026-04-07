@@ -1,0 +1,119 @@
+{
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "animations": {
+    "idle_spin": {
+      "row": 0,
+      "frames": 8,
+      "fps": 12,
+      "loop": true
+    },
+    "idle_jump": {
+      "row": 1,
+      "frames": 8,
+      "fps": 10,
+      "loop": false
+    },
+    "idle_boop": {
+      "row": 2,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    },
+    "idle_crouch": {
+      "row": 3,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    },
+    "idle_explode": {
+      "row": 4,
+      "frames": 8,
+      "fps": 16,
+      "loop": false
+    },
+    "walk": {
+      "row": 5,
+      "frames": 8,
+      "fps": 10,
+      "loop": true
+    },
+    "walk_flipped": {
+      "row": 5,
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "flipH": true,
+      "sourceDir": "walk"
+    },
+    "jump_start": {
+      "row": 6,
+      "frames": 16,
+      "fps": 20,
+      "loop": false,
+      "reverse": true,
+      "sourceDir": "landing"
+    },
+    "jump_start_flipped": {
+      "row": 6,
+      "frames": 16,
+      "fps": 20,
+      "loop": false,
+      "reverse": true,
+      "flipH": true,
+      "sourceDir": "landing"
+    },
+    "drag_start_grab": {
+      "row": 7,
+      "frames": 16,
+      "fps": 24,
+      "loop": false
+    },
+    "drag_idle_calm": {
+      "row": 8,
+      "frames": 16,
+      "fps": 8,
+      "loop": true
+    },
+    "drag_idle_swing": {
+      "row": 9,
+      "frames": 16,
+      "fps": 10,
+      "loop": true
+    },
+    "drag_stop_release": {
+      "row": 10,
+      "frames": 16,
+      "fps": 54,
+      "loop": false
+    },
+    "falling": {
+      "row": 11,
+      "frames": 16,
+      "fps": 20,
+      "loop": true
+    },
+    "falling_flipped": {
+      "row": 11,
+      "frames": 16,
+      "fps": 20,
+      "loop": true,
+      "flipH": true,
+      "sourceDir": "falling"
+    },
+    "landing": {
+      "row": 12,
+      "frames": 16,
+      "fps": 20,
+      "loop": false
+    },
+    "landing_flipped": {
+      "row": 12,
+      "frames": 16,
+      "fps": 20,
+      "loop": false,
+      "flipH": true,
+      "sourceDir": "landing"
+    }
+  }
+}

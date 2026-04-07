@@ -18,15 +18,21 @@ export default async function PrivacyPage() {
   const policyHtml = await getPolicyHtml();
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-gray-200 selection:bg-[#00FF66] selection:text-black">
+    <div className="min-h-screen bg-bg text-fg selection:bg-accent selection:text-bg">
       {/* Minimal header */}
-      <header className="fixed top-0 w-full z-50 border-b border-[#333] bg-[#0F0F0F]/80 backdrop-blur-md">
+      <header className="fixed top-0 w-full z-50 border-b border-border bg-bg/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <img src="/saifctl-icon-green.svg" alt="SaifCTL" className="w-6 h-6 shrink-0" />
-            <span className="font-mono font-bold tracking-tight text-white">SaifCTL</span>
+            <img
+              src="/logo/saif_512_circ_color.svg"
+              alt="Safe AI Factory"
+              className="w-16 h-16 shrink-0"
+            />
+            <span className="font-mono font-bold tracking-tight text-fg">
+              Safe <span className="text-accent">AI</span> Factory
+            </span>
           </Link>
-          <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+          <Link href="/" className="text-sm text-fg-muted hover:text-fg transition-colors">
             ← Back
           </Link>
         </div>
@@ -34,43 +40,43 @@ export default async function PrivacyPage() {
 
       {/* Policy content - dark theme overrides for Termly styles */}
       <main className="pt-24 pb-16 px-6">
-        <div className="max-w-3xl mx-auto mb-12 border-b border-[#333] pb-8">
-          <h1 className="text-3xl font-bold text-white mb-6">Privacy Policy</h1>
+        <div className="max-w-3xl mx-auto mb-12 border-b border-border pb-8">
+          <h1 className="text-3xl font-bold text-fg mb-6">Privacy Policy</h1>
 
-          <div className="bg-[#111] border border-[#333] rounded-lg p-6 font-mono text-sm text-gray-400 leading-relaxed">
-            <h2 className="text-white font-bold mb-3 font-sans text-base">
+          <div className="bg-surface border border-border rounded-lg p-6 font-mono text-sm text-fg-muted leading-relaxed">
+            <h2 className="text-fg font-bold mb-3 font-sans text-base">
               Data Controller Identification
             </h2>
             <p>
-              The website <span className="text-white">safeaifactory.com</span> and its associated
+              The website <span className="text-fg">safeaifactory.com</span> and its associated
               services are operated by:
             </p>
             <ul className="mt-3 space-y-1 list-disc list-inside">
               <li>
-                <strong className="text-gray-300">Name:</strong> Juraj Oravec
+                <strong className="text-fg-muted">Name:</strong> Juraj Oravec
               </li>
               <li>
-                <strong className="text-gray-300">IČO:</strong> 23711434
+                <strong className="text-fg-muted">IČO:</strong> 23711434
               </li>
               <li>
-                <strong className="text-gray-300">Registered Address:</strong> Varšavská 345/40,
+                <strong className="text-fg-muted">Registered Address:</strong> Varšavská 345/40,
                 Vinohrady, 120 00 Praha 2, Czech Republic
               </li>
               <li>
-                <strong className="text-gray-300">Registry:</strong> Zapsán v živnostenském
+                <strong className="text-fg-muted">Registry:</strong> Zapsán v živnostenském
                 rejstříku
               </li>
               <li>
-                <strong className="text-gray-300">Contact Email:</strong>{' '}
+                <strong className="text-fg-muted">Contact Email:</strong>{' '}
                 <a
                   href="mailto:juraj.oravec.josefson@gmail.com"
-                  className="text-[#00FF66] hover:underline"
+                  className="text-link hover:text-link-hover hover:underline transition-colors"
                 >
                   juraj.oravec.josefson@gmail.com
                 </a>
               </li>
             </ul>
-            <p className="mt-4 text-xs text-gray-500">
+            <p className="mt-4 text-xs text-fg-subtle">
               For any questions regarding data privacy or to exercise your GDPR rights, please
               contact the email address above.
             </p>
@@ -78,7 +84,7 @@ export default async function PrivacyPage() {
         </div>
 
         <article
-          className="max-w-3xl mx-auto privacy-policy prose prose-invert prose-headings:text-white prose-p:text-gray-400 prose-a:text-[#00FF66] prose-a:no-underline hover:prose-a:underline"
+          className="max-w-3xl mx-auto privacy-policy prose prose-invert prose-headings:text-fg prose-p:text-fg-muted prose-a:text-link prose-a:no-underline hover:prose-a:underline hover:prose-a:text-link-hover"
           dangerouslySetInnerHTML={{ __html: policyHtml }}
         />
       </main>
@@ -108,13 +114,13 @@ export default async function PrivacyPage() {
           }
           .privacy-policy [data-custom-class='link'],
           .privacy-policy [data-custom-class='link'] * {
-            color: #00ff66 !important;
+            color: var(--c-link) !important;
           }
           .privacy-policy span[style*="color: rgb(89, 89, 89)"] {
-            color: #9ca3af !important;
+            color: var(--c-fg-muted) !important;
           }
           .privacy-policy a[href^="mailto:"] {
-            color: #00ff66 !important;
+            color: var(--c-link) !important;
           }
         `,
         }}

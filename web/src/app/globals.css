@@ -2,46 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens — OKLCH color space ────────────────────────────────────
+   All colors are defined once here and consumed via Tailwind utilities
+   (bg-bg, text-accent, border-border, etc.) or CSS var() references.
+
+   OKLCH(lightness chroma hue) — perceptually uniform.
+   Palette inspired by the mascot: a dark iron safe (hue 260, blue-grey) on
+   mechanical legs, with a warm gold coin emblem (hue 85, amber).
+   Neutrals use a low-chroma blue-grey tint (0.010) that echoes the iron body.
+   The gold accent (chroma 0.14) is distinctive without being garish.
+────────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #0f0f0f;
-  --foreground: #ededed;
+  /* Backgrounds — dark iron blue-grey */
+  --c-bg: oklch(13% 0.008 260); /* page bg     ≈ #0e0f14 */
+  --c-surface: oklch(16% 0.01 260); /* card / modal ≈ #131520 */
+  --c-surface-2: oklch(20% 0.01 260); /* inline code  ≈ #191c27 */
+  --c-surface-3: oklch(23% 0.01 260); /* code chrome  ≈ #1d2030 */
+
+  /* Borders */
+  --c-border: oklch(30% 0.01 260); /* standard   ≈ #292d3e */
+  --c-border-subtle: oklch(26% 0.01 260); /* subtle     ≈ #232636 */
+
+  /* Foreground / text — slightly warm white, echoes the gold */
+  --c-fg: oklch(92% 0.008 80); /* primary text ≈ #ece8e0 */
+  --c-fg-muted: oklch(62% 0.008 80); /* secondary    ≈ #9b9488 */
+  --c-fg-subtle: oklch(45% 0.008 80); /* tertiary     ≈ #6e6860 */
+
+  /* Accent — gold coin emblem from the mascot */
+  --c-accent: oklch(76% 0.14 85); /* ≈ #c9a028  warm gold */
+  --c-accent-hover: oklch(70% 0.14 85); /* ≈ #b58c1e  darker gold */
+  --c-accent-dim: oklch(76% 0.14 85 / 10%); /* tint for active bg */
+  --c-accent-glow: oklch(76% 0.14 85 / 20%); /* glow shadow */
+
+  /* Link / secondary — iron-blue complement to the gold */
+  --c-link: oklch(68% 0.13 240); /* ≈ #5b8fd4  steel blue */
+  --c-link-hover: oklch(74% 0.13 240); /* ≈ #7aaae0  lighter blue */
+  --c-link-dim: oklch(68% 0.13 240 / 10%);
+  --c-link-glow: oklch(68% 0.13 240 / 20%);
+
+  /* Legacy aliases kept for body/scroll — remove once all callers migrated */
+  --background: var(--c-bg);
+  --foreground: var(--c-fg);
+}
+
+/* ─── Inline code — gold tint ─────────────────────────────────────────────── */
+/* Targets markdown prose inline backticks rendered by @tailwindcss/typography. */
+.prose :not(pre) > code {
+  color: var(--c-accent) !important;
+  background: var(--c-accent-dim) !important;
+  border-radius: 0.2em;
+  padding: 0.1em 0.35em;
+  font-weight: 500;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--c-bg);
+  color: var(--c-fg);
 }
 
+/* ─── Utility classes (used via className="...") ──────────────────────── */
+
 .terminal-gradient {
-  background: linear-gradient(180deg, rgba(0, 255, 102, 0.05) 0%, rgba(15, 15, 15, 0) 100%);
+  background: linear-gradient(180deg, oklch(76% 0.14 85 / 5%) 0%, oklch(13% 0.008 260 / 0%) 100%);
 }
 
 .glow-green {
-  box-shadow: 0 0 20px rgba(0, 255, 102, 0.2);
+  box-shadow: 0 0 20px var(--c-accent-glow);
 }
 
 .border-glow:hover {
-  border-color: rgba(0, 255, 102, 0.5);
-  box-shadow: 0 0 15px rgba(0, 255, 102, 0.1);
+  border-color: oklch(76% 0.14 85 / 50%);
+  box-shadow: 0 0 15px oklch(76% 0.14 85 / 10%);
   transition: all 0.3s ease;
 }
 
-/* Pipeline horizontal scrollbar — visible on desktop when content overflows */
+/* Card with blue tint — border brightens on hover */
+.card-link-tint {
+  border: 1px solid var(--c-link-glow);
+  background-color: var(--c-link-dim);
+  transition: border-color 0.2s ease;
+}
+.card-link-tint:hover {
+  border-color: var(--c-link);
+}
+
+/* Pipeline horizontal scrollbar */
 .pipeline-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 255, 102, 0.5) #1a1a1a;
+  scrollbar-color: oklch(76% 0.14 85 / 50%) var(--c-surface-2);
 }
 .pipeline-scroll::-webkit-scrollbar {
   height: 8px;
 }
 .pipeline-scroll::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: var(--c-surface-2);
   border-radius: 4px;
 }
 .pipeline-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 102, 0.5);
+  background: oklch(76% 0.14 85 / 50%);
   border-radius: 4px;
 }
 .pipeline-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 102, 0.7);
+  background: oklch(76% 0.14 85 / 70%);
 }

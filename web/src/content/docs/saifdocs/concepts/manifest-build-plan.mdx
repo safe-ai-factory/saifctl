@@ -1,0 +1,64 @@
+# The manifest: saifdocs' build plan
+
+Before saifdocs sends a single page to an AI agent, it writes a file called `.manifest.json`. That file is the build plan for the entire documentation run — and understanding what it contains, why it exists, and how other commands use it will help you reason about every part of the saifdocs workflow.
+
+## What the manifest is
+
+The manifest is a JSON file written to `.manifest.json` at the root of your repository. It describes every page saifdocs intends to generate. Each entry in the manifest corresponds to one output file and looks roughly like this:
+
+<DocCodeBlock lang="json" code="ewogICJpZCI6ICJjb25jZXB0LS1teWFwcC0tcmV0cnktc2VtYW50aWNzIiwKICAidHlwZSI6ICJjb25jZXB0cyIsCiAgIm91dHB1dCI6ICJkb2NzL3Byb2R1Y3RzL215YXBwL2NvbmNlcHRzL3JldHJ5LXNlbWFudGljcy5tZCIsCiAgInJlYWQiOiBbCiAgICAiZG9jc3BlYy9wcm9kdWN0cy9teWFwcC9jb25jZXB0cy9yZXRyeS1zZW1hbnRpY3MubWQiLAogICAgImRvY3NwZWMvcHJvZHVjdHMvbXlhcHAvcHJvZHVjdC5tZCIsCiAgICAiZG9jc3BlYy9wcm9kdWN0cy9teWFwcC9wZXJzb25hcy9hcGktdXNlci9wZXJzb25hLm1kIiwKICAgICJkb2NzcGVjL3Byb2R1Y3RzL215YXBwL3BlcnNvbmFzL2FwaS11c2VyL3J1bGVzLm1kIgogIF0sCiAgImdlbmVyYXRlZEF0IjogbnVsbAp9" />
+
+Two fields deserve close attention:
+
+**`read`** — the exact list of files the agent must read before writing this page. This list is compiled by `saifdocs gen` from your `docspec/` tree and baked into the manifest at plan time. When the agent runs, it receives this list and reads only those files — no broader scanning, no guessing. This is what allows the agent to produce accurate, context-aware output without access to your entire repository.
+
+**`generatedAt`** — a timestamp, set to `null` before generation and filled in once a page is successfully written. This single field is what powers staleness detection: `saifdocs update` and `saifdocs validate` compare each entry's `generatedAt` against the modification times of its `read` files to decide whether a page needs to be regenerated.
+
+## Two useful analogies
+
+**A Makefile target with its dependencies.** Each manifest entry is like a `make` target. The `read` list is the target's dependency list. `generatedAt` plays the role of the output file's modification timestamp. `saifdocs update` behaves like `make`'s default: rebuild only what's out of date.
+
+**A lockfile.** Think of `.manifest.json` the way you think of `package-lock.json` or `Cargo.lock` — a record of exactly which input files were used to produce each output. Just as a lockfile lets you reproduce a build reliably, the manifest lets saifdocs regenerate only what has drifted, and lets you audit exactly what context each page was written from.
+
+## How the manifest is written
+
+`saifdocs gen` is the only command that writes the manifest. It reads your entire `docspec/` directory, resolves which pages need to be generated and in what order (references → concepts → how-to's → tutorials → landing pages), and writes `.manifest.json` before sending any work to a [saifctl](../../saifctl/concepts/what-is-saifctl.md) sandbox.
+
+This separation — write the plan first, then execute it — means the plan can be inspected before anything is generated:
+
+<DocCodeBlock code="c2FpZmRvY3MgZ2VuIC0tZHJ5LXJ1bg==" />
+
+`--dry-run` writes `.manifest.json` but does not invoke any sandbox. You can open the file and confirm that every output path is accounted for, every `read` list looks reasonable, and the page types are all correct — before spending any compute.
+
+## How other commands use the manifest
+
+Once the manifest exists, the downstream saifdocs commands read it rather than re-parsing `docspec/`. Re-parsing the intent tree is something only `saifdocs gen` does. The other commands treat the manifest as the authoritative record of what was generated and from what inputs.
+
+| Command | What it reads | What it writes |
+|---|---|---|
+| `saifdocs gen` | `docspec/` | `.manifest.json`, then all output pages |
+| `saifdocs update` | `.manifest.json` | Only the stale output pages; updates `generatedAt` |
+| `saifdocs validate` | `.manifest.json` | Nothing — exits non-zero if any entry is stale |
+| `saifdocs audit` | `.manifest.json` | Nothing — reports entries whose output files are missing |
+
+One consequence of this design: if you change the structure of your `docspec/` tree — add a new persona, rename a concept file, or add a product — you must re-run `saifdocs gen` to rebuild the manifest. `saifdocs update` does not detect structural changes; it only checks whether existing entries are stale by modification time.
+
+## Why `generatedAt` matters for staleness
+
+The staleness model is deliberately simple: an entry is stale if any file in its `read` list has been modified more recently than `generatedAt`. No file hashing, no content diffing — just modification times compared against a recorded timestamp.
+
+This has a practical consequence worth knowing: if you update a shared input — say, a persona description at `docspec/products/myapp/personas/api-user/persona.md` — every page that lists that file in its `read` array will be flagged as stale on the next `saifdocs validate` run. That is intentional. A persona change affects every page written for that persona, and saifdocs will ask you to regenerate them.
+
+See [Staleness tracking](/product/saifdocs/concepts/staleness-tracking) for a deeper look at how `saifdocs update` and `saifdocs validate` use this mechanism, including how to wire `saifdocs validate` into CI to catch drift before it reaches production.
+
+## What the manifest is not
+
+The manifest is not a cache of generated content. It stores no page prose, summaries, or embeddings — only structural metadata. This keeps it small enough to commit to version control and readable at a glance.
+
+It is also not hand-edited. The manifest is owned by saifdocs. If you find yourself wanting to modify `.manifest.json` directly, that is usually a signal that you need to update your `docspec/` tree and re-run `saifdocs gen`.
+
+## Summary
+
+The manifest is how saifdocs separates planning from execution. `saifdocs gen` reads your `docspec/` intent tree once, compiles a complete build plan, and then works from that plan — as do all the downstream commands. The `read` list on each entry gives agents exactly the context they need; `generatedAt` gives staleness detection its timestamp anchor; and `--dry-run` lets you inspect the plan before any pages are written.
+
+For the full picture of how the manifest feeds into the generation pipeline, see [The generation pipeline](/product/saifdocs/concepts/generation-pipeline).

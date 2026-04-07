@@ -98,7 +98,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -113,20 +113,20 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="pointer-events-auto w-full max-w-md bg-[#111] border border-[#333] rounded-2xl shadow-2xl overflow-hidden">
+            <div className="pointer-events-auto w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden">
               {/* Header bar */}
               <div className="flex items-center justify-between px-6 pt-6 pb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-[#00FF66] rounded-sm flex items-center justify-center text-black font-bold font-mono text-xs">
+                  <div className="w-6 h-6 bg-accent rounded-sm flex items-center justify-center text-bg font-bold font-mono text-xs">
                     S
                   </div>
-                  <span className="font-mono font-bold tracking-tight text-white">SaifCTL</span>
+                  <span className="font-mono font-bold tracking-tight text-fg">SaifCTL</span>
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-white transition-colors p-1 rounded-md hover:bg-[#222]"
+                  className="text-fg-subtle hover:text-fg transition-colors p-1 rounded-md hover:bg-surface-2"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -143,10 +143,10 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                     transition={{ duration: 0.2 }}
                     className="px-6 pb-6"
                   >
-                    <h2 id="waitlist-title" className="text-xl font-bold text-white mb-1">
+                    <h2 id="waitlist-title" className="text-xl font-bold text-fg mb-1">
                       Get early access to SaifCTL
                     </h2>
-                    <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                    <p className="text-fg-muted text-sm mb-6 leading-relaxed">
                       Join the waitlist and we'll notify you when we launch or open alpha/beta.
                     </p>
 
@@ -166,7 +166,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           disabled={status === 'loading'}
-                          className="w-full px-4 py-3 bg-[#0F0F0F] border border-[#333] text-white rounded-md focus:outline-none focus:border-[#00FF66] transition-colors font-mono text-sm placeholder:text-gray-600 disabled:opacity-60"
+                          className="w-full px-4 py-3 bg-bg border border-border text-fg rounded-md focus:outline-none focus:border-accent transition-colors font-mono text-sm placeholder:text-fg-subtle disabled:opacity-60"
                         />
                         {errorMsg && (
                           <p className="text-red-400 text-xs font-mono mt-2">{errorMsg}</p>
@@ -176,11 +176,11 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                       <button
                         type="submit"
                         disabled={status === 'loading'}
-                        className="w-full px-6 py-3 bg-[#00FF66] hover:bg-[#00e05a] text-black font-bold rounded-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                        className="w-full px-6 py-3 bg-accent hover:bg-accent-hover text-bg font-bold rounded-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
                       >
                         {status === 'loading' ? (
                           <>
-                            <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                            <span className="inline-block w-4 h-4 border-2 border-bg/30 border-t-bg rounded-full animate-spin" />
                             Joining…
                           </>
                         ) : (
@@ -189,12 +189,12 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                       </button>
                     </form>
 
-                    <p className="text-gray-600 text-xs mt-4 leading-relaxed">
+                    <p className="text-fg-subtle text-xs mt-4 leading-relaxed">
                       We'll only email you about SaifCTL updates, launch, and open alpha/beta
                       announcements.{' '}
                       <a
                         href="/privacy"
-                        className="hover:text-gray-400 underline underline-offset-2 transition-colors"
+                        className="hover:text-fg-muted underline underline-offset-2 transition-colors"
                       >
                         Privacy Policy
                       </a>
@@ -211,13 +211,13 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                     className="px-6 pb-6"
                   >
                     <div className="text-3xl mb-3">🎉</div>
-                    <h2 id="waitlist-title" className="text-xl font-bold text-white mb-1">
+                    <h2 id="waitlist-title" className="text-xl font-bold text-fg mb-1">
                       You're on the list!
                     </h2>
-                    <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                      We'll notify <span className="text-white font-mono">{email}</span> when we
-                      launch or open alpha/beta. While you wait - help SaifCTL get discovered by
-                      starring the repo.
+                    <p className="text-fg-muted text-sm mb-6 leading-relaxed">
+                      We'll notify <span className="text-fg font-mono">{email}</span> when we launch
+                      or open alpha/beta. While you wait - help SaifCTL get discovered by starring
+                      the repo.
                     </p>
 
                     <a
@@ -231,7 +231,7 @@ export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
                       Star SaifCTL on GitHub
                     </a>
 
-                    <p className="text-gray-600 text-xs mt-4 text-center">
+                    <p className="text-fg-subtle text-xs mt-4 text-center">
                       GitHub stars help SaifCTL get discovered by more developers.
                     </p>
                   </motion.div>

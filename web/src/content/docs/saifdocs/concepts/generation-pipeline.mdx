@@ -1,0 +1,92 @@
+# The Generation Pipeline
+
+When you run `saifdocs gen`, more happens than a single call to an AI model. saifdocs orchestrates a multi-phase pipeline that reads your intent tree, builds a plan, and then executes that plan one page at a time — in a specific order, for a specific reason.
+
+This page explains the structure of that pipeline: what the phases are, why they run in that order, and how the pieces connect.
+
+## Why a pipeline at all?
+
+Documentation pages refer to each other. A how-to guide for running `saifdocs gen` will naturally link to the reference page for that command. A concept page explaining the manifest will be cited by tutorials. If those downstream pages are generated before the pages they cite exist, the agent has nothing concrete to link to.
+
+saifdocs solves this the same way a compiler does: it runs multiple ordered passes, where each pass can depend on the outputs of the previous one. Think of it like `parse → typecheck → codegen` — each stage builds on a stable foundation before the next one begins.
+
+The pipeline phases run in this fixed order:
+
+1. **references** — CLI commands, API entries, configuration keys
+2. **concepts** — explanatory pages (like this one)
+3. **how-tos** — task-oriented guides
+4. **tutorials** — end-to-end walkthroughs
+5. **landing-pages** — product overview and navigation pages
+
+References come first because they are cited most widely. Landing pages come last because they link to everything else.
+
+## The manifest: the pipeline's build plan
+
+Before any agent writes a single page, `saifdocs gen` reads your entire `docspec/` directory and writes a file called `.manifest.json` inside it.
+
+The manifest is a build plan: one entry per output file, each listing the exact set of source files the agent needs to read in order to generate that page. No guessing; no scanning the whole repository at generation time. Each entry is self-contained.
+
+A manifest entry looks roughly like this:
+
+<DocCodeBlock lang="json" code="ewogICJpZCI6ICJjb25jZXB0LS1zYWlmZG9jcy0tZ2VuZXJhdGlvbi1waXBlbGluZSIsCiAgInR5cGUiOiAiY29uY2VwdHMiLAogICJvdXRwdXQiOiAiZG9jcy9wcm9kdWN0cy9zYWlmZG9jcy9jb25jZXB0cy9nZW5lcmF0aW9uLXBpcGVsaW5lLm1kIiwKICAicmVhZCI6IFsKICAgICJkb2NzcGVjL3Byb2R1Y3RzL3NhaWZkb2NzL2NvbmNlcHRzL2dlbmVyYXRpb24tcGlwZWxpbmUubWQiLAogICAgImRvY3NwZWMvcHJvZHVjdHMvc2FpZmRvY3MvcHJvZHVjdC5tZCIsCiAgICAiZG9jc3BlYy9wcm9kdWN0cy9zYWlmZG9jcy9wZXJzb25hcy9kb2NzLWF1dGhvci9wZXJzb25hLm1kIiwKICAgICJkb2NzcGVjL3Byb2R1Y3RzL3NhaWZkb2NzL3BlcnNvbmFzL2RvY3MtYXV0aG9yL3J1bGVzLm1kIiwKICAgICJkb2NzcGVjL3Byb2R1Y3RzL3NhaWZkb2NzL3J1bGVzLm1kIgogIF0sCiAgImdlbmVyYXRlZEF0IjogbnVsbAp9" />
+
+The `read` list is assembled at manifest-build time — the agent receives exactly those files, nothing more. This is similar to a `Makefile` target with its listed dependencies, or a lockfile that records exactly what inputs produced each output.
+
+The manifest also records `generatedAt` on each entry once a page is successfully written. This timestamp is what `saifdocs update` and `saifdocs validate` use later to detect staleness — without re-running the full pipeline.
+
+You can build and inspect the manifest without triggering any generation by using the `--dry-run` flag:
+
+<DocCodeBlock code="c2FpZmRvY3MgZ2VuIC0tZHJ5LXJ1bg==" />
+
+This writes `.manifest.json` but does not invoke any sandbox.
+
+## What goes into a read list
+
+The read list for each entry is assembled according to the page type:
+
+- **References** receive: the intent pointer file, the resolved source file on disk (e.g. a TypeScript CLI source), and any global rules.
+- **Concepts** receive: the concept intent file, the product description, every persona description and persona rules file, product rules, and global rules.
+- **How-to's** receive: persona rules, persona description, the how-to intent, task files, product description, product rules, global rules, prerequisite concept intents, and any already-written reference pages.
+- **Tutorials** receive: persona rules, persona description, the tutorial intent, product description, product rules, global rules, prerequisite concept intents, related concept intents, and the output of any prerequisite tutorial (a prior step in the same thread).
+- **Landing pages** receive: the product description, product rules, global rules, every persona description and persona rules, and every task file.
+
+The ordering within each list is deliberate: persona rules are listed before persona prose so that writing constraints take precedence when the agent reads them in order.
+
+## Subtasks and the sandbox
+
+Once the manifest exists, saifdocs hands the work to [saifctl](https://docs.saif.ai/saifctl), an AI agent runner. Each manifest entry becomes one **saifctl sandbox subtask** — a self-contained agent invocation that receives:
+
+- the page type and output path
+- the precise read list from the manifest
+- writing instructions for that page type
+
+All subtasks for a given `saifdocs gen` run execute within a single sandbox session. Phases run sequentially (references finish before concepts begin, and so on); within a phase, subtasks may run in parallel depending on your saifctl configuration.
+
+The agent writes one markdown file per subtask — exactly the output path recorded in the manifest.
+
+## The gate: verifying outputs
+
+After each subtask completes, a gate script checks that the output file actually exists at the expected path and is non-empty. If the file is missing or empty, the subtask is marked as failed — not silently skipped.
+
+<DocCodeBlock lang="bash" code="IyBHYXRlIGxvZ2ljIGluIHNpbXBsaWZpZWQgZm9ybQppZiBbWyAhIC1mICIkb3V0cHV0IiBdXTsgdGhlbgogIGVjaG8gIk1JU1NJTkc6ICRvdXRwdXQiCiAgZXhpdCAxCmVsaWYgW1sgISAtcyAiJG91dHB1dCIgXV07IHRoZW4KICBlY2hvICJFTVBUWTogJG91dHB1dCIKICBleGl0IDEKZmk=" />
+
+This means a broken or hallucinating agent cannot cause the pipeline to proceed as if everything succeeded. The gate is also what makes the `saifdocs validate` CI workflow trustworthy: it knows that anything recorded as generated was actually checked at generation time.
+
+## Limiting scope with `--types`
+
+You do not have to generate all five page types every time. Use `--types` to run only the phases you need:
+
+<DocCodeBlock code="c2FpZmRvY3MgZ2VuIC0tdHlwZXMgcmVmZXJlbmNlcyxjb25jZXB0cw==" />
+
+Phases still run in their fixed order within the selected set. If you select `concepts` without `references`, concept agents will not have reference pages to link to — so select upstream types when downstream pages depend on them.
+
+## How this connects to other workflows
+
+`saifdocs gen` runs the full pipeline from scratch. The other commands are narrower views into the same pipeline:
+
+- `saifdocs update` — re-runs only the subtasks whose source files have changed since `generatedAt` in the manifest. It reads the existing manifest rather than re-parsing `docspec/`.
+- `saifdocs validate` — checks staleness in CI without writing anything; exits non-zero if any page is out of date.
+- `saifdocs audit` — checks for manifest entries whose output files are missing entirely.
+- `saifdocs review` — runs a persona-simulation pass over already-generated pages to verify quality, without regenerating them.
+
+For a closer look at what the manifest contains and how `generatedAt` is used for staleness detection, see [Manifest and Build Plan](/product/saifdocs/concepts/manifest-build-plan).
