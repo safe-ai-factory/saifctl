@@ -126,36 +126,32 @@ git commit -m "chore(vendor): bump argus submodule to v${VERSION}"
 
 The Leash fork is tracked as a **git submodule** pointing at:
 
-**<https://github.com/JuroOravec/leash>** (`branch = workaround/h2patch-image`)
+**<https://github.com/safe-ai-factory/leash>** (`branch = workaround/h2patch-image`)
 
 Upstream: [strongdm/leash](https://github.com/strongdm/leash) (npm: `@strongdm/leash`)
 
 > **This submodule is a temporary workaround.** The upstream Leash MITM proxy does not support
 > HTTP/2 — clients that negotiate HTTP/2 via ALPN (e.g. the Cursor CLI, gRPC tools) fail with
-> "malformed HTTP request/response" errors inside sandboxed containers. The fix is submitted
-> upstream at [strongdm/leash#71](https://github.com/strongdm/leash/pull/71).
+> "malformed HTTP request/response" errors inside sandboxed containers. The fix has been
+> **merged** upstream as [strongdm/leash#71](https://github.com/strongdm/leash/pull/71)
+> (commit `164015b`, 2026-04-06), but **no upstream tag yet contains it** — latest tag is
+> `v1.1.7` (2026-03-04), and `@strongdm/leash@1.1.7` + the `public.ecr.aws/s5i7k8t3/strongdm/leash:v1.1.7`
+> Docker image both predate the fix.
 > Tracked locally at [#73](https://github.com/safe-ai-factory/saifctl/issues/73).
 >
-> Once the upstream PR merges and a new `@strongdm/leash` npm release ships a fixed Docker image,
+> Watch trigger: when `git tag --contains 164015b` (in this submodule) returns at least one tag,
 > follow the **Removal** steps below.
 
 ### What this submodule is used for
 
 The submodule itself is **not imported as Go source**. It contains only `Dockerfile.h2patch`,
-which was used to build a patched Leash Docker image and push it to GHCR:
+which is used to build a patched Leash Docker image and push it to GHCR. The image is then used
+as the default Leash daemon image via `DEFAULT_LEASH_IMAGE` in `src/constants.ts`, which saifctl
+injects as `LEASH_IMAGE` when spawning Leash (unless the user has already set `LEASH_IMAGE`
+themselves).
 
-```bash
-cd vendor/leash
-docker buildx build --platform linux/arm64,linux/amd64 --push \
-  -f Dockerfile.h2patch \
-  -t ghcr.io/jurooravec/leash:h2patch-6ca7cf9 \
-  -t ghcr.io/jurooravec/leash:latest-h2patch \
-  .
-```
-
-The image is then used as the default Leash daemon image via `DEFAULT_LEASH_IMAGE` in
-`src/constants.ts`, which saifctl injects as `LEASH_IMAGE` when spawning Leash (unless the user
-has already set `LEASH_IMAGE` themselves).
+See **Authenticating to ghcr.io (one-time setup)** below for PAT prerequisites, then
+**Rebuilding the image** for the actual build/push flow.
 
 ### Clone this repo
 
@@ -170,6 +166,36 @@ If you cloned without `--recurse-submodules`:
 git submodule update --init --recursive
 ```
 
+### Authenticating to ghcr.io (one-time setup)
+
+Pushing to `ghcr.io/safe-ai-factory/leash` requires a Personal Access Token (classic) with
+`write:packages` (and `read:packages`, `delete:packages` if you ever clean up old tags). The
+keychain may also have a stale token scoped to a personal namespace from a previous login —
+re-login is the easy fix.
+
+1. Create or refresh the PAT at <https://github.com/settings/tokens/new>:
+   - Note: e.g. `safe-ai-factory GHCR push`
+   - Scopes: `write:packages`, `read:packages` (+ `delete:packages` if needed)
+2. Verify org allows package creation: <https://github.com/organizations/safe-ai-factory/settings/member_privileges>
+   (default is yes; only worth checking if your push gets `denied: denied`).
+3. Re-login Docker with the new token:
+   ```bash
+   docker logout ghcr.io
+   echo "<paste-token>" | docker login ghcr.io -u <github-username> --password-stdin
+   ```
+
+**macOS keychain note:** Docker Desktop stores the credential in your login keychain via the
+`desktop` credential helper. If `docker buildx` is invoked from a non-interactive session
+(e.g. an AI assistant's bash), the keychain may report "session does not allow user interaction"
+on the first push after a system reboot. Unlock once with:
+
+```bash
+security unlock-keychain ~/Library/Keychains/login.keychain-db
+```
+
+The keychain stays unlocked for the rest of your user session unless you manually re-lock with
+`security lock-keychain ~/Library/Keychains/login.keychain-db`.
+
 ### Rebuilding the image (e.g. after syncing upstream commits)
 
 ```bash
@@ -179,13 +205,19 @@ cd vendor/leash
 git fetch origin
 git checkout workaround/h2patch-image
 
-# Rebuild and push (replace SHA tag with the new HEAD short SHA)
+# Rebuild and push. Layers cache between rebuilds, so subsequent pushes finish in seconds.
 SHA=$(git rev-parse --short HEAD)
 docker buildx build --platform linux/arm64,linux/amd64 --push \
   -f Dockerfile.h2patch \
-  -t ghcr.io/jurooravec/leash:h2patch-${SHA} \
-  -t ghcr.io/jurooravec/leash:latest-h2patch \
+  -t ghcr.io/safe-ai-factory/leash:h2patch-${SHA} \
+  -t ghcr.io/safe-ai-factory/leash:latest-h2patch \
   .
+```
+
+Verify the push:
+
+```bash
+docker manifest inspect ghcr.io/safe-ai-factory/leash:latest-h2patch | head -5
 ```
 
 Then update the pinned SHA tag in `src/constants.ts` (`DEFAULT_LEASH_IMAGE`) and bump the
