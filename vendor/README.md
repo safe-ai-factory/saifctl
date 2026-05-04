@@ -4,7 +4,7 @@
 
 The Argus fork is tracked as a **git submodule** pointing at:
 
-**<https://github.com/JuroOravec/argus>** (`branch = main`)
+**<https://github.com/safe-ai-factory/argus>** (`branch = main`)
 
 Upstream: [Meru143/argus](https://github.com/Meru143/argus) (npm: `argus-ai`)
 
@@ -41,7 +41,7 @@ git commit -m "chore(vendor): bump argus submodule"
 
 ### Fork: disable crates.io + npm from release-plz
 
-The workflow stays mergeable with upstream. On **JuroOravec/argus**, set a **GitHub Actions repository variable**:
+The workflow stays mergeable with upstream. On **safe-ai-factory/argus**, set a **GitHub Actions repository variable**:
 
 - **Name:** `ARGUS_PUBLISH_TO_REGISTRIES`
 - **Value:** `false`
@@ -64,38 +64,23 @@ The binary version is pinned via **`ARGUS_VERSION`** in `src/orchestrator/sideca
 
 ### Force a fork release (manual cut)
 
-Use this when **release-plz isn’t what you want** (e.g. no PR, publish disabled, or you just need a semver + binaries **now**). Tag format must stay **`argus-ai-v${VERSION}`** so **`release.yml`** runs and **`gh release upload`** can attach assets (the release record must exist).
+The fork's `release.yml` triggers on **`argus-core-v*`** tags (matching upstream's release-plz convention). The release job uses `softprops/action-gh-release@v2`, which creates the GitHub Release as part of the workflow — no need to pre-create one.
 
 1. **Submodule:** `cd vendor/argus`
-2. **Bump `Cargo.toml`:** set **`[workspace.package] version`** and every **`version = "…"`** in **`[workspace.dependencies]`** to the new semver (keep them identical).
-3. **Bump `npm/package.json`:** set **`"version"`** to the same semver (keeps the npm wrapper aligned for local/testing).
-4. **Commit and push** to the fork’s **`main`** (use the same `VERSION` as in the files):
+2. **(Only if bumping)** update **`[workspace.package].version`** in `Cargo.toml`, every **`version = "…"`** in `[workspace.dependencies]`, and `npm/package.json`'s **`"version"`** to the new semver. Commit + push to `main`.
+3. **Tag and push.** Workflow fires on the tag push, runs the 7-platform matrix (including the 2 musl targets), then creates a GitHub Release at the tag with the archives attached:
 
    ```bash
-   VERSION=0.5.6   # example — must match Cargo.toml + npm/package.json
-
-   git add Cargo.toml npm/package.json
-   git commit -m "chore: bump version to ${VERSION}"
-   git push origin main
+   VERSION=0.5.6   # match Cargo.toml's workspace.package.version
+   git tag argus-core-v${VERSION}
+   git push origin argus-core-v${VERSION}
    ```
 
-5. **Create the GitHub release** (creates the **`argus-ai-v${VERSION}`** tag on `main` and opens the release page). That triggers **`Release`** / `release.yml`, which builds and uploads the five platform archives. Re-use `VERSION` from step 4, or set it again:
+4. Wait for Actions to finish (~10–15 min for the 7-target matrix). Verify the release at `https://github.com/safe-ai-factory/argus/releases/tag/argus-core-v${VERSION}` has all 7 archives.
 
-   ```bash
-   # VERSION=0.5.5   # if not still set from step 4
+5. **Update `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` to the new semver and commit. saifctl will download from `https://github.com/safe-ai-factory/argus/releases/download/argus-core-v${ARGUS_VERSION}/argus-x86_64-unknown-linux-musl.tar.gz` (or the equivalent aarch64 asset).
 
-   gh release create "argus-ai-v${VERSION}" \
-     --repo JuroOravec/argus \
-     --target main \
-     --title "argus-ai v${VERSION}" \
-     --notes "Manual fork release; CI attaches binaries."
-   ```
-
-6. Wait for Actions to finish (the musl build matrix must complete), then **bump `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` and commit. The next run downloads musl binaries with the new version in the filename (under `/tmp/saifctl/bin/` by default); older cached builds are removed automatically when a new one is installed.
-
-   Optionally refresh the **`vendor/argus`** submodule pointer in this repo.
-
-**Avoid** only `git tag` + `git push` **without** a release: the upload job expects a **release** for that tag (same as our first successful flow).
+   Optionally refresh the `vendor/argus` submodule pointer in saifctl: `git add vendor/argus && git commit -m "chore(vendor): bump argus submodule to v${VERSION}"`.
 
 ### Updating the binaries (new upstream version)
 
@@ -108,21 +93,15 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
    git push origin main
    ```
 
-2. **Create a new release on the fork** (triggers the binary build CI):
+2. **Tag a new release on the fork** (triggers the binary build CI). Same flow as above:
 
    ```bash
-   VERSION=0.5.3   # example — match Cargo.toml
-
-   git tag argus-ai-v${VERSION}
-   git push origin argus-ai-v${VERSION}
-
-   gh release create argus-ai-v${VERSION} \
-     --repo JuroOravec/argus \
-     --title "v${VERSION}" \
-     --notes "Sync with upstream Meru143/argus v${VERSION}."
+   VERSION=0.5.7   # match Cargo.toml after the upstream sync
+   git tag argus-core-v${VERSION}
+   git push origin argus-core-v${VERSION}
    ```
 
-   Wait ~15 min for the 7-platform build matrix (including musl targets) to complete and attach assets.
+   Wait ~10–15 min for the 7-platform build matrix (including musl targets) to finish and attach assets.
 
 3. **Update `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` to the new version and commit:
 

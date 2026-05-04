@@ -1,6 +1,6 @@
 [submodule "vendor/argus"]
 	path = vendor/argus
-	url = https://github.com/JuroOravec/argus.git
+	url = https://github.com/safe-ai-factory/argus.git
 	branch = main
 [submodule "vendor/leash"]
 	path = vendor/leash

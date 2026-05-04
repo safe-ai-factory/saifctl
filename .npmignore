@@ -1,0 +1,70 @@
+# Defensive .npmignore — paired with the `files` allowlist in package.json,
+# which is the primary mechanism for what ships. Items below are
+# secondary safeguards: if `files` is ever modified or removed, these
+# patterns still keep dev/test/planning junk out of the published tarball.
+
+# Tests and coverage
+**/*.test.ts
+**/*.test.tsx
+**/*.test.js
+**/__tests__/**
+**/tests/**
+test/
+coverage/
+.nyc_output/
+vitest.config.ts
+vitest.config.js
+
+# Build inputs / dev tooling
+src/**/*.ts
+!src/orchestrator/scripts/**
+!src/orchestrator/policies/**
+!src/orchestrator/sidecars/cli-over-http/out/**
+!src/sandbox-profiles/**
+!src/agent-profiles/**
+!src/test-profiles/**
+!src/design-discovery/tools.ts
+tsconfig*.json
+tsup.config.ts
+eslint.config.js
+.eslintrc*
+knip.json
+.prettierrc*
+.editorconfig
+
+# Caches / outputs we don't ship
+dist-pack/
+node_modules/
+.pnpm-store/
+.shotgun/
+*.tsbuildinfo
+
+# Planning / internal notes
+TODO_*.md
+INBOX.md
+plan.md
+todo_*.md
+docs_old/
+docspec/
+
+# Repo + CI hygiene (unrelated to runtime)
+.github/
+.cursor/
+.claude/
+scripts/
+
+# npm tombstones — defensively-registered package names with their own
+# README; not part of the saifctl runtime (already excluded by the
+# `files` allowlist; explicit here as defense-in-depth).
+npm-tombstones/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tarballs (build outputs, not source)
+*.tgz

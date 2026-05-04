@@ -16,10 +16,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Use Node.js 25
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 25
+          node-version: 22
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
@@ -32,7 +32,7 @@ jobs:
       - name: Build and pack
         run: bash scripts/package.sh
 
-      - name: Publish to npm
-        run: npm publish --access public
+      - name: Publish verified tarball to npm
+        run: npm publish dist-pack/safe-ai-factory-saifctl-*.tgz --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

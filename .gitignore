@@ -4,6 +4,7 @@ dist/
 dist-pack/
 coverage/
 *.tsbuildinfo
+*.tgz
 .pnpm-store/
 
 # Shotgun (codebase index)

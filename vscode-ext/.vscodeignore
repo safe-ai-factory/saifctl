@@ -3,13 +3,17 @@
 out/**
 node_modules/**
 src/**
+saifctl-test-workspace/**
 .gitignore
+pnpm-lock.yaml
 tsup.config.ts
 vsc-extension-quickstart.md
 **/tsconfig*.json
 **/eslint.config.js
 **/*.map
 **/*.ts
+**/*.tgz
+**/*.vsix
 **/.vscode-test.*
 **/vitest.config.ts
 **/knip.json
