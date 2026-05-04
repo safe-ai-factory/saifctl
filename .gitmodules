@@ -6,3 +6,6 @@
 	path = vendor/leash
 	url = git@github.com:safe-ai-factory/leash.git
 	branch = workaround/h2patch-image
+[submodule "vendor/saifdocs"]
+	path = vendor/saifdocs
+	url = git@github.com:safe-ai-factory/saifdocs.git
