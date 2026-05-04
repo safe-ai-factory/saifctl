@@ -1,0 +1,16 @@
+# Worked example — see _README.md for context.
+#
+# Three critics run by default. Phase 02 has its own `phase.yml` that
+# REPLACES this list (no key-level merge), so `audit` only runs on phase 01
+# unless phase 02's override is updated to include it. This asymmetry is
+# intentional — it demonstrates the override-replaces semantics.
+
+critics:
+  - { id: strict,   rounds: 1 }
+  - { id: paranoid, rounds: 1 }
+  - { id: audit,    rounds: 1 }
+
+# Phase-level tests are cumulative; feature-level tests run only at the
+# last phase's gate (mongo→postgres rationale, §9 of TODO_phases_and_critics).
+tests:
+  mutable: false

@@ -1,0 +1,5 @@
+# Per-phase override — replaces the inherited critic list (no key-level
+# merge). The end-state-defining phase deserves a second pass of paranoid.
+critics:
+  - { id: strict,   rounds: 1 }
+  - { id: paranoid, rounds: 2 }

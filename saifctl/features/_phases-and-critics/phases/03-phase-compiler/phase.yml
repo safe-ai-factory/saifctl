@@ -1,0 +1,5 @@
+# Phase 03 — phase-compiler is the wire-up that everything else routes
+# through. Subtle bugs here are easy to mistake for phase-04+ regressions.
+# Audit gets a second adversarial pass on this phase.
+critics:
+  - { id: audit, rounds: 2 }

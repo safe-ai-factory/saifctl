@@ -1,0 +1,16 @@
+# Phases & Critics — retrospective feature definition.
+#
+# This feature ships only one critic: `audit` (the project author's daily-driver
+# reviewer). It runs once per phase by default. Phases 03 (compiler) and 06
+# (CLI) override `rounds: 2` for an extra adversarial pass — they're the
+# highest-blast-radius surfaces of the implementation.
+#
+# Underscore prefix on the parent dir means feature discovery skips this
+# feature; it is documentation / reference, not a runnable end-to-end loop
+# (see plan.md "Bootstrap caveat").
+
+critics:
+  - { id: audit, rounds: 1 }
+
+tests:
+  mutable: false

@@ -1,0 +1,6 @@
+# Phase 06 — `feat phases` is the user-input boundary for phased features.
+# Subtle bugs (default-elevates-access flags, ambiguous validation messages,
+# preview-vs-run drift) are hard to catch downstream and become support
+# burden. Audit gets a second adversarial pass on this phase.
+critics:
+  - { id: audit, rounds: 2 }
