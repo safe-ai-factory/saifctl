@@ -1,8 +1,24 @@
+# Publishes via npm Trusted Publishing (OIDC) — no NPM_TOKEN required.
+#
+# Bootstrap (one-time, manual): publish v0.1.0 from a local CLI
+# (`bash scripts/package.sh && npm publish ./dist-pack/safe-ai-factory-saifctl-0.1.0.tgz --access public`
+# — the `./` prefix is required; without it npm misparses the path as a
+# GitHub `<owner>/<repo>` shortcut and tries to clone it). Then go to
+# npmjs.com → @safe-ai-factory/saifctl → Settings → Trusted Publishers
+# and add this repo + this workflow file. After that, every release/tag
+# trigger publishes via OIDC, no stored secret.
+
 name: Publish npm
 
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to (re)publish for (e.g. v0.1.0)'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -10,8 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Required for npm Trusted Publishing (OIDC) + --provenance attestations.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -32,7 +52,7 @@ jobs:
       - name: Build and pack
         run: bash scripts/package.sh
 
-      - name: Publish verified tarball to npm
-        run: npm publish dist-pack/safe-ai-factory-saifctl-*.tgz --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish verified tarball to npm (OIDC + provenance)
+        # `./` prefix forces file-path interpretation; without it npm matches
+        # the `<owner>/<repo>` GitHub shortcut pattern and tries to clone.
+        run: npm publish ./dist-pack/safe-ai-factory-saifctl-*.tgz --access public --provenance
