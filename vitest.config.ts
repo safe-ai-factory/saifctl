@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['src/**/*.test.ts', 'saifctl/**/tests/**/*.spec.ts'],
+    exclude: ['node_modules/**', 'dist/**', 'test/integration/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'scripts/**/*.ts'],

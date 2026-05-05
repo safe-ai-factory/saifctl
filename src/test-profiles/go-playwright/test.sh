@@ -11,6 +11,19 @@
 #   SAIFCTL_SIDECAR_URL   URL of the HTTP sidecar that wraps CLI command execution.
 #   SAIFCTL_FEATURE_NAME  Name of the Saifctl feature being tested.
 #   SAIFCTL_TESTS_DIR     Absolute path inside the container where test files are mounted.
+#                         Layout depends on whether the orchestrator merged multiple
+#                         test-scope sources (e.g. feature/tests + saifctl/tests):
+#                           Single-source (the common case) — flat layout:
+#                             /tests/public/         — public spec files (*_test.go, visible to agent)
+#                             /tests/hidden/         — hidden spec files (*_test.go, not exposed)
+#                             /tests/helpers.go      — shared test helpers
+#                             /tests/infra_test.go   — infra health-check (always present)
+#                           Multi-source — per-label subtrees:
+#                             /tests/<label>/public/         — same content, namespaced
+#                             /tests/<label>/hidden/
+#                             /tests/<label>/helpers.go      — per-source, no shared singleton
+#                             /tests/<label>/infra_test.go
+#                         Either way, `go test ./...` recurses and discovers them.
 #   SAIFCTL_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
 
 set -e
@@ -21,8 +34,8 @@ echo "[test-runner] SAIFCTL_FEATURE_NAME: ${SAIFCTL_FEATURE_NAME}"
 echo "[test-runner] SAIFCTL_TESTS_DIR:    ${SAIFCTL_TESTS_DIR}"
 echo "[test-runner] SAIFCTL_OUTPUT_FILE:  ${SAIFCTL_OUTPUT_FILE}"
 
-echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}/public" -name '*_test.go' 2>/dev/null | wc -l | tr -d ' ')"
-echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}/hidden" -name '*_test.go' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/public/*' -name '*_test.go' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/hidden/*' -name '*_test.go' 2>/dev/null | wc -l | tr -d ' ')"
 
 cd "${SAIFCTL_TESTS_DIR}"
 

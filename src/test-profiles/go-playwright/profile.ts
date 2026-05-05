@@ -56,6 +56,7 @@ export const goPlaywrightProfile: TestProfile = {
     'Files MUST use the "_test.go" suffix (e.g. "public/happy_path_test.go"). Every file MUST declare `package public_test` (for public/) or `package hidden_test` (for hidden/).',
   helpersFilename: 'helpers.go',
   infraFilename: 'infra_test.go',
+  exampleFilename: 'example_test.go',
   importRules:
     'Include `package public_test` (or `hidden_test`) at the top. Import `"testing"` and `github.com/playwright-community/playwright-go`.',
   assertionRules:

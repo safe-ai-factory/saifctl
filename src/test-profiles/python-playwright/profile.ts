@@ -45,6 +45,7 @@ export const pythonPlaywrightProfile: TestProfile = {
     'Files MUST be prefixed with "test_" (e.g. "public/test_happy_path.py"). pytest discovers any file matching test_*.py recursively.',
   helpersFilename: 'helpers.py',
   infraFilename: 'test_infra.py',
+  exampleFilename: 'test_example.py',
   importRules:
     'Import `pytest` and `expect` from `playwright.sync_api` at the top of every spec file. Import helpers with `from ..helpers import exec_sidecar, base_url, http_request`.',
   assertionRules:

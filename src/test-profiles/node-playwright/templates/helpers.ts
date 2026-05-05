@@ -29,7 +29,7 @@ export async function execSidecar(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cmd, args, env }),
   });
-  if (!res.ok) throw new Error(`Sidecar request failed: \${res.status}`);
+  if (!res.ok) throw new Error(`Sidecar request failed: ${res.status}`);
   return res.json() as Promise<SidecarResponse>;
 }
 

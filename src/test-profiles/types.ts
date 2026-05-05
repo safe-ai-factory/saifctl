@@ -41,6 +41,19 @@ export interface TestProfile {
   infraFilename: string | null;
 
   /**
+   * Filename (no directory) of the example/seed test template inside
+   * `src/test-profiles/templates/<id>/`. The example file is written into
+   * scaffolded test dirs (per-feature via `saifctl feat design-tests`,
+   * project-level via `saifctl init [tests]`) as a runnable, edit-in-place
+   * starting point that demonstrates the test format for this profile.
+   *
+   * Like helpers/infra: the example is always written from this template,
+   * idempotently — skipped when the file already exists, overwritten only
+   * when `--force` is passed.
+   */
+  exampleFilename: string;
+
+  /**
    * Import or module-header lines the coder agent must include at the top of every spec file.
    * Injected verbatim into the coder agent prompt.
    */

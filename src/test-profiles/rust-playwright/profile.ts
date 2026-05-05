@@ -126,6 +126,7 @@ export const rustPlaywrightProfile: TestProfile = {
     'Files use ".rs" suffix (e.g. "public/happy_path.rs"). Every spec file MUST be declared in the corresponding mod.rs (auto-generated). Test functions MUST be annotated with `#[test]` or `#[tokio::test]`.',
   helpersFilename: 'helpers.rs',
   infraFilename: 'infra_test.rs',
+  exampleFilename: 'example_test.rs',
   importRules:
     'Include `use crate::helpers::{exec_sidecar, base_url, http_request};` at the top of each spec file. Use `#[cfg(test)]` + `mod tests { ... }` or top-level `#[test]` functions.',
   assertionRules:

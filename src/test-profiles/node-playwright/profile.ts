@@ -41,6 +41,7 @@ export const nodePlaywrightProfile: TestProfile = {
     'Files MUST use the ".spec.ts" suffix (e.g. "public/happy-path.spec.ts"). They can live anywhere under tests/.',
   helpersFilename: 'helpers.ts',
   infraFilename: 'infra.spec.ts',
+  exampleFilename: 'example.spec.ts',
   importRules:
     'Import { test, expect } from "@playwright/test". Import helpers from "../helpers.js".',
   assertionRules:

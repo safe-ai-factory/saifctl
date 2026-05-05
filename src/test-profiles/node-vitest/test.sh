@@ -20,11 +20,19 @@
 #
 #   SAIFCTL_TESTS_DIR     Absolute path inside the container where test files are mounted.
 #                         Default: /tests
-#                         Subdirectories:
-#                           /tests/public/       — public spec files (visible to agent)
-#                           /tests/hidden/       — hidden spec files (not exposed to agent)
-#                           /tests/helpers.ts    — shared test helpers imported by specs
-#                           /tests/infra.spec.ts — infra health-check (always present)
+#                         Layout depends on whether the orchestrator merged multiple
+#                         test-scope sources (e.g. feature/tests + saifctl/tests):
+#                           Single-source (the common case) — flat layout:
+#                             /tests/public/        — public spec files (visible to agent)
+#                             /tests/hidden/        — hidden spec files (not exposed to agent)
+#                             /tests/helpers.ts     — shared test helpers imported by specs
+#                             /tests/infra.spec.ts  — infra health-check (always present)
+#                           Multi-source — per-label subtrees:
+#                             /tests/<label>/public/        — same content, namespaced
+#                             /tests/<label>/hidden/
+#                             /tests/<label>/helpers.ts     — per-source, no shared singleton
+#                             /tests/<label>/infra.spec.ts
+#                         Either way, vitest's recursive **/*.spec.ts discovery finds them.
 #
 #   SAIFCTL_OUTPUT_FILE   Absolute path where this script must write the test results file.
 #                         Default: /test-runner-output/results.xml
@@ -55,8 +63,8 @@ echo "[test-runner] SAIFCTL_FEATURE_NAME: ${SAIFCTL_FEATURE_NAME}"
 echo "[test-runner] SAIFCTL_TESTS_DIR:    ${SAIFCTL_TESTS_DIR}"
 echo "[test-runner] SAIFCTL_OUTPUT_FILE:  ${SAIFCTL_OUTPUT_FILE}"
 
-echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}/public" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
-echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}/hidden" -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/public/*' -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/hidden/*' -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
 
 cd "${SAIFCTL_TESTS_DIR}"
 

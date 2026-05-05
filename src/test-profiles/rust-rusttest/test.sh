@@ -12,13 +12,21 @@
 #   SAIFCTL_FEATURE_NAME  Name of the Saifctl feature being tested.
 #   SAIFCTL_TESTS_DIR     Absolute path inside the container where test files are mounted.
 #                         Default: /tests
-#                         Subdirectories:
-#                           /tests/public/        — public spec files (*.rs, visible to agent)
-#                           /tests/hidden/        — hidden spec files (*.rs, not exposed)
-#                           /tests/helpers.rs     — shared test helpers
-#                           /tests/infra_test.rs  — infra health-check (always present)
-#                           /tests/public/mod.rs  — auto-generated module index
-#                           /tests/hidden/mod.rs  — auto-generated module index
+#                         Layout depends on whether the orchestrator merged multiple
+#                         test-scope sources (e.g. feature/tests + saifctl/tests):
+#                           Single-source (the common case) — flat layout:
+#                             /tests/public/         — public spec files (*.rs, visible to agent)
+#                             /tests/hidden/         — hidden spec files (*.rs, not exposed)
+#                             /tests/helpers.rs      — shared test helpers
+#                             /tests/infra_test.rs   — infra health-check (always present)
+#                             /tests/public/mod.rs   — auto-generated module index
+#                             /tests/hidden/mod.rs   — auto-generated module index
+#                           Multi-source — per-label subtrees:
+#                             /tests/<label>/public/         — same content, namespaced
+#                             /tests/<label>/hidden/
+#                             /tests/<label>/helpers.rs      — per-source, no shared singleton
+#                             /tests/<label>/infra_test.rs
+#                         Either way, cargo nextest discovers them.
 #   SAIFCTL_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
 #
 # Exit code contract:
@@ -35,8 +43,8 @@ echo "[test-runner] SAIFCTL_FEATURE_NAME: ${SAIFCTL_FEATURE_NAME}"
 echo "[test-runner] SAIFCTL_TESTS_DIR:    ${SAIFCTL_TESTS_DIR}"
 echo "[test-runner] SAIFCTL_OUTPUT_FILE:  ${SAIFCTL_OUTPUT_FILE}"
 
-echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}/public" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
-echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}/hidden" -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] public spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/public/*' -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
+echo "[test-runner] hidden spec count:  $(find "${SAIFCTL_TESTS_DIR}" -path '*/hidden/*' -name '*.rs' ! -name 'mod.rs' 2>/dev/null | wc -l | tr -d ' ')"
 
 cd "${SAIFCTL_TESTS_DIR}"
 

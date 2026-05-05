@@ -15,6 +15,19 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "scripts", "saifctl", "tsup.config.ts", "eslint.config.js", "vitest.config.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src",
+    "scripts",
+    "saifctl",
+    "test/integration",
+    "tsup.config.ts",
+    "eslint.config.js",
+    "vitest.config.ts",
+    "vitest.integration.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test/integration/harness/fixtures/**"
+  ]
 }
