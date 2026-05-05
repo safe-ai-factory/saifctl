@@ -22,12 +22,19 @@
  *       ...rest of repo...
  */
 
-import { chmod, copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, rm, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
 
-import { getSaifctlRoot, SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
+import {
+  getSaifctlRoot,
+  SANDBOX_CEDAR_POLICY_BASENAME,
+  subtaskDonePath,
+  subtaskExitPath,
+  subtaskNextPath,
+  subtaskRetriesPath,
+} from '../constants.js';
 import type { TestCatalog } from '../design-tests/schema.js';
 import { consola, ensureStdoutNewline } from '../logger.js';
 import type { RunCommit } from '../runs/types.js';
@@ -381,23 +388,23 @@ async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<v
   }
 
   // Re-filter tests.json so the agent only sees public test cases after resume.
+  // Skipped for pure sandbox runs that have no feature test catalog.
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
-  if (!(await pathExists(testsJsonPath))) {
-    throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
+  if (await pathExists(testsJsonPath)) {
+    const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
+    const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
+    const publicCatalog: TestCatalog = {
+      ...catalog,
+      testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
+    };
+    await mkdir(inCodeTestsDir, { recursive: true });
+    await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
+    const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
+    const publicCount = publicCatalog.testCases.length;
+    consola.log(
+      `[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`,
     );
   }
-  const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
-  const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
-  const publicCatalog: TestCatalog = {
-    ...catalog,
-    testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
-  };
-  await mkdir(inCodeTestsDir, { recursive: true });
-  await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
-  const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
-  const publicCount = publicCatalog.testCases.length;
-  consola.log(`[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`);
 
   // Overwrite all mounted scripts so that changes between pause and resume are picked up.
   await writeUtf8(gatePath, gateScript);
@@ -411,7 +418,15 @@ async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<v
   await writeUtf8(stagePath, stageScript);
   await chmod(stagePath, 0o755);
   await writeUtf8(cedarPolicyPath, cedarScript);
-  for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
+  for (const name of [
+    'coder-start.sh',
+    'sandbox-start.sh',
+    'staging-start.sh',
+    'reviewer.sh',
+    // Shared drop-privileges helpers; sourced by per-profile agent.sh /
+    // agent-install.sh. See specification.md §4.1 X08-P7/P8.
+    'saifctl-agent-helpers.sh',
+  ] as const) {
     const dest = join(saifctlPath, name);
     await copyFile(join(SAIFCTL_SCRIPTS_DIR, name), dest);
     await chmod(dest, 0o755);
@@ -587,37 +602,40 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     await copyCommittedGitTreeToDir(projectDir, codePath);
   }
 
-  // Read the test catalog to discover which tests are hidden.
+  // Strip holdout tests from the sandbox code tree — only applicable when a feature test catalog
+  // exists (i.e. `feat run` / from-artifact paths). Pure `saifctl sandbox` runs have no feature
+  // directory and no tests.json, so this block is skipped for them.
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
-  if (!(await pathExists(testsJsonPath))) {
-    throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
-    );
-  }
-  const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
+  if (await pathExists(testsJsonPath)) {
+    const catalog = JSON.parse(await readUtf8(testsJsonPath)) as TestCatalog;
 
-  // Remove ALL hidden/ dirs from saifctl/features so the agent
-  // cannot see holdout tests from any feature (current or others).
-  const saifctlBase = join(codePath, saifctlDir);
-  const featuresHidden = await removeAllHiddenDirs(join(saifctlBase, 'features'));
-  if (featuresHidden > 0) {
+    // Remove ALL hidden/ dirs from saifctl/features so the agent
+    // cannot see holdout tests from any feature (current or others).
+    const saifctlBase = join(codePath, saifctlDir);
+    const featuresHidden = await removeAllHiddenDirs(join(saifctlBase, 'features'));
+    if (featuresHidden > 0) {
+      consola.log(
+        `[sandbox] Removed ${featuresHidden} hidden/ dir(s) from code copy (agent cannot see holdout tests)`,
+      );
+    }
+
+    // Overwrite the current feature's tests.json to contain only public tests.
+    const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
+    const publicCatalog: TestCatalog = {
+      ...catalog,
+      testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
+    };
+    await mkdir(inCodeTestsDir, { recursive: true });
+    await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
+
+    const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
+    const publicCount = publicCatalog.testCases.length;
     consola.log(
-      `[sandbox] Removed ${featuresHidden} hidden/ dir(s) from code copy (agent cannot see holdout tests)`,
+      `[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`,
     );
+  } else {
+    consola.log('[sandbox] No tests.json — skipping holdout-test filtering (pure sandbox run)');
   }
-
-  // Overwrite the current feature's tests.json to contain only public tests.
-  const inCodeTestsDir = join(codePath, feature.relativePath, 'tests');
-  const publicCatalog: TestCatalog = {
-    ...catalog,
-    testCases: catalog.testCases.filter((tc) => tc.visibility === 'public'),
-  };
-  await mkdir(inCodeTestsDir, { recursive: true });
-  await writeUtf8(join(inCodeTestsDir, 'tests.json'), JSON.stringify(publicCatalog, null, 2));
-
-  const hiddenCount = catalog.testCases.filter((tc) => tc.visibility === 'hidden').length;
-  const publicCount = publicCatalog.testCases.length;
-  consola.log(`[sandbox] ${publicCount} public test cases visible to agent, ${hiddenCount} hidden`);
 
   // Initialize a fresh git repo inside code/ for patch extraction
   await gitInit({ cwd: codePath, stdio: 'inherit' });
@@ -689,7 +707,15 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   await writeUtf8(cedarPolicyPath, cedarScript);
   consola.log(`[sandbox] Cedar policy written to ${cedarPolicyPath}`);
 
-  for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
+  for (const name of [
+    'coder-start.sh',
+    'sandbox-start.sh',
+    'staging-start.sh',
+    'reviewer.sh',
+    // Shared drop-privileges helpers; sourced by per-profile agent.sh /
+    // agent-install.sh. See specification.md §4.1 X08-P7/P8.
+    'saifctl-agent-helpers.sh',
+  ] as const) {
     const dest = join(saifctlPath, name);
     await copyFile(join(SAIFCTL_SCRIPTS_DIR, name), dest);
     await chmod(dest, 0o755);
@@ -761,6 +787,213 @@ export async function destroySandbox(sandboxBasePath: string): Promise<void> {
   }
 
   ensureStdoutNewline();
+}
+
+// ---------------------------------------------------------------------------
+// Subtask signaling (host ↔ coder-start.sh via workspace .saifctl/)
+// ---------------------------------------------------------------------------
+
+export interface UpdateSandboxSubtaskScriptsOpts {
+  /** Absolute path to the sandbox saifctl directory (sandboxBasePath/saifctl). */
+  saifctlPath: string;
+  /**
+   * Gate script content to write as saifctl/gate.sh.
+   * Always provided — callers pass the subtask override when present, otherwise
+   * the run-level default.
+   */
+  gateScript: string;
+  /**
+   * Agent script content to write as saifctl/agent.sh.
+   * Only written when the subtask has an explicit agentScript override.
+   * When undefined, the existing agent.sh on disk is left unchanged.
+   */
+  agentScript?: string;
+}
+
+/**
+ * Overwrites per-subtask scripts in the sandbox saifctl directory between subtasks.
+ *
+ * gate.sh is always updated (caller provides either the subtask override or the run-level
+ * default). agent.sh is only overwritten when the subtask specifies an explicit override —
+ * leaving it unchanged preserves the run-level agent.sh from createSandbox.
+ *
+ * The /saifctl/ bind-mount is a directory mount (:ro from the container's perspective),
+ * so the running container sees the new file contents on the next read without any
+ * restart or remount.
+ */
+export async function updateSandboxSubtaskScripts(
+  opts: UpdateSandboxSubtaskScriptsOpts,
+): Promise<void> {
+  const { saifctlPath, gateScript, agentScript } = opts;
+
+  const gatePath = join(saifctlPath, 'gate.sh');
+  await writeUtf8(gatePath, gateScript);
+  await chmod(gatePath, 0o755);
+  consola.log(`[sandbox] gate.sh updated for next subtask (${gateScript.length} bytes)`);
+
+  if (agentScript !== undefined) {
+    const agentPath = join(saifctlPath, 'agent.sh');
+    await writeUtf8(agentPath, agentScript);
+    await chmod(agentPath, 0o755);
+    consola.log(`[sandbox] agent.sh updated for next subtask (${agentScript.length} bytes)`);
+  }
+}
+
+/**
+ * Ensures the workspace `.saifctl/` directory exists and cleans up any stale
+ * subtask signal files left from a previous run (e.g. after pause/resume).
+ *
+ * Must be called once before starting the coder container for a run, so the
+ * shell finds a clean signaling state.
+ */
+export async function prepareSubtaskSignalDir(sandboxBasePath: string): Promise<void> {
+  const workspaceRoot = join(sandboxBasePath, 'code');
+  const dir = join(workspaceRoot, '.saifctl');
+  await mkdir(dir, { recursive: true });
+
+  for (const stalePath of [
+    subtaskDonePath(workspaceRoot),
+    subtaskExitPath(workspaceRoot),
+    subtaskNextPath(workspaceRoot),
+    subtaskRetriesPath(workspaceRoot),
+  ]) {
+    try {
+      await unlink(stalePath);
+    } catch {
+      // Not present — fine.
+    }
+  }
+  consola.log('[sandbox] Subtask signal directory prepared.');
+}
+
+/**
+ * Delivers the next subtask prompt to the running container.
+ *
+ * Writes the content to the file the shell polls between subtasks
+ * (`SAIFCTL_NEXT_SUBTASK_PATH`). The shell detects this file, consumes it
+ * (renames it to `*.consumed.N`), and starts the next subtask's inner loop.
+ */
+export async function writeSubtaskNextPrompt(
+  sandboxBasePath: string,
+  content: string,
+): Promise<void> {
+  const workspaceRoot = join(sandboxBasePath, 'code');
+  const p = subtaskNextPath(workspaceRoot);
+  await mkdir(join(workspaceRoot, '.saifctl'), { recursive: true });
+  await writeUtf8(p, content);
+  consola.log(`[sandbox] Next subtask prompt written (${content.length} chars).`);
+}
+
+/**
+ * Writes a per-subtask gate-retries override for the next subtask.
+ *
+ * The shell reads and immediately deletes this file when starting the next
+ * subtask's inner loop. If not called, the container uses SAIFCTL_GATE_RETRIES
+ * (the run-level default from the container env).
+ */
+export async function writeSubtaskRetriesOverride(
+  sandboxBasePath: string,
+  gateRetries: number,
+): Promise<void> {
+  const workspaceRoot = join(sandboxBasePath, 'code');
+  const p = subtaskRetriesPath(workspaceRoot);
+  await mkdir(join(workspaceRoot, '.saifctl'), { recursive: true });
+  await writeUtf8(p, String(gateRetries));
+  consola.log(`[sandbox] Subtask gate-retries override written: ${gateRetries}`);
+}
+
+/**
+ * Signals the container to exit cleanly after the current subtask completes.
+ *
+ * Creates the file at SAIFCTL_SUBTASK_EXIT_PATH. The shell detects this during
+ * its between-subtasks poll and calls `exit 0`. Must only be called after the
+ * host has already read the current subtask's done signal.
+ */
+export async function writeSubtaskExitSignal(sandboxBasePath: string): Promise<void> {
+  const workspaceRoot = join(sandboxBasePath, 'code');
+  const p = subtaskExitPath(workspaceRoot);
+  await mkdir(join(workspaceRoot, '.saifctl'), { recursive: true });
+  await writeUtf8(p, '');
+  consola.log('[sandbox] Subtask exit signal written.');
+}
+
+export interface PollSubtaskDoneResult {
+  /** The exit code written by coder-start.sh: 0 = success, 1 = failure. */
+  exitCode: number;
+}
+
+/**
+ * Polls the subtask-done signal file until the running container writes it.
+ *
+ * `coder-start.sh` writes the exit code of the last subtask's inner loop as a
+ * single integer to SAIFCTL_SUBTASK_DONE_PATH immediately after the inner loop
+ * exits. This function detects the file, reads the exit code, removes the file
+ * (so it does not interfere with the next subtask's done signal), and resolves.
+ *
+ * Rejects if `signal` is aborted before the file appears (run pause / stop).
+ *
+ * @param sandboxBasePath - The sandbox base path (`code/` is appended for workspace paths).
+ * @param signal - AbortSignal wired to pause/stop.
+ * @param pollIntervalMs - How often to check for the file (default: 500 ms).
+ */
+/* eslint-disable-next-line max-params -- (sandboxBasePath, signal, pollIntervalMs) subtask driver API */
+export function pollSubtaskDone(
+  sandboxBasePath: string,
+  signal: AbortSignal,
+  pollIntervalMs = 500,
+): Promise<PollSubtaskDoneResult> {
+  const workspaceRoot = join(sandboxBasePath, 'code');
+  const donePath = subtaskDonePath(workspaceRoot);
+
+  return new Promise<PollSubtaskDoneResult>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error('pollSubtaskDone: signal already aborted'));
+      return;
+    }
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let busy = false;
+
+    const cleanup = () => {
+      if (intervalId !== undefined) {
+        clearInterval(intervalId);
+        intervalId = undefined;
+      }
+      signal.removeEventListener('abort', onAbort);
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(new Error('pollSubtaskDone: aborted'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    const tick = async () => {
+      if (busy || signal.aborted) return;
+      busy = true;
+      try {
+        if (!(await pathExists(donePath))) return;
+        const raw = (await readUtf8(donePath)).trim();
+        const exitCode = Number.parseInt(raw, 10);
+        try {
+          await unlink(donePath);
+        } catch {
+          // Ignore — may have already been removed in a race.
+        }
+        cleanup();
+        resolve({ exitCode: Number.isFinite(exitCode) ? exitCode : 1 });
+      } catch (err) {
+        consola.warn('[sandbox] pollSubtaskDone: read error (will retry):', err);
+      } finally {
+        busy = false;
+      }
+    };
+
+    intervalId = setInterval(() => {
+      void tick();
+    }, pollIntervalMs);
+    void tick();
+  });
 }
 
 /** A pattern used to exclude files from the extracted patch. */
