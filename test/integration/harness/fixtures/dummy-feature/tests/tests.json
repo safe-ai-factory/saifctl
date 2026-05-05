@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "featureName": "dummy",
+  "featureDir": "saifctl/features/dummy",
+  "testCases": [
+    {
+      "id": "tc-dummy-001",
+      "title": "File existence and correct naming at the project root",
+      "description": "Verify that dummy.md exists at the project root.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: File exists at project root as `dummy.md`"
+      ],
+      "category": "happy_path",
+      "visibility": "public",
+      "entrypoint": "public/file-structure.spec.ts"
+    },
+    {
+      "id": "tc-dummy-002",
+      "title": "Presence of the correct H1 title",
+      "description": "Verify that dummy.md contains the correct H1 title '# Dummy'.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: Contains H1 title: \"# Dummy\""
+      ],
+      "category": "happy_path",
+      "visibility": "public",
+      "entrypoint": "public/content-structure.spec.ts"
+    },
+    {
+      "id": "tc-dummy-003",
+      "title": "Presence of the Purpose section",
+      "description": "Verify that dummy.md includes the Purpose section.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: Includes Purpose section"
+      ],
+      "category": "happy_path",
+      "visibility": "public",
+      "entrypoint": "public/content-structure.spec.ts"
+    },
+    {
+      "id": "tc-dummy-004",
+      "title": "Presence of the Structure section",
+      "description": "Verify that dummy.md includes the Structure section.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: Includes Structure section"
+      ],
+      "category": "happy_path",
+      "visibility": "public",
+      "entrypoint": "public/content-structure.spec.ts"
+    },
+    {
+      "id": "tc-dummy-005",
+      "title": "Presence of the Next Steps section",
+      "description": "Verify that dummy.md includes the Next Steps section.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: Includes Next Steps section"
+      ],
+      "category": "happy_path",
+      "visibility": "public",
+      "entrypoint": "public/content-structure.spec.ts"
+    },
+    {
+      "id": "tc-dummy-006",
+      "title": "Content of the Purpose section explains placeholder role",
+      "description": "Verify that the Purpose section explicitly mentions placeholder, documentation pipeline, or scaffold.",
+      "tracesTo": [
+        "specification.md Content Structure: Brief explanation of the file's role in the documentation pipeline"
+      ],
+      "category": "happy_path",
+      "visibility": "hidden",
+      "entrypoint": "hidden/content-details.spec.ts"
+    },
+    {
+      "id": "tc-dummy-007",
+      "title": "Content of the Structure section describes conventions",
+      "description": "Verify that the Structure section mentions markdown conventions, heading hierarchy, or documentation organization.",
+      "tracesTo": [
+        "specification.md Content Structure: Overview of expected markdown conventions"
+      ],
+      "category": "happy_path",
+      "visibility": "hidden",
+      "entrypoint": "hidden/content-details.spec.ts"
+    },
+    {
+      "id": "tc-dummy-008",
+      "title": "Content of the Next Steps section provides replacement guidance",
+      "description": "Verify that the Next Steps section instructs the user to replace the placeholder content.",
+      "tracesTo": [
+        "specification.md Content Structure: Guidance indicating where actual content would replace this placeholder"
+      ],
+      "category": "happy_path",
+      "visibility": "hidden",
+      "entrypoint": "hidden/content-details.spec.ts"
+    },
+    {
+      "id": "tc-dummy-009",
+      "title": "File length is within the maximum allowed limit",
+      "description": "Verify that the file length is strictly less than 50 lines.",
+      "tracesTo": [
+        "plan.md Stage 1 Success Criteria: File is under 50 lines total"
+      ],
+      "category": "boundary",
+      "visibility": "public",
+      "entrypoint": "public/file-boundaries.spec.ts"
+    },
+    {
+      "id": "tc-dummy-010",
+      "title": "Empty lines and whitespace handling at the end of the file",
+      "description": "Verify that the file ends with a single newline character and no excessive trailing blank lines.",
+      "tracesTo": [
+        "specification.md Conventions Applied: GitHub Flavored Markdown"
+      ],
+      "category": "boundary",
+      "visibility": "hidden",
+      "entrypoint": "hidden/file-boundaries.spec.ts"
+    },
+    {
+      "id": "tc-dummy-011",
+      "title": "Case sensitivity of the filename",
+      "description": "Verify that the file was not created with uppercase letters.",
+      "tracesTo": [
+        "specification.md Location and Scope: `dummy.md` lowercase, lowercase filename convention"
+      ],
+      "category": "negative",
+      "visibility": "hidden",
+      "entrypoint": "hidden/negative-cases.spec.ts"
+    }
+  ]
+}
