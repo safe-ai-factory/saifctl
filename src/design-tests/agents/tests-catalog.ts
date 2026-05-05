@@ -44,7 +44,7 @@ When available, use queryCodebaseIndex to resolve file paths, module names, or t
  * When `indexerTool` is provided (from an IndexerProfile), the agent can call
  * `queryCodebaseIndex` to resolve file paths and traceability.
  */
-export function createTestsCatalogAgent(indexerTool?: Tool, llm: LlmOverrides = {}) {
+function createTestsCatalogAgent(indexerTool?: Tool, llm: LlmOverrides = {}) {
   return new Agent({
     id: 'tests-catalog',
     name: 'TestsCatalog',

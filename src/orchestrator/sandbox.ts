@@ -230,7 +230,7 @@ export interface CreateSandboxOpts {
 /**
  * Materialize the tree at `HEAD` into `destDir` (no `.git`). Requires a repo with at least one commit.
  */
-export async function copyCommittedGitTreeToDir(repoDir: string, destDir: string): Promise<void> {
+async function copyCommittedGitTreeToDir(repoDir: string, destDir: string): Promise<void> {
   await spawnAsync({
     command: 'sh',
     // NOTE: git archive already excludes .git by default; no extra settings needed.

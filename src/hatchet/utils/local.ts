@@ -102,7 +102,7 @@ interface LocalContextOpts {
   errors: Record<string, string>;
 }
 
-export class LocalContext<I> {
+class LocalContext<I> {
   readonly abortController: AbortController;
   private readonly _parents: Map<string, unknown>;
   private readonly _errors: Record<string, string>;

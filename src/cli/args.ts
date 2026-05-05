@@ -239,32 +239,32 @@ const subtasksArg = {
  * --strict" from "user passed nothing" and fall back to
  * `defaults.strict` from saifctl/config.yml.
  */
-export const strictArg = {
+const strictArg = {
   type: 'boolean' as const,
   default: undefined,
   description:
     "Default mutability for feature/phase test dirs. --strict (default) keeps tests immutable unless tests.mutable: true is set; --no-strict flips the default. Independent of --dangerous-no-leash (which removes the gate/test guarantee entirely). 'saifctl/tests/' stays immutable regardless.",
 };
 
-export const agentEnvArg = {
+const agentEnvArg = {
   type: 'string' as const,
   description:
     'Extra env var(s). Single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2. Values cannot contain commas; use --agent-env-file or config for that.',
 };
 
-export const agentEnvFileArg = {
+const agentEnvFileArg = {
   type: 'string' as const,
   description:
     'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
 };
 
-export const agentSecretArg = {
+const agentSecretArg = {
   type: 'string' as const,
   description:
     'Env var name(s) to copy from the host into the coder secret env (comma-separated). Values are never passed on the CLI — only names — so secrets never show up in logs.',
 };
 
-export const agentSecretFileArg = {
+const agentSecretFileArg = {
   type: 'string' as const,
   description:
     'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read when starting from a Run (values are not persisted in the artifact).',

@@ -71,7 +71,7 @@ async function pruneStaleArgusBinaries(): Promise<void> {
  * @param hostArch - 'arm64' (Apple Silicon) or 'x64' (Intel/AMD). Docker on macOS uses
  *   the same arch as the host, so we fetch the matching Linux binary.
  */
-export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<string> {
+async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<string> {
   const binaryPath = getBinaryPath(hostArch);
   if (await pathExists(binaryPath)) {
     return binaryPath;

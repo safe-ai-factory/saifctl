@@ -858,7 +858,7 @@ export function parseEngineCliSpec(raw: string, errorPrefix = '--engine'): Engin
  * Picks coding environment from config using file config.
  * If provider came from CLI, use minimal environment object.
  */
-export function pickCodingEnvironmentForEngineCli(
+function pickCodingEnvironmentForEngineCli(
   target: EngineCliCodingKind,
   config: SaifctlConfig,
 ): NormalizedCodingEnvironment {
@@ -877,7 +877,7 @@ export function pickCodingEnvironmentForEngineCli(
  * Picks staging environment from config using file config.
  * If provider came from CLI, use minimal environment object.
  */
-export function pickStagingEnvironmentForEngineCli(
+function pickStagingEnvironmentForEngineCli(
   target: EngineCliStagingKind,
   config: SaifctlConfig,
 ): NormalizedStagingEnvironment {

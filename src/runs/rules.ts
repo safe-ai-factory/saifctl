@@ -29,7 +29,7 @@ export async function preparePendingRulesFile(sandboxBasePath: string): Promise<
 }
 
 /** Short stable id: 6 lowercase hex characters (3 random bytes). */
-export function newRunRuleId(): string {
+function newRunRuleId(): string {
   return randomBytes(3).toString('hex');
 }
 

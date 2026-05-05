@@ -40,6 +40,7 @@ import { join } from 'node:path';
 import type { JsonValue } from '@hatchet-dev/typescript-sdk/v1/types.js';
 import { z } from 'zod';
 
+import type { AssertionSuiteResult } from '../../engines/types.js';
 import { parseJUnitXmlString } from '../../engines/utils/test-parser.js';
 import { consola } from '../../logger.js';
 import {
@@ -83,51 +84,29 @@ import { getHatchetClient } from '../client.js';
 import { deserializeOrchestratorOpts } from '../utils/serialize-opts.js';
 
 // ---------------------------------------------------------------------------
-// Zod schemas for step I/O (addresses step 1.5)
+// Step I/O types — Hatchet JSON-serializable shapes for workflow boundaries.
+// Mirror the corresponding zod-validated shapes in engines/types.ts; runtime
+// validation can be reintroduced when the experimental Hatchet path is wired
+// into production.
 // ---------------------------------------------------------------------------
 
-const runCommitSchema = z.object({
-  message: z.string(),
-  diff: z.string(),
-  author: z.string().optional(),
-});
+export interface AgentPhaseOutput {
+  patchContent: string;
+  patchPath: string;
+  preRoundHeadSha: string;
+  commits: RunCommit[];
+}
 
-export const agentPhaseOutputSchema = z.object({
-  patchContent: z.string(),
-  patchPath: z.string(),
-  preRoundHeadSha: z.string(),
-  commits: z.array(runCommitSchema),
-});
-export type AgentPhaseOutput = z.infer<typeof agentPhaseOutputSchema>;
+export interface TestPhaseOutput {
+  status: 'passed' | 'failed' | 'aborted';
+  testRunId: string;
+  stderr?: string;
+  testSuites?: AssertionSuiteResult[];
+}
 
-/** Serialized assertion / suite shapes (match `engines/types` for Hatchet JSON boundaries). */
-export const assertionResultSchema = z.object({
-  title: z.string(),
-  fullName: z.string(),
-  status: z.enum(['passed', 'failed', 'pending', 'todo']),
-  ancestorTitles: z.array(z.string()),
-  failureMessages: z.array(z.string()),
-  failureTypes: z.array(z.string()),
-});
-export const assertionSuiteResultSchema = z.object({
-  name: z.string(),
-  status: z.string(),
-  assertionResults: z.array(assertionResultSchema),
-});
-
-/** Raw test step output (no agent-facing hint; see vague-specs-check). */
-export const testPhaseOutputSchema = z.object({
-  status: z.enum(['passed', 'failed', 'aborted']),
-  testRunId: z.string(),
-  stderr: z.string().optional(),
-  testSuites: z.array(assertionSuiteResultSchema).optional(),
-});
-export type TestPhaseOutput = z.infer<typeof testPhaseOutputSchema>;
-
-export const vagueSpecsStepOutputSchema = z.object({
-  sanitizedHint: z.string().optional(),
-});
-export type VagueSpecsStepOutput = z.infer<typeof vagueSpecsStepOutputSchema>;
+export interface VagueSpecsStepOutput {
+  sanitizedHint?: string;
+}
 
 const runRuleSchema = z.object({
   id: z.string(),
@@ -239,7 +218,7 @@ export type FeatRunIterationSerializedInput = HatchetInput & {
 // Child workflow: feat-run-iteration
 // ---------------------------------------------------------------------------
 
-export function createFeatRunIterationWorkflow() {
+function createFeatRunIterationWorkflow() {
   const { hatchet } = getHatchetClient();
 
   const workflow = hatchet.workflow<

@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import type { RunSubtask, RunSubtaskInput } from '../types.js';
 
 /** Short stable id: 6 lowercase hex characters (3 random bytes). */
-export function newRunSubtaskId(): string {
+function newRunSubtaskId(): string {
   return randomBytes(3).toString('hex');
 }
 

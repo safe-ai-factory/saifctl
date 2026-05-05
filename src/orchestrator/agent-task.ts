@@ -38,7 +38,7 @@ import type { Feature } from '../specs/discover.js';
 import { pathExists } from '../utils/io.js';
 
 /** In-container workspace mount path used when the coder runs under Docker. */
-export const CONTAINER_WORKSPACE_BASE = '/workspace';
+const CONTAINER_WORKSPACE_BASE = '/workspace';
 
 /**
  * How the agent perceives the workspace root, which determines the path

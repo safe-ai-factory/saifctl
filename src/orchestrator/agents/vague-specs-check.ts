@@ -68,7 +68,7 @@ function createVagueSpecsCheckerAgent(llm: LlmOverrides = {}) {
 // Output schema
 // ---------------------------------------------------------------------------
 
-export const VagueSpecsCheckResultSchema = z.object({
+const VagueSpecsCheckResultSchema = z.object({
   isAmbiguous: z.boolean(),
   reason: z.string(),
   proposedSpecAddition: z.string(),

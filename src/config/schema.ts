@@ -47,7 +47,7 @@ export const dockerEnvironmentSchema = z.object({
 });
 
 /** Helm engine — points at a chart. */
-export const helmEnvironmentSchema = z.object({
+const helmEnvironmentSchema = z.object({
   engine: z.literal('helm'),
   /** Helm chart path or reference; required at runtime when using Helm. */
   chart: z.string().optional(),
@@ -56,7 +56,7 @@ export const helmEnvironmentSchema = z.object({
 });
 
 /** Local engine — agent runs on the host (coding only; staging must use docker or helm). */
-export const localEnvironmentSchema = z.object({
+const localEnvironmentSchema = z.object({
   engine: z.literal('local'),
   agentEnvironment: z.record(z.string(), z.string()).optional(),
 });
@@ -83,7 +83,7 @@ const stagingEnvironmentSchema = z.discriminatedUnion('engine', [
   helmEnvironmentSchema.extend(stagingExtension),
 ]);
 
-export const environmentsSchema = z.object({
+const environmentsSchema = z.object({
   coding: codingEnvironmentSchema.optional(),
   staging: stagingEnvironmentSchema.optional(),
 });
@@ -110,7 +110,7 @@ export type NormalizedStagingEnvironment = Omit<RawStagingEnvironment, 'app' | '
 /** Normalized coding environment — always present (defaults to `{ engine: 'docker' }` when omitted). */
 export type NormalizedCodingEnvironment = NonNullable<EnvironmentsConfig['coding']>;
 
-export const saifctlConfigDefaultsSchema = z.object({
+const saifctlConfigDefaultsSchema = z.object({
   // Run params
   maxRuns: z.number().int().positive().optional(),
   testRetries: z.number().int().positive().optional(),

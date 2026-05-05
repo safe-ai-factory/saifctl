@@ -102,7 +102,7 @@ export interface HarnessResult {
   logs: CapturedStdio;
 }
 
-export class HarnessSetupError extends Error {}
+class HarnessSetupError extends Error {}
 
 /**
  * Run a single integration scenario end-to-end.

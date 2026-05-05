@@ -23,7 +23,7 @@ Output your findings as a structured markdown document. Focus on facts, constrai
 /**
  * Builds the full system prompt: preamble + optional user instructions.
  */
-export function buildDiscoverySystemPrompt(userPrompt?: string): string {
+function buildDiscoverySystemPrompt(userPrompt?: string): string {
   if (!userPrompt?.trim()) return DISCOVERY_PREAMBLE;
   return `${DISCOVERY_PREAMBLE}
 

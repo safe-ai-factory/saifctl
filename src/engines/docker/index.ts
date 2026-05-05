@@ -1242,7 +1242,7 @@ export function leashManagerContainerName(sandboxBasePath: string): string {
 }
 
 /** Best-effort: remove Leash manager + coder target containers for a sandbox path. */
-export async function killSandboxCoderContainerBestEffort(sandboxBasePath: string): Promise<void> {
+async function killSandboxCoderContainerBestEffort(sandboxBasePath: string): Promise<void> {
   const manager = leashManagerContainerName(sandboxBasePath);
   const target = leashTargetContainerName(sandboxBasePath);
   try {
