@@ -31,6 +31,7 @@ function runCommitsToInfoRows(commits: RunCommit[]): RunCommitInfoRow[] {
   });
 }
 
+/** Display-friendly view of a {@link RunArtifact}: drops large blobs and replaces commits with message-only rows for `run info` JSON output. */
 export type RunArtifactInfo = Omit<RunArtifact, 'basePatchDiff' | 'runCommits'> & {
   runCommits: RunCommitInfoRow[];
 };

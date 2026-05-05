@@ -1,5 +1,6 @@
 import type { SandboxProfile } from '../types.js';
 
+/** Sandbox profile for Python (uv) + Node.js projects. */
 export const pythonUvNodeProfile: SandboxProfile = {
   id: 'python-uv-node',
   displayName: 'Python + uv + Node.js',

@@ -83,6 +83,7 @@ export async function captureBaseGitState(projectDir: string): Promise<RunStorag
 // Artifact worktree (from Run)
 // ---------------------------------------------------------------------------
 
+/** Inputs for {@link createArtifactRunWorktree}: base commit, optional base patch, run commits, and an optional output branch name. */
 export interface CreateArtifactRunWorktreeParams {
   projectDir: string;
   runId: string;
@@ -96,6 +97,7 @@ export interface CreateArtifactRunWorktreeParams {
   outputBranchName?: string;
 }
 
+/** Result of {@link createArtifactRunWorktree}: paths to the materialized worktree, branch, and pre-runCommits base snapshot. */
 export interface CreateArtifactRunWorktreeResult {
   worktreePath: string;
   branchName: string;
@@ -279,6 +281,7 @@ export async function createArtifactRunWorktree(
 // Cleanup artifact worktree
 // ---------------------------------------------------------------------------
 
+/** Inputs for {@link cleanupArtifactRunWorktree}: which worktree to remove and whether to also delete its branch. */
 export interface CleanupArtifactRunWorktreeParams {
   worktreePath: string;
   projectDir: string;
@@ -311,6 +314,7 @@ export async function cleanupArtifactRunWorktree(
 // Save run artifact (on Ctrl+C / failure)
 // ---------------------------------------------------------------------------
 
+/** Inputs for {@link saveRunOnError} — sandbox, mutable run context, build-time opts, and the storage backend. */
 export interface CreateSaveRunHandlerParams {
   sandbox: Sandbox;
   runContext: RunStorageContext;

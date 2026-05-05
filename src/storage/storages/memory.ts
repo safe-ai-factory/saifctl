@@ -19,6 +19,7 @@ function applyFilters<T>(items: T[], filters?: StorageFilter[]): T[] {
 
 const DEFAULT_ID_FIELD = 'runId';
 
+/** Constructor options for {@link MemoryStorage}: optional namespace plus the id field on T. */
 export interface MemoryStorageOpts {
   /** Optional namespace for logical separation when sharing a single instance. Unused for now. */
   namespace?: string;
@@ -26,6 +27,7 @@ export interface MemoryStorageOpts {
   idField?: string;
 }
 
+/** Ephemeral in-process {@link StorageImpl} backed by a `Map`; used for `--storage none` and tests. */
 export class MemoryStorage<T> implements StorageImpl<T> {
   private readonly store = new Map<string, T>();
   private readonly idField: string;

@@ -1,3 +1,4 @@
+/** One file entry in a tar archive built by {@link createTarArchive}. `mode` defaults to `0000644`. */
 export type TarEntry = { filename: string; content: string | Buffer; mode?: string };
 
 /**

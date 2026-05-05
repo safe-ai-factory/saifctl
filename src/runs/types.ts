@@ -9,6 +9,7 @@ import type { SerializedLoopOpts } from './utils/serialize.js';
 
 export type { DockerLiveInfra, LiveInfra, LocalLiveInfra } from '../engines/types.js';
 
+/** Lifecycle state of a run artifact — terminal (`failed`/`completed`), live (`running`/`paused`/`inspecting`), or transitional. */
 export type RunStatus =
   | 'failed'
   | 'completed'
@@ -61,6 +62,7 @@ export const SAIFCTL_STOP_ABORT_REASON = 'saifctl-stop';
  */
 export const SAIFCTL_ENGINE_EXITED_REASON = 'saifctl-engine-exited';
 
+/** External control signal a user can request via `run pause` / `run stop`. */
 export type RunControlAction = 'pause' | 'stop';
 
 /**
@@ -141,6 +143,7 @@ export type InnerRoundPhase =
   | 'reviewer_passed'
   | 'reviewer_failed';
 
+/** Summary of one inner agent → gate → reviewer iteration within an outer attempt. */
 export interface InnerRoundSummary {
   /** 1-based inner round index within this outer attempt */
   round: number;
@@ -295,6 +298,7 @@ export interface RunSubtask {
   phaseBaseRef?: string;
 }
 
+/** Summary of one orchestrator outer attempt — its position in the run, the test phase outcome, and rolled-up inner-round/commit metrics. */
 export interface OuterAttemptSummary {
   /** 1-based outer attempt index (monotonic across the whole run). */
   attempt: number;
@@ -322,6 +326,7 @@ export interface RunSaveOptions {
   ifRevisionEquals?: number;
 }
 
+/** Thrown by {@link RunStorage.saveRun} when `ifRevisionEquals` does not match the stored {@link RunArtifact#artifactRevision}. */
 export class StaleArtifactError extends Error {
   override readonly name = 'StaleArtifactError';
 
@@ -363,6 +368,7 @@ export interface RunLiveInfra {
   staging: LiveInfra | null;
 }
 
+/** Persisted state of a single run — base commit + replayed commits, subtask list, lifecycle status, user rules, serialized config, and live-infra/inspect-session pointers. */
 export interface RunArtifact {
   runId: string;
 

@@ -57,6 +57,7 @@
 
 import type { AgentStdoutStrategy } from '../orchestrator/logs.js';
 
+/** Describes a coding agent and its runtime requirements (id, display name, stdout strategy). */
 export interface AgentProfile {
   /**
    * Profile identifier used in --agent CLI flag.
@@ -74,6 +75,7 @@ export interface AgentProfile {
   stdoutStrategy: AgentStdoutStrategy | null;
 }
 
+/** Tuple of all agent profile ids accepted by the `--agent` CLI flag. */
 export const SUPPORTED_AGENT_PROFILE_IDS = [
   'openhands',
   'aider',
@@ -91,4 +93,5 @@ export const SUPPORTED_AGENT_PROFILE_IDS = [
   'cursor',
   'debug',
 ] as const;
+/** Union of all valid agent profile ids (derived from {@link SUPPORTED_AGENT_PROFILE_IDS}). */
 export type SupportedAgentProfileId = (typeof SUPPORTED_AGENT_PROFILE_IDS)[number];

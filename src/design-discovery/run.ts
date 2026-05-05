@@ -14,6 +14,7 @@ import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { createDiscoveryAgent } from './agent.js';
 import { loadDiscoveryTools } from './tools.js';
 
+/** Options for {@link runDiscovery}: feature + project, the discovery config (prompt + tools), and optional LLM/streaming/abort controls. */
 export interface RunDiscoveryOpts {
   feature: Feature;
   projectDir: string;

@@ -30,6 +30,7 @@ import { validatePhasedFeature } from '../specs/phases/validate.js';
 import { classifyTestPaths, type TestPathClassification } from '../specs/tests/mutability.js';
 import { git } from '../utils/git.js';
 
+/** Options for {@link inspectImmutableTestChanges}. */
 export interface InspectImmutableTestChangesOpts {
   /** Sandbox working tree (the agent's cwd). */
   codePath: string;
@@ -55,6 +56,7 @@ export interface InspectImmutableTestChangesOpts {
   };
 }
 
+/** Result of {@link inspectImmutableTestChanges}: changed paths, classified test paths, and the immutable-violations subset. */
 export interface InspectImmutableTestChangesResult {
   /** Project-relative POSIX paths of every file the agent touched this round. */
   changedPaths: string[];

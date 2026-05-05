@@ -25,6 +25,7 @@ import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runTestsWriterAgent } from './agents/tests-writer.js';
 import { TestCatalogSchema } from './schema.js';
 
+/** Inputs to {@link generateTests}: the feature to scaffold, overwrite policy, and the {@link TestProfile}/LLM context for emitting code. */
 export interface GenerateTestsOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;
@@ -44,6 +45,7 @@ export interface GenerateTestsOpts {
   abortSignal?: AbortSignal;
 }
 
+/** Return value of {@link generateTests}: catalog metadata and which entrypoint files were written vs. preserved. */
 export interface GenerateTestsResult {
   catalogPath: string;
   testCaseCount: number;
@@ -68,6 +70,7 @@ export interface GenerateTestsResult {
  *
  * Expects tests.json to already exist (produced by `saifctl feat design`).
  */
+/** Materializes the helpers/infra/example templates and runs the tests-writer agent for each entrypoint declared in tests.json. */
 export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTestsResult> {
   const { feature, force = false, testProfile, llm = {}, onThought, onEvent, abortSignal } = opts;
 

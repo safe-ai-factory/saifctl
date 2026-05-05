@@ -28,6 +28,7 @@ import type { Tool } from '@mastra/core/tools';
 
 import type { Feature } from '../specs/discover.js';
 
+/** Common inputs for all designer profile entry points (cwd, feature, saifctl dir). */
 export interface DesignerBaseOpts {
   /** Absolute path to the repo root. */
   cwd: string;
@@ -37,6 +38,7 @@ export interface DesignerBaseOpts {
   saifctlDir: string;
 }
 
+/** Options passed to {@link DesignerProfile.run} (extends {@link DesignerBaseOpts} with model/prompt/indexer). */
 export interface DesignerRunOpts extends DesignerBaseOpts {
   /**
    * LLM model identifier to use (e.g. "claude-3-5-sonnet-20241022").
@@ -59,6 +61,7 @@ export interface DesignerRunOpts extends DesignerBaseOpts {
   indexerTool?: Tool;
 }
 
+/** Encapsulates the spec-generation step of a feature workflow (id, hasRun, run). */
 export interface DesignerProfile {
   /**
    * Profile identifier used in the --designer CLI flag.
@@ -84,5 +87,7 @@ export interface DesignerProfile {
   run(opts: DesignerRunOpts): void | Promise<void>;
 }
 
+/** Tuple of all designer profile ids accepted by the `--designer` CLI flag. */
 export const SUPPORTED_DESIGNER_PROFILE_IDS = ['poc', 'shotgun'] as const;
+/** Union of all valid designer profile ids (derived from {@link SUPPORTED_DESIGNER_PROFILE_IDS}). */
 export type SupportedDesignerProfileId = (typeof SUPPORTED_DESIGNER_PROFILE_IDS)[number];

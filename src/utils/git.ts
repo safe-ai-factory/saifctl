@@ -4,6 +4,7 @@ import { spawnAsync, spawnCapture } from './io.js';
 
 const GIT = 'git';
 
+/** Options for {@link git}: arbitrary `git` invocation captured to stdout. */
 export interface GitCommandOpts {
   cwd: string;
   /** Arguments after `git` (e.g. `['rev-parse', 'HEAD']`). */
@@ -19,6 +20,7 @@ export async function git(opts: GitCommandOpts): Promise<string> {
   return spawnCapture({ command: GIT, cwd: opts.cwd, env: opts.env, args: opts.args });
 }
 
+/** Options for {@link gitAdd} — `git add -- <paths>`. */
 export interface GitAddOpts {
   cwd: string;
   /** Paths relative to `cwd`. Default: `['.']` (stage entire tree). */
@@ -42,6 +44,7 @@ export async function gitAdd(opts: GitAddOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitApply} — `git apply -- <patchFile>`. */
 export interface GitApplyOpts {
   cwd: string;
   /** Path to a unified diff file (absolute or relative to `cwd`). */
@@ -61,6 +64,7 @@ export async function gitApply(opts: GitApplyOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitBranchDelete} — `git branch -d` (or `-D` when `force`). */
 export interface GitBranchDeleteOpts {
   cwd: string;
   branch: string;
@@ -85,6 +89,7 @@ export async function gitBranchDelete(opts: GitBranchDeleteOpts): Promise<void> 
   });
 }
 
+/** Options for {@link gitBranchShowCurrent} — `git branch --show-current`. */
 export interface GitBranchShowCurrentOpts {
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -95,6 +100,7 @@ export async function gitBranchShowCurrent(opts: GitBranchShowCurrentOpts): Prom
   return (await spawnCapture({ command: GIT, ...opts, args: ['branch', '--show-current'] })).trim();
 }
 
+/** Options for {@link gitClean} — `git clean -fd`. */
 export interface GitCleanOpts {
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -112,6 +118,7 @@ export async function gitClean(opts: GitCleanOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitCommit} — `git commit -m <message>` (with optional `--author` and `-q`). */
 export interface GitCommitOpts {
   cwd: string;
   message: string;
@@ -149,6 +156,7 @@ export async function gitCommit(opts: GitCommitOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitDiff} — `git diff [--staged] [...args]`. */
 export interface GitDiffOpts {
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -171,6 +179,7 @@ export async function gitDiff(opts: GitDiffOpts): Promise<string> {
   return spawnCapture({ command: GIT, cwd, env, args });
 }
 
+/** Options for {@link gitInit} — `git init` in `cwd`. */
 export interface GitInitOpts {
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -188,6 +197,7 @@ export async function gitInit(opts: GitInitOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitPush} — `git push <remote> <branch>`. */
 export interface GitPushOpts {
   cwd: string;
   /** Remote URL or remote name (first argument to `git push`). */
@@ -209,6 +219,7 @@ export async function gitPush(opts: GitPushOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitRemoteGetUrl} — `git remote get-url <remote>`. */
 export interface GitRemoteGetUrlOpts {
   cwd: string;
   /** Named remote (e.g. `origin`). */
@@ -227,6 +238,7 @@ export async function gitRemoteGetUrl(opts: GitRemoteGetUrlOpts): Promise<string
   return out.trim();
 }
 
+/** Options for {@link gitResetHard} — `git reset --hard <ref>` (defaults to `HEAD`). */
 export interface GitResetHardOpts {
   cwd: string;
   /** Commit or ref to reset to. Default: `HEAD`. */
@@ -247,6 +259,7 @@ export async function gitResetHard(opts: GitResetHardOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitWorktreeAdd} — `git worktree add -b <branch> <path> [startCommit]`. */
 export interface GitWorktreeAddOpts {
   /** Main repository (the worktree is registered here). */
   cwd: string;
@@ -279,6 +292,7 @@ export async function gitWorktreeAdd(opts: GitWorktreeAddOpts): Promise<void> {
   });
 }
 
+/** Options for {@link gitWorktreeRemove} — `git worktree remove --force <path>`. */
 export interface GitWorktreeRemoveOpts {
   cwd: string;
   /** Path of the worktree directory to remove. */
@@ -298,6 +312,7 @@ export async function gitWorktreeRemove(opts: GitWorktreeRemoveOpts): Promise<vo
   });
 }
 
+/** Options for {@link gitWorktreePrune} — `git worktree prune`. */
 export interface GitWorktreePruneOpts {
   cwd: string;
   env?: NodeJS.ProcessEnv;

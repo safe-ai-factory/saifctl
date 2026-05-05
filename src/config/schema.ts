@@ -88,10 +88,15 @@ const environmentsSchema = z.object({
   staging: stagingEnvironmentSchema.optional(),
 });
 
+/** Inferred type of {@link stagingAppSchema}: staging app sidecar settings. */
 export type StagingAppConfig = z.infer<typeof stagingAppSchema>;
+/** Inferred type of {@link dockerEnvironmentSchema}: Docker engine config (always-supported runtime). */
 export type DockerEnvironment = z.infer<typeof dockerEnvironmentSchema>;
+/** Helm engine config — chart-pointing alternative to {@link DockerEnvironment}. */
 export type HelmEnvironment = z.infer<typeof helmEnvironmentSchema>;
+/** Local engine config — agent runs directly on the host (coding only). */
 export type LocalEnvironment = z.infer<typeof localEnvironmentSchema>;
+/** Inferred environments block: optional `coding` and `staging` discriminated by `engine`. */
 export type EnvironmentsConfig = z.infer<typeof environmentsSchema>;
 
 type RawStagingEnvironment = NonNullable<EnvironmentsConfig['staging']>;
@@ -205,10 +210,13 @@ const saifctlConfigDefaultsSchema = z.object({
   agentInstallScript: z.string().optional(),
 });
 
+/** Top-level zod schema for `saifctl/config.*`: optional `defaults` and `environments` blocks. */
 export const saifctlConfigSchema = z.object({
   defaults: saifctlConfigDefaultsSchema.optional(),
   environments: environmentsSchema.optional(),
 });
 
+/** Inferred type of {@link saifctlConfigSchema} — the parsed `saifctl/config.*` shape. */
 export type SaifctlConfig = z.infer<typeof saifctlConfigSchema>;
+/** Inferred type for the `defaults` block (CLI-flag defaults, profile ids, storage, model overrides, etc). */
 export type SaifctlConfigDefaults = z.infer<typeof saifctlConfigDefaultsSchema>;

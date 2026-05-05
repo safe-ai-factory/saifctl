@@ -40,6 +40,7 @@ import { SUPPORTED_PROFILES, type TestProfile } from './index.js';
 import { readProfileTemplate } from './templates.js';
 import { SUPPORTED_PROFILE_IDS, type SupportedProfileId } from './types.js';
 
+/** Options for {@link scaffoldGlobalTests}. */
 export interface ScaffoldGlobalTestsOpts {
   saifctlDir: string;
   projectDir: string;
@@ -53,6 +54,7 @@ export interface ScaffoldGlobalTestsOpts {
   force: boolean;
 }
 
+/** Per-file outcome of a {@link scaffoldGlobalTests} run. */
 export interface ScaffoldedFile {
   /** Absolute path of the file. */
   path: string;
@@ -67,6 +69,7 @@ export interface ScaffoldedFile {
   switchedFrom?: SupportedProfileId;
 }
 
+/** Result returned by {@link scaffoldGlobalTests}. */
 export interface ScaffoldGlobalTestsResult {
   /** Absolute path to `<projectDir>/<saifctlDir>/tests/`. */
   testsDir: string;
@@ -74,6 +77,7 @@ export interface ScaffoldGlobalTestsResult {
   files: ScaffoldedFile[];
 }
 
+/** Detail payload for {@link CrossLanguageScaffoldError}. */
 export interface CrossLanguageScaffoldErrorDetail {
   testsDir: string;
   conflictingFile: string;
@@ -81,6 +85,7 @@ export interface CrossLanguageScaffoldErrorDetail {
   requestedProfileId: string;
 }
 
+/** Thrown when a tests dir already contains another profile's helpers (cross-language guard). */
 export class CrossLanguageScaffoldError extends Error {
   public readonly testsDir: string;
   public readonly conflictingFile: string;

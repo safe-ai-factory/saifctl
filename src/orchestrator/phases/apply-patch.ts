@@ -38,6 +38,7 @@ export function computeRunCommitsDiffHash(commits: RunCommit[]): string {
   return createHash('sha256').update(body, 'utf8').digest('hex').slice(0, HOST_APPLY_DIFF_HASH_LEN);
 }
 
+/** Inputs for {@link defaultHostApplyBranchName} (and base of {@link ResolveHostApplyBranchNameOpts}). */
 export interface HostApplyBranchNameOpts {
   featureName: string;
   runId: string;
@@ -53,6 +54,7 @@ export function defaultHostApplyBranchName(opts: HostApplyBranchNameOpts): strin
   return `saifctl/${featureName}-${runId}-${h}`;
 }
 
+/** Inputs for {@link resolveHostApplyBranchName}. Adds an optional explicit `--branch` override. */
 export interface ResolveHostApplyBranchNameOpts extends HostApplyBranchNameOpts {
   targetBranch?: string | null;
 }
@@ -80,6 +82,7 @@ export function assertRunCommitsSafeForHost(commits: RunCommit[]): void {
   }
 }
 
+/** Options for {@link pushHostApplyBranch}. */
 export interface PushHostApplyBranchOpts {
   cwd: string;
   projectDir: string;
@@ -172,6 +175,7 @@ export async function pushHostApplyBranch(opts: PushHostApplyBranchOpts): Promis
   }
 }
 
+/** Options for {@link applyPatchToHost}. */
 export interface ApplyPatchOpts {
   /** Absolute path to the sandbox code directory (sandboxBasePath/code) */
   codePath: string;

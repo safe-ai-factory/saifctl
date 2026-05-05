@@ -36,6 +36,7 @@ async function pythonPlaywrightValidateFiles(opts: ValidateFilesOpts): Promise<v
   }
 }
 
+/** Test profile for Python using pytest-playwright. */
 export const pythonPlaywrightProfile: TestProfile = {
   id: 'python-playwright',
   language: 'Python',

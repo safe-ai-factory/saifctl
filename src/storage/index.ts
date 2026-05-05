@@ -19,6 +19,7 @@ import { S3Storage } from './storages/s3.js';
 import type { StorageImpl } from './types.js';
 import { parseStorageUri, type StorageConfig } from './uri.js';
 
+/** Inputs for {@link createStorage}: the storage URI/shorthand, the project dir for default local paths, the namespace (table name), and the id field on T. */
 export interface CreateStorageOptions {
   /** "local" | "none" | "file:///path" | "s3" | "s3://bucket/prefix" */
   uriOrShorthand: string;

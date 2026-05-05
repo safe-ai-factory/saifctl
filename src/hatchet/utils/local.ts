@@ -34,8 +34,10 @@ import { consola } from '../../logger.js';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
+/** Task body run by the local Hatchet runner; receives the workflow input and a {@link LocalContext}. */
 export type TaskFn<I, O> = (input: I, ctx: LocalContext<I>) => Promise<O>;
 
+/** Declaration of one task in a workflow DAG; `parents` define topological ordering. */
 export interface TaskDecl<I = unknown, O = unknown> {
   name: string;
   fn: TaskFn<I, O>;
@@ -57,8 +59,12 @@ interface WorkflowDef<I> {
 // the types flow through identically.
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class WorkflowDeclaration<I, O extends AnyRecord = AnyRecord> {
+/**
+ * Builder returned by `hatchet.workflow(...)`: collects task declarations and
+ * an optional `onFailure` handler. Generic `O` mirrors the real SDK's
+ * `StrictWorkflowOutputType` so call sites are interchangeable.
+ */
+export class WorkflowDeclaration<I, O extends AnyRecord = AnyRecord> { // eslint-disable-line @typescript-eslint/no-unused-vars
   readonly name: string;
   readonly tasks: TaskDecl<I, unknown>[] = [];
   onFailureFn?: OnFailureFn<I>;
@@ -163,6 +169,10 @@ class LocalWorker {
 // LocalHatchetRunner — the top-level mock client
 // ---------------------------------------------------------------------------
 
+/**
+ * Drop-in in-process replacement for `HatchetClient`: registers workflows
+ * locally and executes their task DAGs synchronously without a Hatchet server.
+ */
 export class LocalHatchetRunner {
   private readonly _registry = new Map<string, WorkflowDef<unknown>>();
 

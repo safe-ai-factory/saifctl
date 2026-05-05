@@ -10,6 +10,7 @@ import type { Feature } from '../../specs/discover.js';
 /** Maximum diff size (bytes) to pass verbatim; larger diffs are summarised to file headers only. */
 const MAX_DIFF_BYTES = 100_000;
 
+/** Zod schema for the PRSummarizer agent's structured output: Conventional-Commits `title` + Markdown `body`. */
 export const PRSummarySchema = z.object({
   title: z
     .string()
@@ -24,6 +25,7 @@ export const PRSummarySchema = z.object({
     ),
 });
 
+/** Inferred type for {@link PRSummarySchema} — the title/body pair returned by the PRSummarizer agent. */
 export type PRSummary = z.infer<typeof PRSummarySchema>;
 
 const PR_SUMMARIZER_INSTRUCTIONS = `You are a technical writer for a software engineering team.
@@ -119,6 +121,7 @@ function trimDiff(diff: string): string {
   );
 }
 
+/** Inputs to {@link generatePRSummary}: the feature whose spec docs prime the prompt, the patch.diff path, and optional LLM overrides. */
 export interface GeneratePRSummaryOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;

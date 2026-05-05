@@ -55,11 +55,13 @@ import { npmPackageNameToProjectSlug } from '../utils/package.js';
 /** Only treat part as key=value if it matches ^\\w+= (avoids parsing query params in URLs). */
 export const KEY_EQ_PATTERN = /^\w+=/;
 
+/** Parsed output of {@link parseCommaSeparatedOverrides}: at most one bare `global` plus key=value `keys`. */
 export interface ParseCommaSeparatedResult {
   global?: string;
   keys?: Record<string, string>;
 }
 
+/** Options for {@link parseCommaSeparatedOverrides}. */
 export interface ParseCommaSeparatedOptions {
   raw: string;
   /** Returns true if part is key=value form (vs global). */
@@ -516,10 +518,8 @@ export function resolveStorageOverrides(
   return { ...configOverrides, ...cliResult };
 }
 
-/**
- * Resolves run storage URI from optional CLI `--storage` + config defaults.
- */
 /* eslint-disable-next-line max-params -- (cli raw, projectDir, config) */
+/** Resolves run storage URI from optional CLI `--storage` + config defaults. */
 export function resolveRunStorage(
   cliRaw: string | undefined,
   projectDir: string,
@@ -721,6 +721,7 @@ export async function mergeAgentEnvFromReads(opts: {
   return result;
 }
 
+/** Resolved design-discovery configuration: MCP servers, optional tool/prompt sources. */
 export interface DiscoveryOptions {
   /** Named MCP servers: name -> HTTP(S) URL (Streamable HTTP transport) */
   mcps: Record<string, string>;
@@ -732,11 +733,11 @@ export interface DiscoveryOptions {
   promptFile?: string;
 }
 
+/* eslint-disable-next-line max-params */
 /**
  * Merges `config.defaults` discovery fields with {@link readDiscoveryCliReads}.
  * Validates MCP `name=url` parts and mutual exclusivity of prompt vs prompt-file from CLI.
  */
-/* eslint-disable-next-line max-params */
 export function resolveDiscoveryOptions(
   reads: DiscoveryCliReads,
   projectDir: string,

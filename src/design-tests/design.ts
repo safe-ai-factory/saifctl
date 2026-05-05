@@ -23,6 +23,7 @@ import { runCatalogAgent } from './agents/tests-catalog.js';
 import { buildPlannerPrompt, createTestsPlannerAgent } from './agents/tests-planner.js';
 import type { TestCatalog } from './schema.js';
 
+/** Inputs for {@link runDesignTests}: feature + project context, indexer/test profiles, and LLM/streaming/abort hooks. */
 export interface RunTestsDesignOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;
@@ -52,6 +53,7 @@ export interface RunTestsDesignOpts {
   abortSignal?: AbortSignal;
 }
 
+/** Output of {@link runDesignTests}: paths to the generated tests.md / tests.json plus the catalog's test-case count. */
 export interface RunTestsDesignResult {
   testPlanPath: string;
   catalogPath: string;

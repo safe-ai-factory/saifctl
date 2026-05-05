@@ -43,6 +43,7 @@ export interface TestPathClassification {
   layer: 'project' | 'phase' | 'feature' | 'unscoped';
 }
 
+/** Inputs to {@link classifyTestPaths}: paths to classify plus the feature/phase config that drives the decision. */
 export interface ClassifyTestPathsOptions {
   /**
    * Project-relative POSIX paths of test files to classify (e.g. what

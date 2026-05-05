@@ -117,6 +117,7 @@ async function rustPlaywrightOnDone(opts: OnDoneOpts): Promise<void> {
   }
 }
 
+/** Test profile for Rust using `cargo test` with the playwright crate for browser automation. */
 export const rustPlaywrightProfile: TestProfile = {
   id: 'rust-playwright',
   language: 'Rust',

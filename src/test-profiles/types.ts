@@ -5,6 +5,7 @@ export interface OnDoneOpts {
   force: boolean;
 }
 
+/** Describes the language and framework used by a Test Runner container (id, prompts, scaffolding hooks). */
 export interface TestProfile {
   /**
    * Profile identifier used in CLI flags and tests.json.
@@ -85,6 +86,7 @@ export interface ValidateFilesOpts {
   errMessage: string;
 }
 
+/** Tuple of all test profile ids accepted by the `--test-profile` CLI flag. */
 export const SUPPORTED_PROFILE_IDS = [
   'node-vitest',
   'node-playwright',
@@ -95,4 +97,5 @@ export const SUPPORTED_PROFILE_IDS = [
   'rust-rusttest',
   'rust-playwright',
 ] as const;
+/** Union of all valid test profile ids (derived from {@link SUPPORTED_PROFILE_IDS}). */
 export type SupportedProfileId = (typeof SUPPORTED_PROFILE_IDS)[number];

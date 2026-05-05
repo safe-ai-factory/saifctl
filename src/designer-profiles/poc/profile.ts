@@ -29,6 +29,11 @@ const POC_SUFFIX = '-poc';
 /** Output files required in the REAL feature dir for hasRun() to return true. */
 const REQUIRED_OUTPUT_FILES = ['specification.md', 'plan.md'] as const;
 
+/**
+ * Designer profile for the proof-of-concept (PoC) workflow.
+ * Runs a containerised exploration agent that lands `specification.md` + `plan.md`
+ * for the feature; used as the default when no `--designer` flag or config is set.
+ */
 export const pocDesignerProfile: DesignerProfile = {
   id: 'poc',
   displayName: 'POC Explorer',

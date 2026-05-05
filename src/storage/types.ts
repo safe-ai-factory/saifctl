@@ -7,10 +7,12 @@
 
 /** Supported storage DB keys. Extend as new storage types are added. */
 export const SUPPORTED_STORAGE_KEYS = ['runs', 'tasks'] as const;
+/** Identifier of a storage namespace/table (e.g. `'runs'`, `'tasks'`); the union of {@link SUPPORTED_STORAGE_KEYS}. */
 export type StorageKey = (typeof SUPPORTED_STORAGE_KEYS)[number];
 
 const SUPPORTED_STORAGE_KEYS_SET = new Set<string>(SUPPORTED_STORAGE_KEYS);
 
+/** Returns `true` when `name` is a valid {@link StorageKey} (member of {@link SUPPORTED_STORAGE_KEYS}). */
 export function isSupportedStorageKey(name: string): boolean {
   return SUPPORTED_STORAGE_KEYS_SET.has(name);
 }

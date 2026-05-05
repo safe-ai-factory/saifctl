@@ -69,6 +69,7 @@ export function markOnceRulesConsumed(rules: RunRule[], onceIds: readonly string
   }
 }
 
+/** Builds a fresh {@link RunRule} with a new id and `createdAt`/`updatedAt` set to now. */
 export function createRunRule(content: string, scope: RunRuleScope): RunRule {
   const t = nowIso();
   return {
@@ -80,6 +81,7 @@ export function createRunRule(content: string, scope: RunRuleScope): RunRule {
   };
 }
 
+/** Returns a copy of `rules` with the rule whose id matches `ruleId` removed; throws when not found. */
 export function removeRunRuleById(rules: RunRule[], ruleId: string): RunRule[] {
   const next = rules.filter((r) => r.id !== ruleId);
   if (next.length === rules.length) {
@@ -88,6 +90,7 @@ export function removeRunRuleById(rules: RunRule[], ruleId: string): RunRule[] {
   return next;
 }
 
+/** Returns a copy of `rules` with the matching rule's `content`/`scope` updated and `updatedAt` bumped; throws when not found. */
 export function patchRunRule(
   rules: RunRule[],
   opts: { id: string; content?: string; scope?: RunRuleScope },
@@ -110,6 +113,7 @@ export function patchRunRule(
   return copy;
 }
 
+/** Looks up a rule by id; returns undefined when absent (does not throw). */
 export function getRunRule(rules: readonly RunRule[], ruleId: string): RunRule | undefined {
   return rules.find((r) => r.id === ruleId);
 }
@@ -182,6 +186,7 @@ export function formatRuleBlockForPending(rules: readonly RunRule[]): string {
   return `${lines.join('\n')}\n`;
 }
 
+/** Handle returned by {@link startRulesWatcher}; call `stop()` to cancel the polling interval. */
 export interface RulesWatcher {
   stop(): void;
 }

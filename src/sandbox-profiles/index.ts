@@ -47,6 +47,7 @@ import {
 
 export { type SandboxProfile, type SupportedSandboxProfileId } from './types.js';
 
+/** Registry mapping every supported sandbox profile id to its {@link SandboxProfile}. */
 export const SUPPORTED_SANDBOX_PROFILES = {
   go: goProfile,
   'go-node': goNodeProfile,

@@ -43,12 +43,14 @@ import { validatePhasedFeature } from '../specs/phases/validate.js';
  */
 export type ModifiedFileKind = 'plan' | 'spec' | 'test';
 
+/** A single classified modified path with its bucket; produced by {@link classifyModifiedPaths}. */
 export interface ClassifiedModifiedFile {
   /** Project-relative POSIX path (echoed from `git diff --name-only`). */
   path: string;
   kind: ModifiedFileKind;
 }
 
+/** Options for {@link classifyModifiedPaths}. */
 export interface ClassifyModifiedPathsOpts {
   /** Project-relative POSIX paths from `git diff --name-only <base>..HEAD`. */
   paths: readonly string[];
@@ -165,6 +167,7 @@ export function classifyModifiedPaths(opts: ClassifyModifiedPathsOpts): Classifi
   return out;
 }
 
+/** Options for {@link surfaceModifiedPathsAfterRound}. */
 export interface SurfaceModifiedPathsAfterRoundOpts {
   /** Round number (1-based; the loop's `attempts` counter is fine). */
   round: number;

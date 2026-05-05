@@ -112,6 +112,7 @@ const CRITIC_PROMPT_VAR_SET = new Set<string>(CRITIC_PROMPT_VARS);
  */
 export type CriticPromptFileResolver = (workspaceRelativePath: string) => string | null;
 
+/** Error thrown by {@link renderCriticPrompt} for unknown variables, unsupported syntax, or partial-resolution failures. */
 export class CriticPromptRenderError extends Error {
   override readonly name = 'CriticPromptRenderError';
   constructor(message: string) {

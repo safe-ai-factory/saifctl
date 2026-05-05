@@ -117,6 +117,7 @@ async function rusttestOnDone(opts: OnDoneOpts): Promise<void> {
   }
 }
 
+/** Test profile for Rust using `cargo test` (built-in test framework). */
 export const rusttestProfile: TestProfile = {
   id: 'rust-rusttest',
   language: 'Rust',

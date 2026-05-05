@@ -23,6 +23,7 @@ import type { GitProvider } from './types.js';
 export type { GitProvider, PullRequestOpts } from './types.js';
 
 const SUPPORTED_PROVIDERS = ['github', 'gitlab', 'bitbucket', 'azure', 'gitea'] as const;
+/** Union of supported git hosting provider identifiers accepted by {@link getGitProvider}. */
 export type GitProviderId = (typeof SUPPORTED_PROVIDERS)[number];
 
 /**

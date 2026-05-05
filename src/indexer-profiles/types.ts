@@ -15,6 +15,7 @@
 
 import type { Tool } from '@mastra/core/tools';
 
+/** Inputs for {@link IndexerProfile.init} (project dir + identifier). */
 export interface IndexerInitOpts {
   /** Absolute path to the project directory (where indexing commands are run). */
   projectDir: string;
@@ -22,6 +23,7 @@ export interface IndexerInitOpts {
   projectName: string;
 }
 
+/** Inputs for {@link IndexerProfile.getMastraTool} (project dir + identifier). */
 export interface IndexerGetToolOpts {
   /** Absolute path to the project directory. */
   projectDir: string;
@@ -29,6 +31,7 @@ export interface IndexerGetToolOpts {
   projectName: string;
 }
 
+/** Encapsulates codebase-indexing concerns for a specific backend (id, init, getMastraTool). */
 export interface IndexerProfile {
   /**
    * Profile identifier used in --indexer CLI flag.
@@ -56,5 +59,7 @@ export interface IndexerProfile {
   getMastraTool(opts: IndexerGetToolOpts): Tool | Promise<Tool>;
 }
 
+/** Tuple of all indexer profile ids accepted by the `--indexer` CLI flag. */
 export const SUPPORTED_INDEXER_PROFILE_IDS = ['shotgun'] as const;
+/** Union of all valid indexer profile ids (derived from {@link SUPPORTED_INDEXER_PROFILE_IDS}). */
 export type SupportedIndexerProfileId = (typeof SUPPORTED_INDEXER_PROFILE_IDS)[number];

@@ -20,6 +20,7 @@ export interface PullRequestOpts {
   body: string;
 }
 
+/** Provider-agnostic contract for resolving push targets and opening pull/merge requests; auth tokens are read from env vars by each implementation. */
 export interface GitProvider {
   /** Short identifier used in CLI flags and log messages (e.g. 'github', 'gitlab'). */
   readonly id: string;

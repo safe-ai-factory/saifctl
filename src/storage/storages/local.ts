@@ -22,6 +22,7 @@ function applyFilters<T>(items: T[], filters?: StorageFilter[]): T[] {
 
 const DEFAULT_ID_FIELD = 'runId';
 
+/** Constructor options for {@link LocalStorage}: the base directory, the namespace appended to it, and the id field on T. */
 export interface LocalStorageOpts {
   /** Base directory (e.g. projectDir/.saifctl) */
   baseDir: string;
@@ -31,6 +32,7 @@ export interface LocalStorageOpts {
   idField?: string;
 }
 
+/** {@link StorageImpl} backed by JSON files under `baseDir/namespace/<id>.json`. */
 export class LocalStorage<T> implements StorageImpl<T> {
   private readonly dir: string;
   private readonly idField: string;

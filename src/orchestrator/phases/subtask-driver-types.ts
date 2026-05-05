@@ -43,4 +43,5 @@ export type SubtaskDriverAction =
   | { kind: 'exit' }
   | { kind: 'abort' };
 
+/** Callback invoked by the subtask driver after each `subtask-done` signal; returns the next {@link SubtaskDriverAction}. */
 export type OnSubtaskComplete = (result: SubtaskCodingResult) => Promise<SubtaskDriverAction>;

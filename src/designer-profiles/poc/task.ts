@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import { pathExists, readUtf8 } from '../../utils/io.js';
 
+/** Options passed to {@link buildPocTask} to render the PoC designer prompt. */
 export interface BuildPocTaskOpts {
   /** The real feature the POC is exploring (e.g. "my-feature"). */
   targetFeatureName: string;

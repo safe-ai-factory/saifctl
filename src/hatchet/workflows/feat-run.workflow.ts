@@ -90,6 +90,7 @@ import { deserializeOrchestratorOpts } from '../utils/serialize-opts.js';
 // into production.
 // ---------------------------------------------------------------------------
 
+/** Output of the `run-agent` step: the patch produced by the coder + sandbox commit metadata. */
 export interface AgentPhaseOutput {
   patchContent: string;
   patchPath: string;
@@ -97,6 +98,7 @@ export interface AgentPhaseOutput {
   commits: RunCommit[];
 }
 
+/** Output of the `run-tests` step: staging test result, run id, and parsed JUnit suites for downstream analysis. */
 export interface TestPhaseOutput {
   status: 'passed' | 'failed' | 'aborted';
   testRunId: string;
@@ -104,6 +106,7 @@ export interface TestPhaseOutput {
   testSuites?: AssertionSuiteResult[];
 }
 
+/** Output of the optional `vague-specs-check` step: a sanitized error hint for the next agent attempt. */
 export interface VagueSpecsStepOutput {
   sanitizedHint?: string;
 }
@@ -145,6 +148,7 @@ const outerAttemptSummarySchema = z.object({
   completedAt: z.string(),
 });
 
+/** Zod schema for the convergence-loop step output (the parent workflow's iteration result). */
 export const convergenceOutputSchema = z.object({
   success: z.boolean(),
   attempt: z.number(),
@@ -155,6 +159,7 @@ export const convergenceOutputSchema = z.object({
   rules: z.array(runRuleSchema),
   roundSummaries: z.array(outerAttemptSummarySchema).optional(),
 });
+/** Inferred output type of {@link convergenceOutputSchema}. */
 export type ConvergenceOutput = z.infer<typeof convergenceOutputSchema>;
 
 function resolveSubtasksForHatchetArtifact(opts: ReturnType<typeof deserializeOrchestratorOpts>): {
@@ -193,6 +198,12 @@ export type FeatRunSerializedInput = HatchetInput & {
   };
 };
 
+/**
+ * JSON-serializable input to the `feat-run-iteration` child workflow: the
+ * sandbox handle, attempt counter, current task prompt, and serialized
+ * orchestrator opts. `surfaceContext` plumbs the active subtask's identity to
+ * the run-agent step for modifications.log breadcrumbs.
+ */
 export type FeatRunIterationSerializedInput = HatchetInput & {
   sandbox: Sandbox;
   attempt: number;
@@ -366,6 +377,12 @@ function createFeatRunIterationWorkflow() {
 // Parent workflow: feat-run
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the parent `feat-run` Hatchet workflow (provision-sandbox →
+ * convergence-loop → apply-patch, plus an `on-failure` handler that persists a
+ * RunArtifact). The convergence-loop spawns one `feat-run-iteration` child
+ * workflow per attempt.
+ */
 export function createFeatRunWorkflow() {
   const { hatchet } = getHatchetClient();
 

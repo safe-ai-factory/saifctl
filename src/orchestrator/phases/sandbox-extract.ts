@@ -12,8 +12,14 @@ import { git } from '../../utils/git.js';
 import { writeUtf8 } from '../../utils/io.js';
 import { assertRunCommitsSafeForHost } from './apply-patch.js';
 
+/**
+ * How a sandbox run's commits are reflected on the host:
+ * `'none'` skips host apply; `'host-apply'` applies the full diff; `'host-apply-filtered'`
+ * keeps only paths under {@link ApplySandboxExtractToHostOpts.includePrefix}.
+ */
 export type SandboxExtractMode = 'none' | 'host-apply' | 'host-apply-filtered';
 
+/** Options for {@link filterUnifiedDiffByPrefix}. */
 export interface FilterUnifiedDiffByPrefixOpts {
   patch: string;
   /** Repo-relative prefix to keep (e.g. `saifctl/features/`). */
@@ -87,6 +93,7 @@ function parseDiffGitHeaderPaths(line: string): string[] {
   return [];
 }
 
+/** Options for {@link applySandboxExtractToHost}. */
 export interface ApplySandboxExtractToHostOpts {
   runCommits: RunCommit[];
   projectDir: string;

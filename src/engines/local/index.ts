@@ -27,6 +27,13 @@ import type {
 
 const LOCAL_INFRA = { engine: 'local' as const };
 
+/**
+ * {@link Engine} implementation for host-local coding (no Docker / Leash).
+ *
+ * `setup` and `teardown` are essentially no-ops; `runAgent` spawns `coder-start.sh` directly
+ * on the host. `startStaging`/`runTests` throw — staging environments must use a container
+ * engine. Used when the coding environment is configured as `local` (e.g. `--engine local`).
+ */
 export class LocalEngine implements Engine {
   readonly name = 'local' as const;
 

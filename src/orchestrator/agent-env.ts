@@ -254,6 +254,10 @@ export function resolveAgentSecretEnv(keys: string[]): Record<string, string> {
 /** In-container workspace mount path (Docker / Leash). */
 const CONTAINER_WORKSPACE = '/workspace';
 
+/**
+ * Where the coder process runs, which determines whether SAIFCTL_* paths
+ * resolve to in-container `/workspace` or to host directories.
+ */
 export type CoderContainerEnvMode =
   | { kind: 'container' }
   /** Host-side agent spawn (`--engine local`): workspace paths are host directories, not `/workspace`. */

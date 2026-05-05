@@ -768,6 +768,12 @@ const runCommand = defineCommand({
   },
 });
 
+/**
+ * Resolve the orchestrator opts for `feat run` from raw citty args: loads
+ * config, selects/prompts for the feature, runs the phases pre-flight, and
+ * builds the merged orchestrator input. Exits the process on validation
+ * failures so the caller can immediately invoke `runStart` on success.
+ */
 export const parseRunArgs = async (args: CommandArgs<typeof runCommand>) => {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
   const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
@@ -835,6 +841,7 @@ const featCommand = defineCommand({
 });
 
 // 'feature' alias for feat command
+/** `feature` alias of {@link featCommand}: identical subcommands, alternate name. */
 export const featureCommand = {
   ...featCommand,
   meta: {

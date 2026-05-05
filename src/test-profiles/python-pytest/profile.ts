@@ -35,6 +35,7 @@ async function pytestValidateFiles(opts: ValidateFilesOpts): Promise<void> {
   }
 }
 
+/** Test profile for Python using the pytest framework. */
 export const pytestProfile: TestProfile = {
   id: 'python-pytest',
   language: 'Python',

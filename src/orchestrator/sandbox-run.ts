@@ -18,6 +18,7 @@ import { runStart } from './modes.js';
 import { type OrchestratorCliInput, resolveOrchestratorOpts } from './options.js';
 import type { SandboxExtractMode } from './phases/sandbox-extract.js';
 
+/** Options for {@link runSandbox}. */
 export interface RunSandboxOpts {
   projectDir: string;
   saifctlDir: string;
@@ -38,6 +39,7 @@ export interface RunSandboxOpts {
   extractExclude?: string;
 }
 
+/** Options for {@link runSandboxInteractive}. */
 export interface RunSandboxInteractiveOpts {
   projectDir: string;
   saifctlDir: string;

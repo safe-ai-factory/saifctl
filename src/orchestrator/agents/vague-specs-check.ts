@@ -75,12 +75,18 @@ const VagueSpecsCheckResultSchema = z.object({
   sanitizedHintForAgent: z.string(),
 });
 
+/**
+ * Verdict from the Vague Specs Checker. When `isAmbiguous` is true the spec
+ * needs the proposed addition; otherwise `sanitizedHintForAgent` describes
+ * the failure in behavioural terms safe to feed back to the coder agent.
+ */
 export type VagueSpecsCheckResult = z.infer<typeof VagueSpecsCheckResultSchema>;
 
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
+/** Options for {@link runVagueSpecsChecker}. */
 export interface RunVagueSpecsCheckerOpts {
   /** Full content of specification.md (or any spec files joined together) */
   specContent: string;

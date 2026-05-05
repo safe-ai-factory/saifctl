@@ -119,6 +119,15 @@ async function runDocker(
 // DockerEngine
 // ---------------------------------------------------------------------------
 
+/**
+ * Docker implementation of the {@link Engine} lifecycle.
+ *
+ * Provisions a per-run bridge network (plus optional `docker compose` services for staging),
+ * builds and boots the application container with the sidecar injected, runs the test-runner
+ * container against it, then spawns the coding agent via Leash (or `docker run` when
+ * `dangerousNoLeash` is set). All resources tracked on the run's {@link DockerLiveInfra} are
+ * removed on {@link teardown}.
+ */
 export class DockerEngine implements Engine {
   readonly name = 'docker' as const;
 

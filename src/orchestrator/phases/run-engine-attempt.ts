@@ -35,6 +35,7 @@ import { prepareRoundsStatsFile } from '../stats.js';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Options for {@link runEngineAttempt}. */
 export interface RunEngineAttemptOpts {
   sandbox: Sandbox;
   /** Which outer attempt this is (1-indexed). Used for the engine label. */
@@ -92,6 +93,7 @@ export interface RunEngineAttemptOpts {
   preparePendingRules: boolean;
 }
 
+/** Result of {@link runEngineAttempt}: final infra snapshot and whether the finally block paused vs tore down. */
 export interface RunEngineAttemptResult {
   /** Final infra snapshot after `runAgent` (or null if setup failed). */
   infra: LiveInfra | null;
@@ -106,6 +108,11 @@ export interface RunEngineAttemptResult {
 // Implementation
 // ---------------------------------------------------------------------------
 
+/**
+ * Shared engine-lifecycle atom: register, setup (or reuse {@link RunEngineAttemptOpts.resumedCodingInfra}),
+ * prepare stats and rules files, run the agent, then deregister and either pause or tear down based on
+ * what {@link RunEngineAttemptOpts.onFinally} returns. Used by both the iterative loop and the Hatchet step.
+ */
 export async function runEngineAttempt(
   input: RunEngineAttemptOpts,
 ): Promise<RunEngineAttemptResult> {

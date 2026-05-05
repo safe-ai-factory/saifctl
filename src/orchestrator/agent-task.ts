@@ -62,6 +62,7 @@ export const AGENT_WORKSPACE_CONTAINER: AgentWorkspace = {
 /** Convenience: the host-execution shape. */
 export const AGENT_WORKSPACE_HOST: AgentWorkspace = { kind: 'host' };
 
+/** Options for {@link buildTaskPrompt}. */
 export interface BuildTaskPromptOpts {
   /** Host path to the workspace (used for existence probes). */
   codePath: string;
@@ -74,6 +75,12 @@ export interface BuildTaskPromptOpts {
   workspace: AgentWorkspace;
 }
 
+/**
+ * Renders the per-round task prompt: the subtask body plus a "MUST read"
+ * directive pointing at plan.md (when present) and a soft plan/spec deviation
+ * directive. Trailing error feedback is appended on retries. Paths in directives
+ * use container or host form depending on {@link AgentWorkspace}.
+ */
 export async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string> {
   const { codePath, task, saifctlDir, feature, errorFeedback, workspace } = opts;
 

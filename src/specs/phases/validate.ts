@@ -51,6 +51,7 @@ export interface PhasedFeatureContext {
   subtasksJsonPresent: boolean;
 }
 
+/** Inputs to {@link validatePhasedFeature}: just the absolute path to the feature dir. */
 export interface ValidatePhasedFeatureOptions {
   /** Absolute path to the feature directory. */
   featureAbsolutePath: string;

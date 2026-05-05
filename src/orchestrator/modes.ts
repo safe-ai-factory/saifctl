@@ -81,6 +81,11 @@ import {
   saveRunOnError,
 } from './worktree.js';
 
+/**
+ * Full options for the orchestrator entry points (start / fromArtifact / inspect / apply).
+ * Extends the inner-loop options with sandbox base dir, resolved scripts, run storage,
+ * and the {@link OrchestratorOpts.fromArtifact} block populated when continuing a Run.
+ */
 export interface OrchestratorOpts extends IterativeLoopOpts {
   /**
    * Base directory where sandbox entries are created.
@@ -270,11 +275,37 @@ function withCleanupRegistry<T, R>(
 // Public entry points (wrapped with cleanup registry)
 // ---------------------------------------------------------------------------
 
+/**
+ * Mode 1 — verifies feature tests fail on the current host codebase before any agent run.
+ * Spins up staging containers with no patch and asserts at least one feature test fails.
+ */
 export const runFail2Pass = withCleanupRegistry(runFail2PassCore);
+/**
+ * Mode 2 — fresh sandbox plus the full iterative agent loop. Used by `feat run` and
+ * `run start <id>` (when `OrchestratorOpts.fromArtifact` is set, this also drives the
+ * from-artifact and `run resume` paths).
+ */
 export const runStart = withCleanupRegistry(runStartCore);
+/**
+ * Mode 3 — start again from a stored Run artifact. Materialises a worktree from
+ * `baseCommitSha` + `runCommits`, then delegates to {@link runStart} with
+ * `fromArtifact` populated. Also used by `run test` (with `testOnly`).
+ */
 export const fromArtifact = withCleanupRegistry(fromArtifactCore);
+/**
+ * Resume a paused Run: when the on-disk sandbox + Docker bridge survive, reuses them
+ * directly; otherwise falls back to {@link fromArtifact} after clearing pause metadata.
+ */
 export const runResume = withCleanupRegistry(runResumeCore);
+/**
+ * Mode 4 — re-run staging tests from a Run artifact without re-running the coding agent.
+ * Same pipeline as {@link fromArtifact} with `testOnly: true`.
+ */
 export const runTestsFromRun = withCleanupRegistry(runTestsFromRunCore);
+/**
+ * Mode 3c — apply a stored Run's commits to a host worktree branch (and optional push/PR).
+ * No sandbox, no tests; pure git replay using {@link applyPatchToHost}-style worktree flow.
+ */
 export const runApply = withCleanupRegistry(runApplyCore);
 
 // ---------------------------------------------------------------------------
@@ -828,6 +859,7 @@ function orchestratorResultFromHatchetWorkflowOutput(raw: unknown): Orchestrator
 // Mode 3: fromArtifact (existing (stopped/paused) -> running)
 // ---------------------------------------------------------------------------
 
+/** Options shared by {@link fromArtifact}, {@link runResume}, {@link runTestsFromRun}, {@link runApply}, and {@link runInspect}. */
 export interface FromArtifactOpts {
   runId: string;
   projectDir: string;
@@ -1354,6 +1386,7 @@ async function persistForceStoppedRun(runStorage: RunStorage, runId: string): Pr
 // Mode 3b: inspect (Run → artifact worktree + sandbox + idle coder container)
 // ---------------------------------------------------------------------------
 
+/** Options for {@link runInspect}; same shape as {@link FromArtifactOpts} plus an inspect-only Leash flag. */
 export type InspectOpts = FromArtifactOpts & {
   /**
    * When true, run the inspect container under Leash/Cedar like the coding agent.
@@ -1757,6 +1790,7 @@ async function runApplyCore(
   };
 }
 
+/** Options for {@link runExport}. */
 export interface RunExportOpts {
   runId: string;
   runStorage: RunStorage;
@@ -1849,6 +1883,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
 // Mode 4: test
 // ---------------------------------------------------------------------------
 
+/** Options for {@link runTestsFromRun}; same shape as {@link FromArtifactOpts}. */
 export type TestFromRunOpts = FromArtifactOpts;
 
 /**

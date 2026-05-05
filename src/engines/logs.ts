@@ -5,6 +5,7 @@
 
 export type EngineLogSource = 'staging' | 'test-runner' | 'coder' | 'inspect';
 
+/** One log line emitted by an {@link Engine} container or child process: source role, stream, optional container label, and the raw text. */
 export interface EngineLogEvent {
   source: EngineLogSource;
   stream: 'stdout' | 'stderr';
@@ -17,6 +18,7 @@ export interface EngineLogEvent {
   raw: string;
 }
 
+/** Sink callback for {@link EngineLogEvent}s emitted by the engine. */
 export type EngineOnLog = (event: EngineLogEvent) => void;
 
 /**

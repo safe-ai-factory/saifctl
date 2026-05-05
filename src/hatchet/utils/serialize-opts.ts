@@ -24,6 +24,11 @@ import type {
 import type { SerializedPatchExcludeRule } from '../../runs/utils/serialize.js';
 import { resolveTestProfile } from '../../test-profiles/index.js';
 
+/**
+ * JSON-serializable wire form of `OrchestratorOpts` for Hatchet workflow I/O.
+ * Class instances (gitProvider, testProfile) become ids; RegExp `patchExclude`
+ * becomes a string spec; `runStorage` becomes its URI.
+ */
 export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   sandboxProfileId: string;
   agentProfileId: string;
@@ -106,6 +111,10 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   sandboxExtractExclude?: string;
 }
 
+/**
+ * Convert in-memory `OrchestratorOpts` into the JSON-only shape Hatchet can
+ * carry across worker boundaries. The reverse is {@link deserializeOrchestratorOpts}.
+ */
 export function serializeOrchestratorOpts(opts: OrchestratorOpts): SerializedOrchestratorOpts {
   const {
     feature,

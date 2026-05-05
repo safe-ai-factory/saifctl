@@ -60,9 +60,11 @@ import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
 /** Agent name (key before =) must not contain comma, whitespace, or equals. */
 const MODEL_AGENT_NAME_PATTERN = /^[^,\s=]+$/;
 
-/** Order: config baseline → artifact → CLI delta (later wins per field / map merge). */
-/* eslint-disable-next-line max-params -- three explicit layers */
-export function mergeLlmOverridesLayers(
+/**
+ * Merges LLM overrides layers in order — config baseline, then artifact, then CLI delta —
+ * with later layers winning per-field. Field maps (`agentModels`, `agentBaseUrls`) merge by key.
+ */
+export function mergeLlmOverridesLayers( // eslint-disable-line max-params -- three explicit layers
   configBaseline: LlmOverrides,
   artifact?: LlmOverrides,
   cliDelta?: LlmOverrides,
@@ -262,6 +264,7 @@ function mergeDefinedOrchestratorOpts(
 // Default baseline from config + profiles (no feat-run CLI; merge applies deltas)
 // ---------------------------------------------------------------------------
 
+/** Inputs to {@link applyOrchestratorBaseline} — feature, project paths, config, and resume hints. */
 export interface OrchestratorBaselineContext {
   feature: Feature;
   projectDir: string;
@@ -467,6 +470,7 @@ async function applyOrchestratorBaseline(
 // Resolve defaults → artifact → CLI
 // ---------------------------------------------------------------------------
 
+/** Inputs to {@link resolveOrchestratorOpts}: project, config, feature, CLI overrides, and an optional artifact to layer on top of defaults. */
 export interface ResolveOrchestratorOptsParams {
   projectDir: string;
   saifctlDir: string;
@@ -636,6 +640,7 @@ function resolveGitProvider(config?: SaifctlConfig): GitProvider {
   }
 }
 
+/** Returns `config.defaults.sandboxBaseDir` or the package default `/tmp/saifctl/sandboxes`. */
 export function resolveSandboxBaseDir(config?: SaifctlConfig): string {
   return config?.defaults?.sandboxBaseDir ?? DEFAULT_SANDBOX_BASE_DIR;
 }
@@ -653,6 +658,7 @@ export function pickTestProfile(cliId: string | undefined, config?: SaifctlConfi
   }
 }
 
+/** Sandbox profile id from CLI + `config.defaults.sandboxProfile`, falling back to the package default. */
 export function pickSandboxProfile(
   cliId: string | undefined,
   config?: SaifctlConfig,
@@ -668,6 +674,7 @@ export function pickSandboxProfile(
   }
 }
 
+/** Agent profile id from CLI + `config.defaults.agentProfile`, falling back to the package default. */
 export function pickAgentProfile(cliId: string | undefined, config?: SaifctlConfig): AgentProfile {
   const raw = (cliId ?? '').trim();
   const id = raw || config?.defaults?.agentProfile || '';
@@ -680,8 +687,8 @@ export function pickAgentProfile(cliId: string | undefined, config?: SaifctlConf
   }
 }
 
-/* eslint-disable-next-line max-params */
-export function resolveTestImageTag(
+/** Resolves the staging test image tag from `--test-image`, `config.defaults.testImage`, or `saifctl-test-<profileId>:latest`. */
+export function resolveTestImageTag( // eslint-disable-line max-params
   cliTag: string | undefined,
   profileId: string,
   config?: SaifctlConfig,
@@ -707,6 +714,7 @@ function coalesceScriptPath(
   return { mode: 'path', relativePath: raw };
 }
 
+/** Picks the startup script source: explicit `--startup-script` / `config.defaults.startupScript`, or the bundled profile script. */
 export function pickStartupScript(
   cliPath: string | undefined,
   config: SaifctlConfig | undefined,
@@ -714,6 +722,7 @@ export function pickStartupScript(
   return coalesceScriptPath(cliPath, config?.defaults?.startupScript);
 }
 
+/** Picks the gate script source: explicit `--gate-script` / `config.defaults.gateScript`, or the bundled profile script. */
 export function pickGateScript(
   cliPath: string | undefined,
   config: SaifctlConfig | undefined,
@@ -721,6 +730,7 @@ export function pickGateScript(
   return coalesceScriptPath(cliPath, config?.defaults?.gateScript);
 }
 
+/** Picks the staging script source: explicit `--stage-script` / `config.defaults.stageScript`, or the bundled profile script. */
 export function pickStageScript(
   cliPath: string | undefined,
   config: SaifctlConfig | undefined,
@@ -728,6 +738,7 @@ export function pickStageScript(
   return coalesceScriptPath(cliPath, config?.defaults?.stageScript);
 }
 
+/** Picks the test runner script source: explicit `--test-script` / `config.defaults.testScript`, or the bundled profile script. */
 export function pickTestScript(
   cliPath: string | undefined,
   config: SaifctlConfig | undefined,
@@ -735,18 +746,21 @@ export function pickTestScript(
   return coalesceScriptPath(cliPath, config?.defaults?.testScript);
 }
 
+/** Picks the agent-install script source: explicit `--agent-install-script` path, otherwise the bundled agent profile script. */
 export function pickAgentInstallScript(cliPath: string | undefined): OrchestratorScriptPick {
   const raw = cliPath !== undefined ? cliPath.trim() : '';
   if (!raw) return { mode: 'profile' };
   return { mode: 'path', relativePath: raw };
 }
 
+/** Picks the agent run script source: explicit `--agent-script` path, otherwise the bundled agent profile script. */
 export function pickAgentScript(cliPath: string | undefined): OrchestratorScriptPick {
   const raw = cliPath !== undefined ? cliPath.trim() : '';
   if (!raw) return { mode: 'profile' };
   return { mode: 'path', relativePath: raw };
 }
 
+/** Resolves and normalises the staging environment from `config.environments.staging`, defaulting to `{ engine: 'docker' }`. */
 export function resolveStagingEnvironment(
   config: SaifctlConfig | undefined,
 ): NormalizedStagingEnvironment {
@@ -764,6 +778,7 @@ export type EngineCliCodingKind = 'docker' | 'helm' | 'local';
 /** Staging phases allowed in --engine staging=.. */
 export type EngineCliStagingKind = 'docker' | 'helm';
 
+/** Parsed `--engine` CLI value: optional coding and staging engine selection. */
 export interface EngineCliSpec {
   coding?: EngineCliCodingKind;
   staging?: EngineCliStagingKind;
@@ -773,8 +788,7 @@ const ENGINE_CLI_CODING_SET = new Set<string>(['docker', 'helm', 'local']);
 const ENGINE_CLI_STAGING_SET = new Set<string>(['docker', 'helm']);
 
 /** Applies parsed `--engine` spec to merged opts using file config for reuse vs minimal environment objects. */
-/* eslint-disable-next-line max-params -- (merged, config, engine string) */
-export function applyEngineCliToOrchestratorOpts(
+export function applyEngineCliToOrchestratorOpts( // eslint-disable-line max-params -- (merged, config, engine string)
   merged: OrchestratorOpts,
   config: SaifctlConfig,
   engineRaw: string,

@@ -13,6 +13,7 @@ import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { type IterativeLoopOpts, prepareTestRunnerOpts } from '../loop.js';
 import type { Sandbox } from '../sandbox.js';
 
+/** Inputs for {@link runTestPhase} — sandbox, attempt index, and the staging/test opts the engine needs. */
 export interface RunTestPhaseInput {
   sandbox: Sandbox;
   /** Outer attempt index (1-indexed) */
@@ -34,12 +35,18 @@ export interface RunTestPhaseInput {
   signal?: AbortSignal;
 }
 
+/** Result of {@link runTestPhase} — the {@link TestsResult} from the last attempt and that attempt's run id. */
 export interface RunTestPhaseOutput {
   result: TestsResult;
   /** Run ID used for the final test attempt */
   testRunId: string;
 }
 
+/**
+ * Spins up the staging engine, runs the feature test suite (with inner test-retry
+ * for flaky environments), tears down, and returns the last result. Stops early
+ * once a result is `passed` or `aborted`.
+ */
 export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPhaseOutput> {
   const { sandbox, attempt, opts, registry, signal } = input;
   const {

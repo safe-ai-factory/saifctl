@@ -26,6 +26,7 @@ export interface SandboxProfile {
   coderImageTag: string;
 }
 
+/** Tuple of all sandbox profile ids accepted by the `--profile` CLI flag. */
 export const SUPPORTED_SANDBOX_PROFILE_IDS = [
   'go',
   'go-node',
@@ -52,4 +53,5 @@ export const SUPPORTED_SANDBOX_PROFILE_IDS = [
   'rust-node-python',
   'rust-python',
 ] as const;
+/** Union of all valid sandbox profile ids (derived from {@link SUPPORTED_SANDBOX_PROFILE_IDS}). */
 export type SupportedSandboxProfileId = (typeof SUPPORTED_SANDBOX_PROFILE_IDS)[number];

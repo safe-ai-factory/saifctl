@@ -167,6 +167,7 @@ export interface ResolvedPhaseConfig {
   tests: ResolvedTestsConfig;
 }
 
+/** Effective tests config for one scope after inheritance + the mutable/fail2pass cross-rule (§5.6). */
 export interface ResolvedTestsConfig {
   mutable: boolean;
   /**

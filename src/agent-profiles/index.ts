@@ -39,6 +39,7 @@ export {
   type SupportedAgentProfileId,
 } from './types.js';
 
+/** Registry mapping every supported agent profile id to its {@link AgentProfile}. */
 export const SUPPORTED_AGENT_PROFILES = {
   openhands: openhandsProfile,
   aider: aiderProfile,

@@ -15,6 +15,7 @@
 import { consola } from '../../logger.js';
 import { spawnAsync, spawnCapture } from '../../utils/io.js';
 
+/** Result of a `shotgun-sh codebase query` invocation. */
 export interface ShotgunQueryResult {
   /** Raw stdout from shotgun-sh codebase query. */
   raw: string;

@@ -102,6 +102,10 @@ export interface BuildPatchExcludeRulesOpts {
   allowSaifctlInPatch?: boolean;
 }
 
+/**
+ * Returns the standard patch-exclude rule set ({@link saifctlDir}, `.git/hooks/`,
+ * `.saifctl/`) plus any caller-supplied rules. See module docstring for rationale.
+ */
 export function buildPatchExcludeRules(opts: BuildPatchExcludeRulesOpts): PatchExcludeRule[] {
   const { saifctlDir, patchExclude, allowSaifctlInPatch } = opts;
   const base: PatchExcludeRule[] = [];
@@ -409,6 +413,7 @@ export interface IterativeLoopOpts {
 /** Outcome of {@link runIterativeLoop} and other orchestrator entry points (distinct from stored {@link RunArtifact} status). */
 export type OrchestratorOutcomeStatus = 'success' | 'failed' | 'paused' | 'stopped';
 
+/** Final outcome returned by every orchestrator entry point ({@link runStart}, {@link fromArtifact}, etc.). */
 export interface OrchestratorResult {
   status: OrchestratorOutcomeStatus;
   attempts: number;
@@ -612,6 +617,11 @@ export async function runStagingTestVerification(params: {
   };
 }
 
+/**
+ * Mutable per-run state the iterative loop reads/writes for resume semantics:
+ * git base for replay, accumulating user rules, last error feedback, and the
+ * optimistic-locking revision used for run-storage saves.
+ */
 export interface RunStorageContext {
   /** Part to re-create the base state of the feature branch - last commit SHA */
   baseCommitSha: string;
@@ -631,6 +641,13 @@ export interface RunStorageContext {
   expectedArtifactRevision?: number;
 }
 
+/**
+ * The shared inner orchestration loop used by `start` and `fromArtifact` modes.
+ * Drives outer attempts: run the coding agent, extract the patch, run staging
+ * tests (with vague-specs handling), then either apply to the host or feed
+ * stderr back as feedback for the next round. Honours pause / stop / abort
+ * routing via {@link OrchestratorOpts.runStorage} and the cleanup registry.
+ */
 export async function runIterativeLoop(
   sandbox: Sandbox,
   opts: OrchestratorOpts & {

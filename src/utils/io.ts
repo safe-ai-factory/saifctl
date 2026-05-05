@@ -6,13 +6,14 @@ export async function readUtf8(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
+/** Options for {@link writeUtf8}. */
 export interface WriteUtf8Options {
   /** Unix file mode, e.g. `0o755`. */
   mode?: number;
 }
 
 /** Write UTF-8 text; optional file mode (chmod). */
-/* eslint-disable-next-line max-params */
+/** eslint-disable-next-line max-params */
 export async function writeUtf8(
   filePath: string,
   data: string,
@@ -44,6 +45,7 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/** Options for {@link spawnAsync} — argv-style spawn with no shell, configurable stdio. */
 export interface SpawnAsyncOpts {
   command: string;
   args: string[];
@@ -84,11 +86,13 @@ export function spawnAsync(opts: SpawnAsyncOpts): Promise<void> {
   });
 }
 
+/** Options for {@link spawnCapture} / {@link spawnWait}: argv-style spawn with optional `timeoutMs` (SIGTERM on expiry). */
 export type SpawnCaptureOpts = Pick<SpawnAsyncOpts, 'command' | 'args' | 'cwd' | 'env'> & {
   /** When set, kill the child and reject if still running after this many ms. */
   timeoutMs?: number;
 };
 
+/** Result of {@link spawnWait}: exit code/signal plus captured stdout and stderr. */
 export interface SpawnWaitResult {
   code: number | null;
   signal: NodeJS.Signals | null;
@@ -164,6 +168,7 @@ export function spawnCapture(opts: SpawnCaptureOpts): Promise<string> {
   });
 }
 
+/** Options for {@link spawnUserCmd} — runs a string `script` through the system shell. */
 export interface SpawnUserCmdOpts {
   /**
    * User-given or config-given command line, run as-is through the system shell (as in an

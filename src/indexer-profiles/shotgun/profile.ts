@@ -31,6 +31,7 @@ interface ShotgunGraph {
   status: string;
 }
 
+/** Indexer profile that builds and queries an AST-aware codebase graph via the `shotgun-sh` CLI. */
 export const shotgunIndexerProfile: IndexerProfile = {
   id: 'shotgun',
   displayName: 'Shotgun',

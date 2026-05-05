@@ -45,6 +45,7 @@
 /** Non-agent (infra) vs agent script output, as separated by coder-start delimiters. */
 export type AgentLogPhase = 'infra' | 'agent';
 
+/** One tagged unit of agent-runner stdout emitted by {@link createAgentRunnerStdoutMux}. */
 export interface AgentLogEvent {
   phase: AgentLogPhase;
   /**
@@ -64,6 +65,7 @@ const isAgentSegmentDelimiter = (line: string): boolean => {
   return line === SAIFCTL_AGENT_LOG_START || line === SAIFCTL_AGENT_LOG_END;
 };
 
+/** Bracketed tag printed before each non-strategy log line (`[agent] …` vs `[inspect] …`). */
 export type AgentLogLinePrefix = 'agent' | 'inspect';
 
 /**
@@ -146,6 +148,7 @@ export function createDefaultAgentLog(
 // That path buffers raw bytes between delimiters and only forwards "safe" prefixes to the
 // strategy so a trailing chunk cannot be mistaken for the start of the END delimiter line.
 
+/** Options for {@link createAgentRunnerStdoutMux}. */
 export interface CreateAgentRunnerStdoutMuxOpts {
   onAgentLog: (event: AgentLogEvent) => void;
   /**

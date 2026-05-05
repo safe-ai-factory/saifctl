@@ -11,12 +11,14 @@ export const projectDirArg = {
   description: 'Project directory (default: current directory)',
 };
 
+/** `--project` / `-p`: project name override for the indexer; falls back to package.json `name`. */
 export const projectArg = {
   type: 'string' as const,
   alias: 'p' as const,
   description: 'Project name override for the indexer (default: package.json "name")',
 };
 
+/** `--test-profile`: test profile id resolved against the test-profiles registry. */
 export const testProfileArg = {
   type: 'string' as const,
   description: 'Test profile id (default: node-vitest).',
@@ -34,18 +36,21 @@ export const sandboxBaseDirArg = {
   description: `Sandbox base directory (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
 };
 
+/** `--indexer`: indexer profile id; `none` (or omitted) disables the indexer. */
 export const indexerArg = {
   type: 'string' as const,
   description:
     'Indexer profile (optional; default: none). Pass shotgun to use Shotgun, or none to disable.',
 };
 
+/** `--name` / `-n`: kebab-case feature id; prompts when omitted in interactive mode. */
 export const nameArg = {
   type: 'string' as const,
   alias: 'n' as const,
   description: 'Feature name (kebab-case). Prompts with a list if omitted.',
 };
 
+/** `--saifctl-dir`: location of the saifctl config dir relative to the project root. */
 export const saifctlDirArg = {
   type: 'string' as const,
   description: 'Path to saifctl directory (default: saifctl)',
@@ -84,6 +89,7 @@ const stageScriptArg = {
 };
 
 // Shared model override args — spread into any subcommand that calls LLMs.
+/** Shared `--model` and `--base-url` flags — spread into any subcommand that calls LLMs. */
 export const modelOverrideArgs = {
   model: {
     type: 'string' as const,
@@ -115,6 +121,10 @@ export const forceArg = {
 };
 
 // Tests-only args — used by design-fail2pass, test (staging + test runner, no coder agent)
+/**
+ * Test-runner-related flags shared by subcommands that exercise staging + tests
+ * without spawning a coder agent (`design-fail2pass`, `run test`).
+ */
 export const featTestsArgs = {
   'sandbox-base-dir': sandboxBaseDirArg,
   engine: engineArg,
@@ -152,6 +162,10 @@ const featAgentArgs = {
 };
 
 // Args for `run test` — re-test a Run's patch (no agent/coding flags).
+/**
+ * Args for `saifctl run test` — re-runs the staging + test-runner pipeline
+ * against a stored Run's patch. No agent/coder flags (no implementation step).
+ */
 export const runTestArgs = {
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
@@ -316,6 +330,10 @@ const featRunCoreArgs = {
 };
 
 // Run-specific args (feat run, run start). Builds on runTestArgs + agent flags + coder-only options.
+/**
+ * Args for `saifctl feat run` (and `run start`): runTestArgs plus coder-agent
+ * flags and run-only options like `--max-runs`, `--cedar`, and `--strict`.
+ */
 export const featRunArgs = {
   name: nameArg,
   ...featRunCoreArgs,

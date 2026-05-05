@@ -17,6 +17,7 @@ import type {
 import { syncConfigSubtasksFromArtifact } from './normalize-artifact.js';
 import { type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
 
+/** Loop options used to derive a {@link RunArtifact}'s persisted `config` — the full {@link IterativeLoopOpts} minus runtime-only fields, plus the script bundle. */
 export type BuildRunArtifactOpts = Omit<
   IterativeLoopOpts,
   'registry' | 'runStorage' | 'runContext'
@@ -26,6 +27,7 @@ export type BuildRunArtifactOpts = Omit<
     initialErrorFeedback?: string | null;
   };
 
+/** Inputs for {@link buildRunArtifact}: the live loop snapshot (commits, subtasks, status, rules, infra) plus the loop options that get serialized into `config`. */
 export interface BuildRunArtifactParams {
   runId: string;
   baseCommitSha: string;

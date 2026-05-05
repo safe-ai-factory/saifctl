@@ -20,6 +20,10 @@ import type { DesignerBaseOpts, DesignerProfile, DesignerRunOpts } from '../type
 
 const REQUIRED_FILES = ['plan.md', 'research.md', 'specification.md', 'tasks.md'] as const;
 
+/**
+ * Designer profile that delegates to the `shotgun-sh` CLI to generate a full feature
+ * specification (plan.md, specification.md, research.md, tasks.md).
+ */
 export const shotgunDesignerProfile: DesignerProfile = {
   id: 'shotgun',
   displayName: 'Shotgun',

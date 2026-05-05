@@ -5,6 +5,7 @@
 /** Returns true when `err` should trigger a retry rather than an immediate rethrow. */
 export type IsRetriable = (err: unknown) => boolean;
 
+/** Options for {@link retryWithBackoff}: the operation, retry predicate, attempt cap, and backoff schedule. */
 export interface RetryWithBackoffOpts<T> {
   /** The operation to attempt. */
   fn: () => Promise<T>;

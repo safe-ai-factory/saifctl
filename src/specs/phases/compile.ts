@@ -39,6 +39,7 @@ import { resolvePhaseConfig } from './load.js';
 import type { CriticEntry } from './schema.js';
 import { validatePhasedFeature } from './validate.js';
 
+/** Inputs to {@link compilePhasesToSubtasks}: the feature on disk plus paths and gate script needed to render prompts. */
 export interface CompilePhasesOptions {
   /** Absolute path to the feature dir. */
   featureAbsolutePath: string;

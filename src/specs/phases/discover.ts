@@ -82,7 +82,7 @@ export async function discoverPhases(featureDir: string): Promise<{
 }
 
 /**
- * Discover critics under `<featureDir>/critics/*.md`.
+ * Discover critics under `<featureDir>/critics/` (only `.md` files).
  *
  * Returns `[]` when `critics/` doesn't exist. Files not ending in `.md` are
  * silently ignored. Files whose name (or id, sans `.md`) starts with `_` are
@@ -140,6 +140,7 @@ export interface ValidationReport {
   warnings: string[];
 }
 
+/** Inputs to {@link validatePhaseGraph}: pre-loaded configs + discovery output to cross-check. */
 export interface ValidationInput {
   /** Absolute feature dir; the basename is prepended to every error message. */
   featureDir: string;

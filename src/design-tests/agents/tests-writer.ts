@@ -39,6 +39,7 @@ function createTestsWriterAgent(llm: LlmOverrides = {}) {
   });
 }
 
+/** Inputs for one tests-writer agent invocation: a single entrypoint plus the test cases that share it, the helpers context, and the {@link TestProfile} that fixes language/framework. */
 export interface RunTestsWriterAgentOpts {
   /** The entrypoint path (e.g. "public/happy-path.spec.ts") — for logging only */
   entrypoint: string;

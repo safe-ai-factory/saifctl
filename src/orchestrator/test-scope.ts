@@ -42,6 +42,7 @@ import { pathExists } from '../utils/io.js';
 /** Subset of subtask shape this module needs — accepts both runtime + manifest rows. */
 export type SubtaskWithTestScope = Pick<RunSubtask | RunSubtaskInput, 'testScope'>;
 
+/** Result of {@link resolveSubtaskTestScope}: deduplicated per-source `tests/` directories for the active subtask. */
 export interface ResolvedSubtaskTestScope {
   /**
    * Absolute paths to per-source `tests/` directories, in walk order.

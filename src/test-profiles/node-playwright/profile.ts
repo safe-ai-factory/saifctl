@@ -32,6 +32,7 @@ export default defineConfig({
   consola.log(`[design-tests:node-playwright] Written ${configPath}`);
 }
 
+/** Test profile for Node.js (TypeScript) using @playwright/test. */
 export const nodePlaywrightProfile: TestProfile = {
   id: 'node-playwright',
   language: 'TypeScript',

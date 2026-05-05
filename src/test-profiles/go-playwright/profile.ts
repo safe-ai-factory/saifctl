@@ -47,6 +47,7 @@ async function goPlaywrightValidateFiles(opts: ValidateFilesOpts): Promise<void>
   }
 }
 
+/** Test profile for Go using the playwright-go browser-automation library. */
 export const goPlaywrightProfile: TestProfile = {
   id: 'go-playwright',
   language: 'Go',

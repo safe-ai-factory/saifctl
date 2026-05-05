@@ -25,6 +25,7 @@ import { SUPPORTED_PROFILE_IDS, type SupportedProfileId, type TestProfile } from
 
 export { type SupportedProfileId, type TestProfile } from './types.js';
 
+/** Registry mapping every supported test profile id to its {@link TestProfile}. */
 export const SUPPORTED_PROFILES = {
   'node-vitest': nodeVitestProfile,
   'node-playwright': nodePlaywrightProfile,

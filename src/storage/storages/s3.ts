@@ -46,6 +46,7 @@ function applyFilters<T>(items: T[], filters?: StorageFilter[]): T[] {
 
 const DEFAULT_ID_FIELD = 'runId';
 
+/** Constructor options for {@link S3Storage}: bucket + optional prefix, namespace, AWS region/profile selection, and the id field on T. */
 export interface S3StorageOpts {
   bucket: string;
   /** Optional prefix before namespace (e.g. "prod" → prod/runs/) */
@@ -58,6 +59,7 @@ export interface S3StorageOpts {
   idField?: string;
 }
 
+/** {@link StorageImpl} backed by S3 objects keyed at `{prefix}/{namespace}/{id}.json`; uses the standard AWS credential chain. */
 export class S3Storage<T> implements StorageImpl<T> {
   private readonly client: S3Client;
   private readonly bucket: string;

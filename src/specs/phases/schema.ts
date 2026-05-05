@@ -56,6 +56,7 @@ export const criticEntrySchema = z
   })
   .strict();
 
+/** Inferred type of {@link criticEntrySchema}: one critic invocation (`id` + `rounds`). */
 export type CriticEntry = z.infer<typeof criticEntrySchema>;
 
 /**
@@ -84,6 +85,7 @@ export const testsConfigSchema = z
   })
   .strict();
 
+/** Inferred type of {@link testsConfigSchema}: per-scope mutability + fail2pass + enforce + immutable-files. */
 export type TestsConfig = z.infer<typeof testsConfigSchema>;
 
 /**
@@ -112,6 +114,7 @@ export const phaseConfigSchema = z
   })
   .strict();
 
+/** Inferred type of {@link phaseConfigSchema}: shape used by both `phase.yml` files and inline `feature.yml` overrides. */
 export type PhaseConfig = z.infer<typeof phaseConfigSchema>;
 
 /**
@@ -150,4 +153,5 @@ export const featureConfigSchema = z
   })
   .strict();
 
+/** Inferred type of {@link featureConfigSchema}: parsed `feature.yml` (critics + tests + phases block). */
 export type FeatureConfig = z.infer<typeof featureConfigSchema>;

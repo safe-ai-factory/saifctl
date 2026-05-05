@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+/** Zod schema for a single planned test case (id, category, visibility, traceability, optional entrypoint). */
 export const TestCaseSchema = z.object({
   id: z.string().describe('Unique test case ID (e.g. tc-greeting-001)'),
   title: z.string().describe('Short human-readable title'),
@@ -19,8 +20,10 @@ export const TestCaseSchema = z.object({
   entrypoint: z.string().optional().describe('Relative path to the .spec.ts file from tests/'),
 });
 
+/** Inferred type for a single test case (see {@link TestCaseSchema}). */
 export type TestCase = z.infer<typeof TestCaseSchema>;
 
+/** Zod schema for the persisted tests.json catalog: feature metadata + an array of {@link TestCaseSchema}. */
 export const TestCatalogSchema = z.object({
   version: z.string().default('1.0'),
   featureName: z.string().describe('Name of the feature (matches saifctl/features/<name>)'),
@@ -32,4 +35,5 @@ export const TestCatalogSchema = z.object({
   testCases: z.array(TestCaseSchema),
 });
 
+/** Inferred type for the tests.json catalog (see {@link TestCatalogSchema}). */
 export type TestCatalog = z.infer<typeof TestCatalogSchema>;

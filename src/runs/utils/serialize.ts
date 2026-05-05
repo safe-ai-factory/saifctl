@@ -111,6 +111,7 @@ export type SerializedLoopOpts = {
   verbose?: boolean;
 } & PersistedScriptBundle;
 
+/** Serializes loop options for persistence: drops ephemeral fields, replaces non-JSON values (gitProvider/testProfile/RegExp patches) with stable id/string forms. */
 export function serializeArtifactConfig(
   opts: IterativeLoopOpts & PersistedScriptBundle,
 ): SerializedLoopOpts {
@@ -156,6 +157,7 @@ export type DeserializeArtifactConfigInput = SerializedLoopOpts & {
   maxRuns?: number;
 };
 
+/** Inverse of {@link serializeArtifactConfig}: rehydrates gitProvider/testProfile instances and `RegExp` patch rules from the persisted form. */
 export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigInput): Omit<
   SerializedLoopOpts,
   'gitProviderId' | 'testProfileId' | 'patchExcludeStr' | 'maxAttemptsPerSubtask' | 'subtasks'

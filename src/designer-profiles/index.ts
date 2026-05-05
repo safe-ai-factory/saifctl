@@ -16,6 +16,7 @@ const designerProfiles: Record<SupportedDesignerProfileId, DesignerProfile> = {
   shotgun: shotgunDesignerProfile,
 };
 
+/** Default designer profile used when no `--designer` flag or config is set (PoC). */
 export const DEFAULT_DESIGNER_PROFILE: DesignerProfile = pocDesignerProfile;
 
 /**

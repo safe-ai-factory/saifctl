@@ -66,6 +66,7 @@ import type {
 
 export type { CodingPhaseResult, OnSubtaskComplete, SubtaskCodingResult, SubtaskDriverAction };
 
+/** Options for {@link runCodingPhase}. */
 export interface RunCodingPhaseOpts {
   sandbox: Sandbox;
   /** Which outer attempt this is (1-indexed). Used for engine label and patch commit messages. */
@@ -288,6 +289,12 @@ export function wireEngineExitedAbort(opts: {
     });
 }
 
+/**
+ * Iterative-loop coding phase: runs one coding-agent attempt with concurrent
+ * subtask driver and rules watcher, routes pause/stop control signals, and
+ * returns a {@link CodingPhaseResult} capturing the outcome (completed,
+ * inspected, paused with infra, stopped with commits).
+ */
 export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingPhaseResult> {
   const {
     sandbox,

@@ -11,6 +11,7 @@ export interface EngineRef {
   teardown(opts: { runId: string; infra: LiveInfra | null; projectDir: string }): Promise<void>;
 }
 
+/** Args for {@link CleanupRegistry.registerEngine}: how to tear down one engine on signal-driven cleanup. */
 export interface RegisterEngineOpts {
   engine: EngineRef;
   /**

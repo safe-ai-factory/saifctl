@@ -35,6 +35,7 @@ import {
 } from '../sandbox.js';
 import { runEngineAttempt } from './run-engine-attempt.js';
 
+/** Inputs for {@link runAgentPhase} — sandbox, attempt index, task, surfacing context, and engine opts. */
 export interface RunAgentPhaseInput {
   sandbox: Sandbox;
   /** Which outer attempt this is (1-indexed). Re-used as the `round` field in
@@ -90,6 +91,7 @@ export interface RunAgentPhaseInput {
   signal?: AbortSignal;
 }
 
+/** Result of {@link runAgentPhase} — extracted patch text/path, pre-round HEAD, and per-commit metadata. */
 export interface RunAgentPhaseOutput {
   /** Filtered diffs concatenated (bookkeeping / test gate). Empty when the agent made no changes. */
   patchContent: string;
@@ -101,6 +103,11 @@ export interface RunAgentPhaseOutput {
   commits: RunCommit[];
 }
 
+/**
+ * Hatchet-step entry point: runs one coding-agent attempt via {@link runEngineAttempt},
+ * extracts the resulting patch with {@link extractIncrementalRoundPatch}, and surfaces
+ * Block 8 plan/spec/test modifications. Always tears down on exit.
+ */
 export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgentPhaseOutput> {
   const { sandbox, attempt, errorFeedback, task, patchExclude, opts, registry, signal } = input;
 

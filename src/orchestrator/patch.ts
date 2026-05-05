@@ -5,8 +5,10 @@ import type { RunCommit } from '../runs/types.js';
 import { git, gitAdd, gitApply, gitCommit } from '../utils/git.js';
 import { writeUtf8 } from '../utils/io.js';
 
+/** Default `Name <email>` author string used for saifctl-authored commits when {@link RunCommit.author} is unset. */
 export const SAIFCTL_DEFAULT_AUTHOR = 'saifctl <saifctl@safeaifactory.com>';
 
+/** Returns the commit's explicit author or {@link SAIFCTL_DEFAULT_AUTHOR}. */
 export function resolveRunCommitAuthor(commit: RunCommit): string {
   return commit.author?.trim() || SAIFCTL_DEFAULT_AUTHOR;
 }

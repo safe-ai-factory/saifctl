@@ -66,6 +66,11 @@ export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
   return removed;
 }
 
+/**
+ * Materialized sandbox handle returned by {@link createSandbox}: paths to
+ * `code/`, `saifctl/`, and the host base patch, plus the run id used as the
+ * sandbox directory suffix.
+ */
 export interface Sandbox {
   /** Run ID suffix used in the sandbox directory name */
   runId: string;
@@ -118,6 +123,7 @@ export const DEFAULT_SANDBOX_BASE_DIR = join(SAIFCTL_TEMP_ROOT, 'sandboxes');
 
 const SAIFCTL_SCRIPTS_DIR = join(getSaifctlRoot(), 'src', 'orchestrator', 'scripts');
 
+/** Options for {@link createSandbox}. */
 export interface CreateSandboxOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;
@@ -793,6 +799,7 @@ export async function destroySandbox(sandboxBasePath: string): Promise<void> {
 // Subtask signaling (host ↔ coder-start.sh via workspace .saifctl/)
 // ---------------------------------------------------------------------------
 
+/** Options for {@link updateSandboxSubtaskScripts}. */
 export interface UpdateSandboxSubtaskScriptsOpts {
   /** Absolute path to the sandbox saifctl directory (sandboxBasePath/saifctl). */
   saifctlPath: string;
@@ -917,6 +924,7 @@ export async function writeSubtaskExitSignal(sandboxBasePath: string): Promise<v
   consola.log('[sandbox] Subtask exit signal written.');
 }
 
+/** Result of {@link pollSubtaskDone}: the exit code the inner shell wrote for the just-finished subtask. */
 export interface PollSubtaskDoneResult {
   /** The exit code written by coder-start.sh: 0 = success, 1 = failure. */
   exitCode: number;
@@ -936,8 +944,7 @@ export interface PollSubtaskDoneResult {
  * @param signal - AbortSignal wired to pause/stop.
  * @param pollIntervalMs - How often to check for the file (default: 500 ms).
  */
-/* eslint-disable-next-line max-params -- (sandboxBasePath, signal, pollIntervalMs) subtask driver API */
-export function pollSubtaskDone(
+export function pollSubtaskDone( // eslint-disable-line max-params -- (sandboxBasePath, signal, pollIntervalMs) subtask driver API
   sandboxBasePath: string,
   signal: AbortSignal,
   pollIntervalMs = 500,
@@ -1001,6 +1008,7 @@ export type PatchExcludeRule =
   | { type: 'glob'; pattern: string }
   | { type: 'regex'; pattern: RegExp };
 
+/** Common options for patch extraction: caller-supplied exclude rules layered on top of the built-in set. */
 export interface ExtractPatchOpts {
   /**
    * File sections whose path matches any rule are stripped from the patch.
@@ -1010,6 +1018,7 @@ export interface ExtractPatchOpts {
   exclude?: PatchExcludeRule[];
 }
 
+/** Options for {@link extractIncrementalRoundPatch}: pre-round HEAD plus optional commit message/author overrides. */
 export interface ExtractIncrementalRoundPatchOpts extends ExtractPatchOpts {
   /** `git rev-parse` at the start of this agent round (before the agent ran). */
   preRoundHeadSha: string;

@@ -22,8 +22,10 @@ export type { DockerLiveInfra } from './docker/types.js';
 export type { LocalLiveInfra } from './local/types.js';
 export type { EngineLogEvent, EngineLogSource, EngineOnLog } from './logs.js';
 
+/** Engine-specific snapshot of provisioned infra for a run; the `engine` discriminator selects the variant. */
 export type LiveInfra = DockerLiveInfra | LocalLiveInfra | { engine: EngineName };
 
+/** Identifier of a concrete {@link Engine} implementation. */
 export type EngineName = 'docker' | 'local' | 'helm';
 
 // ---------------------------------------------------------------------------
@@ -62,12 +64,14 @@ export interface TestsResult {
   rawJunitXml: string | null;
 }
 
+/** Parsed JUnit `<testsuite>` row — name + aggregate status plus the contained {@link AssertionResult}s. */
 export interface AssertionSuiteResult {
   name: string;
   status: string;
   assertionResults: AssertionResult[];
 }
 
+/** Parsed JUnit `<testcase>` row: titles, status, and split failure-message vs. failure-type lists for safe forwarding. */
 export interface AssertionResult {
   title: string;
   fullName: string;
@@ -79,6 +83,7 @@ export interface AssertionResult {
   failureTypes: string[];
 }
 
+/** Outcome of a single coding-agent process — exit code, success flag, and the combined stdout/stderr text. */
 export interface AgentResult {
   success: boolean;
   exitCode: number;
@@ -90,25 +95,30 @@ export interface AgentResult {
 // Engine method results (infra threading)
 // ---------------------------------------------------------------------------
 
+/** Result of {@link Engine.setup} — the initial infra snapshot to thread through later calls. */
 export interface EngineSetupResult {
   infra: LiveInfra;
 }
 
+/** Result of {@link Engine.startStaging} — the staging URLs plus the updated infra snapshot. */
 export interface StartStagingResult {
   stagingHandle: StagingHandle;
   infra: LiveInfra;
 }
 
+/** Result of {@link Engine.runTests} — raw test outcome plus the updated infra snapshot. */
 export interface RunTestsEngineResult {
   tests: TestsResult;
   infra: LiveInfra;
 }
 
+/** Result of {@link Engine.runAgent} — coding-agent outcome plus the updated infra snapshot. */
 export interface RunAgentEngineResult {
   agent: AgentResult;
   infra: LiveInfra;
 }
 
+/** Result of starting an inspect session — the live session handle plus the updated infra snapshot. */
 export interface StartInspectResult {
   session: CoderInspectSessionHandle;
   infra: LiveInfra;
@@ -118,6 +128,7 @@ export interface StartInspectResult {
 // Method option types
 // ---------------------------------------------------------------------------
 
+/** Inputs for {@link Engine.setup} — run + project identity, host project dir, and (Docker only) the sandbox base path used to derive the coder container name. */
 export interface EngineSetupOpts {
   runId: string;
   projectName: string;
@@ -149,6 +160,7 @@ export interface StagingAppConfig {
   build?: { dockerfile?: string };
 }
 
+/** Engine-facing view of the resolved staging environment — engine name, app config, env vars, and an optional compose file. */
 export interface NormalizedStagingEnvironmentRef {
   engine: string;
   app: StagingAppConfig;
@@ -157,6 +169,7 @@ export interface NormalizedStagingEnvironmentRef {
   file?: string;
 }
 
+/** Inputs for {@link Engine.startStaging}: sandbox/code paths, the staging environment ref, log sink, and the prior infra snapshot. */
 export interface StartStagingOpts {
   /** Same logical run id as {@link Engine.setup} (container / image naming). */
   runId: string;
@@ -189,6 +202,7 @@ export interface ContainerEnv {
   secretEnv: Record<string, string>;
 }
 
+/** Inputs for {@link Engine.runTests}: tests/report dirs, runner image + script, the staging handle to target, abort signal, and log sink. */
 export interface RunTestsOpts {
   /** Absolute path to the feature's tests/ directory on the host. */
   testsDir: string;
@@ -220,6 +234,7 @@ export interface RunTestsOpts {
   infra: LiveInfra;
 }
 
+/** Inputs for {@link Engine.runAgent}: sandbox/code paths, container env (public + secret), coder image, optional reviewer/inspect modes, and stream callbacks. */
 export interface RunAgentOpts {
   /** Absolute path to the sandbox code directory (host path). */
   codePath: string;
@@ -304,6 +319,7 @@ export interface CoderInspectSessionHandle {
   stop(): Promise<void>;
 }
 
+/** Inputs for {@link Engine.teardown}: the run id, the (possibly null) infra snapshot to destroy, and the host project root. */
 export interface EngineTeardownOpts {
   runId: string;
   /**
@@ -332,6 +348,7 @@ export interface EngineResumeInfraOpts {
   projectDir: string;
 }
 
+/** Inputs for {@link Engine.verifyInfraToResume}: the resume context plus the persisted infra snapshot to validate. */
 export interface EngineVerifyResumeInfraOpts extends EngineResumeInfraOpts {
   infra: LiveInfra;
 }

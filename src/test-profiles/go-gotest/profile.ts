@@ -48,6 +48,7 @@ async function gotestValidateFiles(opts: ValidateFilesOpts): Promise<void> {
   }
 }
 
+/** Test profile for Go's built-in `go test` framework. */
 export const gotestProfile: TestProfile = {
   id: 'go-gotest',
   language: 'Go',

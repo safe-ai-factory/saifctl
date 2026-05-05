@@ -57,8 +57,10 @@ const SEARCH_PLACES = [
   'config.yml',
 ];
 
+/** Outcome label for {@link scaffoldSaifctlConfig}: wrote a new file, overwrote an existing variant, or left disk untouched. */
 export type ConfigScaffoldAction = 'created' | 'overwritten' | 'skipped';
 
+/** Result of {@link scaffoldSaifctlConfig}: the action taken plus the relevant on-disk path. */
 export interface ConfigScaffoldResult {
   action: ConfigScaffoldAction;
   /** Absolute path of the file written, or of the existing variant when skipped. */

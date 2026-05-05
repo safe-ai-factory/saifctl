@@ -20,6 +20,7 @@ async function vitestValidateFiles(opts: {
   });
 }
 
+/** Test profile for Node.js (TypeScript) using the Vitest test runner. */
 export const nodeVitestProfile: TestProfile = {
   id: 'node-vitest',
   language: 'TypeScript',

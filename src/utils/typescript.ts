@@ -5,6 +5,12 @@ import { spawnWait } from './io.js';
 // - catch: spawn threw (e.g. npx/tsc not on PATH). Non-fatal — validation skipped.
 // - status === 0: tsc found no errors. Validation passed.
 // - status !== 0: tsc ran and reported real errors (bad imports, broken syntax).
+/**
+ * Run `npx tsc --noEmit` against `files` to catch syntax/type errors in
+ * generated spec files. Tsc launch failure (missing PATH) is logged and
+ * treated as non-fatal; non-zero `tsc` exit prints the first 20 output lines
+ * and exits the process with `errMessage`.
+ */
 export async function validateTypescript(opts: {
   files: string[];
   cwd: string;
