@@ -69,6 +69,10 @@ export async function discoverFeatures(
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
+      // `_`-prefixed dirs are reserved for documentation / worked examples
+      // (e.g. `_phases-example/`). Mirrors the same convention used by phase
+      // and critic discovery (see specs/phases/discover.ts).
+      if (entry.name.startsWith('_')) continue;
 
       const fullPath = join(currentPath, entry.name);
       const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;

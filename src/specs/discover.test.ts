@@ -112,5 +112,18 @@ describe('discover-features', () => {
       expect(map.size).toBe(1);
       expect(map.get('feat-a')).toContain('feat-a');
     });
+
+    it('skips _-prefixed dirs (reserved for worked examples / docs)', async () => {
+      await mkdir(join(TEST_BASE, 'saifctl'), { recursive: true });
+      await createDir('saifctl/features/real-feat');
+      await createDir('saifctl/features/_phases-example');
+      await createDir('saifctl/features/_template');
+
+      const map = await discoverFeatures(TEST_BASE, 'saifctl');
+      expect(map.size).toBe(1);
+      expect(map.has('real-feat')).toBe(true);
+      expect(map.has('_phases-example')).toBe(false);
+      expect(map.has('_template')).toBe(false);
+    });
   });
 });

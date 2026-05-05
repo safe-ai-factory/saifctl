@@ -12,7 +12,7 @@
  *   /tmp/saifctl/bin/argus-linux-arm64-musl-v0.5.6
  *
  * Upstream: https://github.com/Meru143/argus (argus-ai npm package)
- * Fork (managed releases): https://github.com/JuroOravec/argus
+ * Fork (managed releases): https://github.com/safe-ai-factory/argus
  *
  * See `vendor/README.md` for the fork release flow.
  */
@@ -31,7 +31,7 @@ const REVIEWER_BIN_DIR =
 
 /** Fork release version — bump this when cutting a new fork release. */
 const ARGUS_VERSION = '0.5.6';
-const REPO = 'JuroOravec/argus';
+const REPO = 'safe-ai-factory/argus';
 
 // musl builds have no GLIBC dependency; they run on any Linux regardless of libc version.
 const ASSETS: Record<string, string> = {
@@ -84,7 +84,7 @@ export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<stri
 
   await mkdir(REVIEWER_BIN_DIR, { recursive: true });
 
-  const tag = `argus-ai-v${ARGUS_VERSION}`;
+  const tag = `argus-core-v${ARGUS_VERSION}`;
   const url = `https://github.com/${REPO}/releases/download/${tag}/${asset}`;
   const tmpTar = join(REVIEWER_BIN_DIR, `tmp-argus-${hostArch}-v${ARGUS_VERSION}.tar.gz`);
   const tmpExtract = join(REVIEWER_BIN_DIR, `tmp-extract-${hostArch}-v${ARGUS_VERSION}`);
@@ -134,6 +134,37 @@ export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<stri
 
   consola.log(`[argus] Installed to ${binaryPath}`);
   return binaryPath;
+}
+
+/**
+ * Pings the GitHub Releases endpoint for the pinned Argus binary asset.
+ * Network-only check — does not download or cache. Used by `saifctl doctor`
+ * to surface a clear failure when the agent host can't reach the release
+ * mirror (firewall, proxy, GitHub outage, asset removed, etc.).
+ *
+ * Returns the asset URL it probed plus the resolved status.
+ */
+export async function probeArgusReleaseEndpoint(): Promise<{
+  ok: boolean;
+  url: string;
+  status?: number;
+  error?: string;
+}> {
+  const hostArch = arch();
+  const targetArch: 'arm64' | 'x64' = hostArch === 'arm64' ? 'arm64' : 'x64';
+  const asset = ASSETS[targetArch] ?? ASSETS.x64;
+  const tag = `argus-core-v${ARGUS_VERSION}`;
+  const url = `https://github.com/${REPO}/releases/download/${tag}/${asset}`;
+
+  try {
+    // GitHub release-asset URLs redirect to a signed CDN URL. fetch follows
+    // redirects by default; we only need to know the asset is reachable.
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+    if (res.ok) return { ok: true, url, status: res.status };
+    return { ok: false, url, status: res.status };
+  } catch (err) {
+    return { ok: false, url, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 async function findArgusBinary(dir: string): Promise<string | null> {
