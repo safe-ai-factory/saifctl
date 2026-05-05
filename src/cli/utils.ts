@@ -171,6 +171,8 @@ export interface FeatRunArgs extends OrchestratorArgs {
   'no-reviewer'?: boolean;
   /** Set by citty for `--no-reviewer` (negated boolean). */
   reviewer?: boolean;
+  /** Block 7: tri-state default-mutability flag. `--strict` ⇒ true; `--no-strict` ⇒ false. */
+  strict?: boolean;
   'agent-env'?: string | string[];
   'agent-env-file'?: string;
   /** Env var names only; values are read from the host process at runtime. */
@@ -182,6 +184,8 @@ export interface FeatRunArgs extends OrchestratorArgs {
   'git-provider'?: string;
   verbose?: boolean;
   engine?: string;
+  /** Path to subtasks JSON manifest (`saifctl feat run` / `run start` / sandbox). */
+  subtasks?: string;
 }
 
 /** Path segment: kebab-case or (group) */
@@ -464,6 +468,39 @@ export function readSaifctlDirFromCli(args: { 'saifctl-dir'?: string }): string 
   return undefined;
 }
 
+/**
+ * CLI-only: tri-state read of `--strict` / `--no-strict` (Block 7).
+ *
+ * citty turns `--strict` into `true`, `--no-strict` into `false`, and an
+ * absent flag into `undefined`. Returning `undefined` lets the caller fall
+ * through to the project-level `defaults.strict` config and then to the
+ * built-in default (`true`). Callers MUST NOT default to `false` themselves —
+ * `false` is the access-elevating choice and the user has to opt in
+ * explicitly via flag or config.
+ */
+export function readStrictFromCli(args: { strict?: boolean }): boolean | undefined {
+  if (typeof args.strict === 'boolean') return args.strict;
+  return undefined;
+}
+
+/**
+ * Resolve the effective `strict` mode (Block 7) by walking CLI → config →
+ * built-in default, in that order.
+ *
+ * Returns `true` (strict, default-immutable) unless the user has explicitly
+ * opted out via `--no-strict` or `defaults.strict: false`. Strictness is the
+ * safe default; this resolver never silently flips it without an explicit
+ * input.
+ */
+export function resolveStrictFlag(opts: {
+  cli: boolean | undefined;
+  config: { defaults?: { strict?: boolean } } | undefined;
+}): boolean {
+  if (opts.cli !== undefined) return opts.cli;
+  if (opts.config?.defaults?.strict !== undefined) return opts.config.defaults.strict;
+  return true;
+}
+
 /** CLI-only: non-empty `--sandbox-base-dir`, or `undefined` if omitted. */
 export function readSandboxBaseDirFromCli(args: {
   'sandbox-base-dir'?: string;
@@ -606,14 +643,19 @@ export function resolveSaifctlDirRelative(cliRaw: string | undefined): string {
 /**
  * Resolves the project name: --project override, config default,
  * else package.json "name" from repo root.
- * Throws if neither yields a usable name.
+ *
+ * When `fallback` is provided, it is returned instead of throwing when neither an explicit
+ * override nor a usable package.json name is found. Use this for contexts where a project
+ * name is convenient but not required (e.g. `saifctl sandbox`).
  */
 export async function resolveProjectName(opts: {
   project?: string;
   projectDir: string;
   config?: SaifctlConfig;
+  /** Returned instead of throwing when no project name can be determined. */
+  fallback?: string;
 }): Promise<string> {
-  const { project, projectDir, config } = opts;
+  const { project, projectDir, config, fallback } = opts;
   const fromOpt = typeof project === 'string' ? project.trim() : '';
   const fromConfig = config?.defaults?.project;
   const explicit = fromOpt || (typeof fromConfig === 'string' ? fromConfig.trim() : '');
@@ -627,12 +669,14 @@ export async function resolveProjectName(opts: {
       return npmPackageNameToProjectSlug(pkg.name.trim());
     }
   } catch {
+    if (fallback !== undefined) return fallback;
     throw new Error(
       `Cannot determine project name: no package.json found at ${resolve(projectDir, 'package.json')}. ` +
         `Specify -p/--project.`,
     );
   }
 
+  if (fallback !== undefined) return fallback;
   throw new Error(
     `Cannot determine project name: package.json at ${resolve(projectDir, 'package.json')} has no "name" field. ` +
       `Specify -p/--project.`,
@@ -1266,6 +1310,9 @@ export async function buildOrchestratorCliInputFromFeatArgs(
 
   const pr = runArgs.pr === true ? true : undefined;
   const includeDirty = runArgs['include-dirty'] === true ? true : undefined;
+  // Block 7: tri-state CLI read for `--strict` / `--no-strict`. `undefined`
+  // here means "not on the CLI"; baseline + config supply the default.
+  const strict = readStrictFromCli(runArgs);
 
   const targetBranch =
     typeof runArgs.branch === 'string' && runArgs.branch.trim() ? runArgs.branch.trim() : undefined;
@@ -1331,6 +1378,7 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     gateRetries,
     reviewerEnabled,
     includeDirty,
+    strict,
     push,
     pr,
     targetBranch,
@@ -1341,6 +1389,19 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     patchExclude: undefined,
     fromArtifact: undefined,
     verbose: runArgs.verbose === true ? true : undefined,
+    subtasks: undefined,
+    currentSubtaskIndex: undefined,
+    enableSubtaskSequence: undefined,
+    testOnly: undefined,
+    allowSaifctlInPatch: undefined,
+    skipStagingTests: undefined,
+    sandboxExtract: undefined,
+    sandboxExtractInclude: undefined,
+    sandboxExtractExclude: undefined,
+    subtasksFilePath:
+      typeof runArgs.subtasks === 'string' && runArgs.subtasks.trim()
+        ? runArgs.subtasks.trim()
+        : undefined,
   };
   return out;
 }

@@ -13,6 +13,7 @@ import { consola } from '../logger.js';
 import { type RunStorage } from '../runs/storage.js';
 import { type RunCommit, type RunSaveOptions, StaleArtifactError } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
+import { runSubtasksFromInputs } from '../runs/utils/subtasks.js';
 import {
   git,
   gitAdd,
@@ -344,12 +345,36 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
     }
   }
 
+  const subtasks =
+    existingArtifact?.subtasks?.length && existingArtifact.subtasks.length > 0
+      ? existingArtifact.subtasks.map((s) => ({ ...s }))
+      : runSubtasksFromInputs(opts.subtasks);
+  const currentSubtaskIndex = existingArtifact?.currentSubtaskIndex ?? 0;
+
+  let sandboxHostAppliedCommitCount = existingArtifact
+    ? existingArtifact.sandboxHostAppliedCommitCount
+    : 0;
+  const hostAppliedCountPath = join(
+    sandbox.sandboxBasePath,
+    'sandbox-host-applied-commit-count.txt',
+  );
+  if (await pathExists(hostAppliedCountPath)) {
+    try {
+      const n = parseInt((await readUtf8(hostAppliedCountPath)).trim(), 10);
+      if (Number.isFinite(n) && n >= 0) sandboxHostAppliedCommitCount = n;
+    } catch {
+      // keep existingArtifact / 0
+    }
+  }
+
   const artifact = buildRunArtifact({
     runId,
     baseCommitSha: runContext.baseCommitSha,
     basePatchDiff: runContext.basePatchDiff,
     runCommits,
-    specRef: opts.feature.relativePath,
+    sandboxHostAppliedCommitCount,
+    subtasks,
+    currentSubtaskIndex,
     lastFeedback: runContext.lastErrorFeedback,
     rules: runContext.rules,
     roundSummaries: existingArtifact?.roundSummaries,

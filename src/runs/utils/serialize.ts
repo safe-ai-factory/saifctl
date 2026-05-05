@@ -10,12 +10,14 @@ import type {
   NormalizedCodingEnvironment,
   NormalizedStagingEnvironment,
 } from '../../config/schema.js';
+import { DEFAULT_ORCHESTRATOR_MAX_RUNS } from '../../constants.js';
 import { getGitProvider } from '../../git/index.js';
 import type { GitProvider } from '../../git/types.js';
 import type { LlmOverrides } from '../../llm-config.js';
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
 import type { PatchExcludeRule } from '../../orchestrator/sandbox.js';
 import { resolveTestProfile, type TestProfile } from '../../test-profiles/index.js';
+import type { RunSubtaskInput } from '../types.js';
 
 /** JSON-serializable form of patch exclude rules (RegExp -> pattern string) */
 export interface SerializedPatchExcludeRule {
@@ -49,8 +51,13 @@ export type SerializedLoopOpts = {
   sandboxProfileId: string;
   agentProfileId: SupportedAgentProfileId;
   featureName: string;
+  /** Repo-relative path to the feature directory (e.g. saifctl/features/my-feat). */
+  featureRelativePath: string;
   projectDir: string;
-  maxRuns: number;
+  /** Max outer attempts per subtask (formerly `maxRuns` on persisted artifacts). */
+  maxAttemptsPerSubtask: number;
+  /** Subtask definitions (single-task runs use one element). */
+  subtasks: RunSubtaskInput[];
   /** Effective LLM config (models + base URLs) for this run. */
   llm: LlmOverrides;
   saifctlDir: string;
@@ -81,8 +88,6 @@ export type SerializedLoopOpts = {
   includeDirty: boolean;
   /** When true, saifctl/ paths are not stripped from run commit diffs (POC designer). */
   allowSaifctlInPatch?: boolean;
-  /** When set, replaces default plan/spec task (POC designer). */
-  taskPromptOverride?: string;
   /** When true, staging + tests are skipped (`saifctl sandbox` / POC designer). */
   skipStagingTests?: boolean;
   /** Host apply mode after sandbox agent when tests are skipped. */
@@ -118,11 +123,22 @@ export function serializeArtifactConfig(
     testOnly: _testOnly,
     seedRunCommits: _seedRunCommits,
     seedRoundSummaries: _seedRoundSummaries,
+    maxRuns,
+    subtasks: optSubtasks,
     ...rest
   } = opts;
+
+  const subtasks: RunSubtaskInput[] =
+    optSubtasks && optSubtasks.length > 0
+      ? optSubtasks
+      : [{ content: `Implement feature: ${feature.name}`, title: feature.name }];
+
   return {
     ...rest,
     featureName: feature.name,
+    featureRelativePath: feature.relativePath,
+    maxAttemptsPerSubtask: maxRuns,
+    subtasks,
     gitProviderId: gitProvider.id,
     testProfileId: testProfile.id,
     patchExcludeStr: patchExclude?.map((rule) => ({
@@ -136,25 +152,61 @@ export function serializeArtifactConfig(
  * Converts SerializedLoopOpts (persisted config JSON) back to the shape
  * expected by runIterativeLoop.
  */
-export function deserializeArtifactConfig(serialized: SerializedLoopOpts): Omit<
+export type DeserializeArtifactConfigInput = SerializedLoopOpts & {
+  maxRuns?: number;
+};
+
+export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigInput): Omit<
   SerializedLoopOpts,
-  'gitProviderId' | 'testProfileId' | 'patchExcludeStr'
+  'gitProviderId' | 'testProfileId' | 'patchExcludeStr' | 'maxAttemptsPerSubtask' | 'subtasks'
 > & {
   gitProvider: GitProvider;
   testProfile: TestProfile;
   patchExclude?: PatchExcludeRule[];
+  /** Restored for {@link IterativeLoopOpts#maxRuns}. */
+  maxRuns: number;
+  subtasks: RunSubtaskInput[];
 } {
+  const maxRuns =
+    typeof serialized.maxAttemptsPerSubtask === 'number'
+      ? serialized.maxAttemptsPerSubtask
+      : typeof serialized.maxRuns === 'number'
+        ? serialized.maxRuns
+        : DEFAULT_ORCHESTRATOR_MAX_RUNS;
+
+  const featureName = String(serialized.featureName ?? '');
+  const saifctlDir = String(serialized.saifctlDir ?? 'saifctl');
+  const subtasks: RunSubtaskInput[] =
+    Array.isArray(serialized.subtasks) && serialized.subtasks.length > 0
+      ? serialized.subtasks
+      : [
+          {
+            content: `Implement feature: ${featureName || 'run'}`,
+            title: featureName || undefined,
+          },
+        ];
+
+  const featureRelativePath =
+    typeof serialized.featureRelativePath === 'string' && serialized.featureRelativePath.trim()
+      ? serialized.featureRelativePath.trim()
+      : `${saifctlDir}/features/${featureName}`;
+
   const {
     gitProviderId,
     testProfileId,
     patchExcludeStr,
     agentSecretFiles: _agentSecretFilesIn,
     llm,
+    maxAttemptsPerSubtask: _m,
+    maxRuns: _legacyMr,
+    subtasks: _st,
+    featureRelativePath: _frp,
     ...rest
   } = serialized;
 
   return {
     ...rest,
+    featureRelativePath,
     llm,
     agentSecretKeys: serialized.agentSecretKeys ?? [],
     agentSecretFiles: serialized.agentSecretFiles ?? [],
@@ -165,5 +217,7 @@ export function deserializeArtifactConfig(serialized: SerializedLoopOpts): Omit<
         ? { type: 'regex' as const, pattern: new RegExp(rule.pattern) }
         : { type: 'glob' as const, pattern: rule.pattern },
     ),
+    maxRuns,
+    subtasks,
   };
 }

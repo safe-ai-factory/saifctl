@@ -33,15 +33,27 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
     baseCommitSha: 'abc',
     basePatchDiff: 'SECRET_BASE',
     runCommits: [{ message: 'm', diff: 'SECRET_RUN' }],
-    specRef: 'saifctl/features/x',
+    subtasks: [
+      {
+        id: 'st1',
+        title: 'feat-x',
+        content: 'task',
+        status: 'pending',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+    currentSubtaskIndex: 0,
+    rules: [],
     config: {
       featureName: 'feat-x',
+      featureRelativePath: 'saifctl/features/x',
       gitProviderId: 'github',
       testProfileId: 'vitest',
       sandboxProfileId: 'vitest',
       agentProfileId: 'openhands',
       projectDir: '/tmp',
-      maxRuns: 5,
+      maxAttemptsPerSubtask: 5,
+      subtasks: [{ content: 'task' }],
       llm: {},
       saifctlDir: 'saifctl',
       projectName: 'test',
@@ -81,6 +93,10 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
     status: 'failed',
     startedAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
+    controlSignal: null,
+    pausedSandboxBasePath: null,
+    liveInfra: null,
+    inspectSession: null,
   };
   await writeFile(join(dir, `${runId}.json`), JSON.stringify(doc), 'utf8');
 }
@@ -138,11 +154,22 @@ describe('saifctl run info', () => {
       const parsed = JSON.parse(text) as {
         config: Record<string, unknown>;
         runCommits?: unknown[];
+        subtasks?: unknown[];
+        currentSubtaskIndex?: number;
       };
 
       expect(parsed.config.startupScriptFile).toBe('sandbox/startup.sh');
+      expect(parsed.config.maxAttemptsPerSubtask).toBe(5);
+      expect(parsed.config).not.toHaveProperty('maxRuns');
+      expect(parsed.config).not.toHaveProperty('specRef');
+      expect(parsed.config).not.toHaveProperty('taskId');
       expect(parsed.config).not.toHaveProperty('startupScript');
       expect(parsed).not.toHaveProperty('basePatchDiff');
+      expect(parsed).not.toHaveProperty('specRef');
+      expect(parsed).not.toHaveProperty('taskId');
+      expect(parsed.subtasks).toHaveLength(1);
+      expect(parsed.subtasks?.[0]).toMatchObject({ content: 'task', title: 'feat-x' });
+      expect(parsed.currentSubtaskIndex).toBe(0);
       expect(parsed.runCommits).toEqual([{ message: 'm' }]);
       expect(text).not.toContain('SECRET_BASE');
       expect(text).not.toContain('SECRET_RUN');

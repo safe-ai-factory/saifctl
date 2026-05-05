@@ -23,6 +23,8 @@
  *     const hatchet = createLocalHatchetRunner();
  */
 
+import { consola } from '../../logger.js';
+
 // ---------------------------------------------------------------------------
 // Minimal types mirroring the Hatchet SDK surface used in feat-run.workflow.ts
 // ---------------------------------------------------------------------------
@@ -241,7 +243,7 @@ export class LocalHatchetRunner {
           await def.onFailureFn(input as never, failCtx as never);
         } catch (failErr) {
           // onFailure errors are suppressed to preserve the original error.
-          console.warn('[local-hatchet] onFailure handler threw:', failErr);
+          consola.warn('[local-hatchet] onFailure handler threw:', failErr);
         }
       }
       throw firstError;

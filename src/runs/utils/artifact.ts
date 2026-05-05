@@ -12,7 +12,9 @@ import type {
   RunLiveInfra,
   RunRule,
   RunStatus,
+  RunSubtask,
 } from '../types.js';
+import { syncConfigSubtasksFromArtifact } from './normalize-artifact.js';
 import { type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
 
 export type BuildRunArtifactOpts = Omit<
@@ -29,7 +31,9 @@ export interface BuildRunArtifactParams {
   baseCommitSha: string;
   basePatchDiff: string | undefined;
   runCommits: RunCommit[];
-  specRef: string;
+  sandboxHostAppliedCommitCount: number;
+  subtasks: RunSubtask[];
+  currentSubtaskIndex: number;
   lastFeedback?: string;
   status: RunStatus;
   rules: RunRule[];
@@ -54,7 +58,9 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     baseCommitSha: params.baseCommitSha,
     basePatchDiff: params.basePatchDiff,
     runCommits: params.runCommits,
-    specRef: params.specRef,
+    sandboxHostAppliedCommitCount: params.sandboxHostAppliedCommitCount,
+    subtasks: params.subtasks,
+    currentSubtaskIndex: params.currentSubtaskIndex,
     lastFeedback: params.lastFeedback,
     config,
     status: params.status,
@@ -67,5 +73,5 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     liveInfra: params.liveInfra ?? null,
     inspectSession: params.inspectSession ?? null,
   };
-  return art;
+  return syncConfigSubtasksFromArtifact(art);
 }

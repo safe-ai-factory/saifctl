@@ -271,18 +271,24 @@ export interface RunAgentOpts {
   /** From {@link Engine.setup} (and any prior steps); coder container name appended on fresh run. */
   infra: LiveInfra;
   /**
-   * When set, run the container in idle mode (`sleep infinity`) instead of the agent script.
+   * When set, run the container in idle mode instead of the coding agent script.
    *
    * The engine starts the container, waits until it is ready, then calls `onReady` with the
    * session handle and the sandbox code path. `onReady` is expected to block (e.g. await a user
    * signal) and call `session.stop()` before returning. `runAgent` then returns a synthetic
    * success result.
    *
-   * Used by `run inspect` so the full engine lifecycle (setup / LLM config / container env /
-   * teardown) is reused without executing the coding agent.
+   * Used by `run inspect` (idle `sleep infinity`) and `sandbox --interactive` (runs
+   * `sandbox-start.sh` for startup/agent-install, then sleeps until exec'd into).
    */
   inspectMode?: {
     onReady: (session: CoderInspectSessionHandle, ctx: { codePath: string }) => Promise<void>;
+    /**
+     * Override the container entry command. Defaults to `['bash', '-c', 'sleep infinity']`.
+     * For `sandbox --interactive`, set to `['bash', '/saifctl/sandbox-start.sh']` so that
+     * startup and agent-install scripts run before the container idles.
+     */
+    entryCommand?: string[];
   };
 }
 

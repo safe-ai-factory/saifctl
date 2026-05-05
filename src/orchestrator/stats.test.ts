@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { consola } from '../logger.js';
 import { pendingRulesPath, preparePendingRulesFile } from '../runs/rules.js';
 import { readUtf8, writeUtf8 } from '../utils/io.js';
-import { prepareRoundsStatsFile, readInnerRounds, roundsStatsPath } from './stats.js';
+import {
+  buildOuterAttemptSummary,
+  prepareRoundsStatsFile,
+  readInnerRounds,
+  roundsStatsPath,
+} from './stats.js';
 
 describe('stats', () => {
   beforeEach(() => {
@@ -70,6 +75,68 @@ describe('stats', () => {
       expect(await readUtf8(p)).toBe('');
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('buildOuterAttemptSummary sets subtask fields, timestamps, and optional errorFeedback', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-15T10:00:00.000Z'));
+    try {
+      const innerRounds = [
+        {
+          round: 1,
+          phase: 'gate_passed' as const,
+          startedAt: '2026-03-15T09:00:00.000Z',
+          completedAt: '2026-03-15T09:01:00.000Z',
+        },
+      ];
+      const s = buildOuterAttemptSummary({
+        attempt: 3,
+        subtaskIndex: 1,
+        subtaskAttempt: 2,
+        phase: 'tests_failed',
+        innerRounds,
+        commitCount: 0,
+        patchBytes: 42,
+        startedAt: '2026-03-15T09:55:00.000Z',
+      });
+      expect(s).toMatchObject({
+        attempt: 3,
+        subtaskIndex: 1,
+        subtaskAttempt: 2,
+        phase: 'tests_failed',
+        innerRoundCount: 1,
+        innerRounds,
+        commitCount: 0,
+        patchBytes: 42,
+        startedAt: '2026-03-15T09:55:00.000Z',
+        completedAt: '2026-03-15T10:00:00.000Z',
+      });
+      expect(s.errorFeedback).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('buildOuterAttemptSummary includes errorFeedback when provided', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    try {
+      const s = buildOuterAttemptSummary({
+        attempt: 1,
+        subtaskIndex: 0,
+        subtaskAttempt: 1,
+        phase: 'tests_failed',
+        innerRounds: [],
+        commitCount: 1,
+        patchBytes: 10,
+        errorFeedback: 'tests blew up',
+        startedAt: '2025-12-31T23:00:00.000Z',
+      });
+      expect(s.errorFeedback).toBe('tests blew up');
+      expect(s.completedAt).toBe('2026-01-01T00:00:00.000Z');
+    } finally {
+      vi.useRealTimers();
     }
   });
 

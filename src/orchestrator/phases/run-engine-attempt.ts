@@ -4,7 +4,7 @@
  * Covers the innermost unit that both the iterative loop ({@link runCodingPhase})
  * and the Hatchet workflow step ({@link runAgentPhase}) need:
  *
- *   register → setup (or resume) → prepareStats → runAgent → readInnerRounds
+ *   register → setup (or resume) → prepareStats → runAgent
  *             └── finally: deregister → teardown (or pause, if caller requested it)
  *
  * Callers own everything outside this scope:
@@ -20,17 +20,16 @@ import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import { createEngine } from '../../engines/index.js';
 import { defaultEngineLog } from '../../engines/logs.js';
 import type { LiveInfra } from '../../engines/types.js';
-import { dummyInspectLlmConfig, resolveAgentLlmConfig } from '../../llm-config.js';
+import { dummyInspectLlmConfig, resolveAgentLlmConfigForContainer } from '../../llm-config.js';
 import { preparePendingRulesFile } from '../../runs/rules.js';
-import type { InnerRoundSummary } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { buildCoderContainerEnv } from '../agent-env.js';
-import { buildTaskPrompt } from '../agent-task.js';
+import { AGENT_WORKSPACE_CONTAINER, AGENT_WORKSPACE_HOST, buildTaskPrompt } from '../agent-task.js';
 import { createAgentStdoutPipe, createDefaultAgentLog } from '../logs.js';
 import type { IterativeLoopOpts } from '../loop.js';
 import type { Sandbox } from '../sandbox.js';
 import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
-import { prepareRoundsStatsFile, readInnerRounds, roundsStatsPath } from '../stats.js';
+import { prepareRoundsStatsFile } from '../stats.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,6 +85,8 @@ export interface RunEngineAttemptOpts {
     | 'codingEnvironment'
     | 'saifctlDir'
     | 'inspectMode'
+    | 'enableSubtaskSequence'
+    | 'sandboxInteractive'
   >;
   /** When true, also prepare the pending-rules file (iterative loop path only). */
   preparePendingRules: boolean;
@@ -94,7 +95,6 @@ export interface RunEngineAttemptOpts {
 export interface RunEngineAttemptResult {
   /** Final infra snapshot after `runAgent` (or null if setup failed). */
   infra: LiveInfra | null;
-  innerRounds: InnerRoundSummary[];
   /**
    * Whether the finally block ran `pauseInfra` (true) or `teardown` (false).
    * Lets the caller know whether infra is frozen and needs to be persisted.
@@ -139,6 +139,8 @@ export async function runEngineAttempt(
     agentSecretKeys,
     agentSecretFiles,
     inspectMode,
+    enableSubtaskSequence,
+    sandboxInteractive,
   } = opts;
 
   const runId = sandbox.runId;
@@ -149,12 +151,12 @@ export async function runEngineAttempt(
   const agentProfile = resolveAgentProfile(agentProfileId);
   const coderLlmConfig = inspectMode
     ? dummyInspectLlmConfig()
-    : resolveAgentLlmConfig('coder', llm);
+    : resolveAgentLlmConfigForContainer('coder', llm);
   const reviewer =
     inspectMode || !reviewerEnabled
       ? null
       : {
-          llmConfig: resolveAgentLlmConfig('reviewer', llm),
+          llmConfig: resolveAgentLlmConfigForContainer('reviewer', llm),
           argusBinaryPath: await getArgusBinaryPath(),
         };
 
@@ -172,7 +174,6 @@ export async function runEngineAttempt(
     getInfra: () => codingInfraRef,
   });
 
-  let innerRounds: InnerRoundSummary[] = [];
   let didPause = false;
 
   try {
@@ -216,12 +217,16 @@ export async function runEngineAttempt(
     });
 
     // Full task text: feature spec + rules + prior test feedback for this outer attempt.
+    // Workspace mode mirrors the engine kind: `--engine local` runs the
+    // agent on the host with `cwd: codePath`, so the directive must use
+    // host paths; container engines bind-mount `codePath` at `/workspace`.
     const taskPrompt = await buildTaskPrompt({
       codePath: sandbox.codePath,
       task,
       saifctlDir,
       feature,
       errorFeedback,
+      workspace: codingIsLocal ? AGENT_WORKSPACE_HOST : AGENT_WORKSPACE_CONTAINER,
     });
 
     // Env vars and secrets passed into the coder container (or host process when engine is local).
@@ -238,6 +243,8 @@ export async function runEngineAttempt(
       taskPrompt,
       gateRetries,
       runId,
+      enableSubtaskSequence,
+      sandboxInteractive: !!sandboxInteractive,
     });
 
     // Run coding agent container (Leash / local) until exit or abort.
@@ -259,8 +266,6 @@ export async function runEngineAttempt(
       inspectMode,
     });
     codingInfraRef = afterAgent;
-
-    innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
   } finally {
     // Deregister first so global signal cleanup does not double-tear-down; then pause or
     // teardown using the latest infra snapshot (null ⇒ failed setup ⇒ teardown no-ops / warns).
@@ -282,5 +287,5 @@ export async function runEngineAttempt(
     }
   }
 
-  return { infra: codingInfraRef, innerRounds, didPause };
+  return { infra: codingInfraRef, didPause };
 }

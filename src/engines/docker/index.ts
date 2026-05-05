@@ -31,7 +31,11 @@ import { PassThrough } from 'node:stream';
 import Docker from 'dockerode';
 
 import type { DockerEnvironment } from '../../config/schema.js';
-import { getSaifctlRoot, SANDBOX_CEDAR_POLICY_BASENAME } from '../../constants.js';
+import {
+  DEFAULT_LEASH_IMAGE,
+  getSaifctlRoot,
+  SANDBOX_CEDAR_POLICY_BASENAME,
+} from '../../constants.js';
 import { consola } from '../../logger.js';
 import { SAIFCTL_PAUSE_ABORT_REASON } from '../../runs/types.js';
 import {
@@ -194,9 +198,17 @@ export class DockerEngine implements Engine {
     // See {@link EngineSetupOpts.sandboxBasePath}: register the leash / no-leash coder container
     // name on live infra as soon as setup finishes so signal handlers and teardown see it even if
     // runAgent() never returns (spawn failure, SIGINT after container create, etc.).
+    // Both the Leash target AND the Leash manager (`<target>-leash`) are pre-registered so that
+    // teardown() removes both even when runAgent() is interrupted before it can update infra.
+    // For --dangerous-no-leash runs there is no manager container; removeDockerContainerForce is
+    // force/best-effort so a spurious removal attempt is harmless.
     let outInfra: DockerLiveInfra = infra;
     if (opts.sandboxBasePath) {
       outInfra = dockerInfraWithContainer(outInfra, leashTargetContainerName(opts.sandboxBasePath));
+      outInfra = dockerInfraWithContainer(
+        outInfra,
+        leashManagerContainerName(opts.sandboxBasePath),
+      );
     }
 
     return { infra: outInfra };
@@ -346,22 +358,17 @@ export class DockerEngine implements Engine {
     const containerOutputFile = '/test-runner-output/results.xml';
     const reportPath = join(reportDir, 'results.xml');
 
-    const publicDir = join(testsDir, 'public');
-    const hiddenDir = join(testsDir, 'hidden');
-    const helpersFile = join(testsDir, 'helpers.ts');
-    const infraFile = join(testsDir, 'infra.spec.ts');
-
-    const [hasPublic, hasHidden, hasHelpers, hasInfra] = await Promise.all([
-      pathExists(publicDir),
-      pathExists(hiddenDir),
-      pathExists(helpersFile),
-      pathExists(infraFile),
-    ]);
+    // Single read-only bind of the resolved testsDir to /tests inside the
+    // container. Works for both layouts produced by `prepareTestRunnerOpts`:
+    //   - Single-source short-circuit: `testsDir` is the source dir directly,
+    //     containing `public/`, `hidden/`, `helpers.ts`, `infra.spec.ts`.
+    //   - Multi-source merged: `testsDir` is the synthesised dir with
+    //     per-source label subtrees `<label>/public/...`, `<label>/helpers.ts`.
+    // Vitest's recursive `**/*.spec.ts` discovery handles both. Earlier this
+    // was four per-file binds rooted at the testsDir top-level, which broke
+    // the moment we introduced label-rooted merging (see test-scope.ts).
     const binds = [
-      ...(hasPublic ? [`${publicDir}:${containerTestsDir}/public:ro`] : []),
-      ...(hasHidden ? [`${hiddenDir}:${containerTestsDir}/hidden:ro`] : []),
-      ...(hasHelpers ? [`${helpersFile}:${containerTestsDir}/helpers.ts:ro`] : []),
-      ...(hasInfra ? [`${infraFile}:${containerTestsDir}/infra.spec.ts:ro`] : []),
+      `${testsDir}:${containerTestsDir}:ro`,
       `${testScriptPath}:/usr/local/bin/test.sh:ro`,
     ];
 
@@ -597,7 +604,8 @@ export class DockerEngine implements Engine {
 
       dockerRunArgs.push(...dockerRunCoderEnvArgs(containerEnv));
       if (inspectMode) {
-        dockerRunArgs.push(coderImage, 'bash', '-c', 'sleep infinity');
+        const entry = inspectMode.entryCommand ?? ['bash', '-c', 'sleep infinity'];
+        dockerRunArgs.push(coderImage, ...entry);
       } else {
         dockerRunArgs.push(coderImage, 'bash', '/saifctl/coder-start.sh');
       }
@@ -652,7 +660,8 @@ export class DockerEngine implements Engine {
 
       pushLeashContainerEnv(leashArgs, containerEnv);
       if (inspectMode) {
-        leashArgs.push('bash', '-c', 'sleep infinity');
+        const entry = inspectMode.entryCommand ?? ['bash', '-c', 'sleep infinity'];
+        leashArgs.push(...entry);
       } else {
         // Invoke via bash so the script doesn't need +x in the mounted directory.
         // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
@@ -678,6 +687,12 @@ export class DockerEngine implements Engine {
         // so we know which container to attach to the SaifCTL network after Leash starts it.
         // See other `WORKAROUND(leash-network)` comments in this file.
         ...(networkName ? { TARGET_CONTAINER: `leash-target-${workspaceId}` } : {}),
+        // WORKAROUND(leash-http2): use our patched Leash image that supports HTTP/2 via ALPN.
+        // Upstream fix: https://github.com/strongdm/leash/pull/71
+        // Local patch: https://github.com/safe-ai-factory/saifctl/issues/73
+        // See DEFAULT_LEASH_IMAGE in src/constants.ts for full context and removal steps.
+        // Honour any LEASH_IMAGE already set in the environment (e.g. for local testing).
+        ...(!process.env.LEASH_IMAGE ? { LEASH_IMAGE: DEFAULT_LEASH_IMAGE } : {}),
       };
 
       consola.log(`[agent-runner] Mode: leash (container: ${coderImage})`);
@@ -744,7 +759,8 @@ export class DockerEngine implements Engine {
           networkAttach?.cancel();
           removeDirectDockerContainer();
           child.kill('SIGTERM');
-          rejectAbort?.(new Error('Agent step cancelled via abort signal'));
+          const abortReason = signal?.reason != null ? ` (reason: ${String(signal.reason)})` : '';
+          rejectAbort?.(new Error(`Agent step cancelled via abort signal${abortReason}`));
         };
         abortPromise = new Promise<never>((_, reject) => {
           rejectAbort = reject;
@@ -872,7 +888,8 @@ export class DockerEngine implements Engine {
           if (!pause) {
             removeDirectDockerContainer();
           }
-          reject(new Error('Agent step cancelled via abort signal'));
+          const abortReason = signal?.reason != null ? ` (reason: ${String(signal.reason)})` : '';
+          reject(new Error(`Agent step cancelled via abort signal${abortReason}`));
         };
 
         if (signal) {
@@ -1115,7 +1132,8 @@ async function runDockerStartAttachCoderContainer(opts: {
       if (signal?.reason !== SAIFCTL_PAUSE_ABORT_REASON) {
         void removeDockerContainerForce(containerName);
       }
-      reject(new Error('Agent step cancelled via abort signal'));
+      const abortReason = signal?.reason != null ? ` (reason: ${String(signal.reason)})` : '';
+      reject(new Error(`Agent step cancelled via abort signal${abortReason}`));
     };
 
     if (signal) {
@@ -1521,6 +1539,9 @@ function startLeashNetworkAttach(networkName: string, workspaceId: string): Netw
 
 let sidecarBinaryCache: Buffer | null = null;
 
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFIC
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFIC
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFIC
 async function getSidecarBinary(): Promise<Buffer> {
   // Loaded lazily to avoid blocking startup.
   if (sidecarBinaryCache) return sidecarBinaryCache;

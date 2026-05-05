@@ -126,6 +126,14 @@ export const saifctlConfigDefaultsSchema = z.object({
    * When false (default), only files at `HEAD` are copied (`git archive`).
    */
   includeDirty: z.boolean().optional(),
+  /**
+   * Project-wide default for test mutability (Block 7 / §5.6). `true` (default)
+   * means feature- and phase-level test directories are immutable unless an
+   * explicit `tests.mutable: true` is declared. `false` flips the default to
+   * mutable. `saifctl/tests/` is always immutable regardless. CLI flags
+   * `--strict` / `--no-strict` override this per-run.
+   */
+  strict: z.boolean().optional(),
   push: z.string().optional(),
   pr: z.boolean().optional(),
   gitProvider: z.enum(['github', 'gitlab', 'bitbucket', 'azure', 'gitea']).optional(),

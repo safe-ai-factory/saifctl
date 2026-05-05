@@ -3,8 +3,9 @@
  *
  * Reads tests.json, then writes the tests files into the
  * feature's tests/ directory:
- *   - helpers.<ext>    — shared transport helpers (execSidecar, httpRequest, baseUrl)
- *   - infra.<ext>      — sidecar health checks (always present for CLI projects)
+ *   - helpers.<ext>      — shared transport helpers (execSidecar, httpRequest, baseUrl)
+ *   - infra.<ext>        — sidecar health checks (always present for CLI projects)
+ *   - example.<ext>      — runnable seed test, edit-in-place reference for the format
  *   - public/<test_name>.<ext>, hidden/<test_name>.<ext> — AI-generated spec files for each entrypoint
  *
  * The file extension and naming convention is determined by the TestProfile.
@@ -14,22 +15,15 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { getSaifctlRoot } from '../constants.js';
 import { type LlmOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
+import { readProfileTemplate } from '../test-profiles/templates.js';
 import type { DrainableChunk } from '../utils/drain-stream.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runTestsWriterAgent } from './agents/tests-writer.js';
 import { TestCatalogSchema } from './schema.js';
-
-const _srcDir = join(getSaifctlRoot(), 'src');
-
-/** Reads a template file from src/test-profiles/<profileId>/templates/<filename>. */
-async function readTemplate(profileId: string, filename: string): Promise<string> {
-  return readUtf8(join(_srcDir, 'test-profiles', profileId, 'templates', filename));
-}
 
 export interface GenerateTestsOpts {
   /** Resolved feature (name, absolutePath, relativePath). */
@@ -105,7 +99,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   // Write shared helpers from the profile's template — skip if already exists (unless force).
   const helpersPath = join(testsDir, testProfile.helpersFilename);
   if (!(await pathExists(helpersPath)) || force) {
-    const helpersTemplate = await readTemplate(testProfile.id, testProfile.helpersFilename);
+    const helpersTemplate = await readProfileTemplate(testProfile.id, testProfile.helpersFilename);
     await writeUtf8(helpersPath, helpersTemplate);
     consola.log(`[design-tests:write] Written ${helpersPath}`);
   } else {
@@ -116,12 +110,23 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   if (testProfile.infraFilename) {
     const infraPath = join(testsDir, testProfile.infraFilename);
     if (!(await pathExists(infraPath)) || force) {
-      const infraTemplate = await readTemplate(testProfile.id, testProfile.infraFilename);
+      const infraTemplate = await readProfileTemplate(testProfile.id, testProfile.infraFilename);
       await writeUtf8(infraPath, infraTemplate);
       consola.log(`[design-tests:write] Written ${infraPath}`);
     } else {
       consola.log(`[design-tests:write] Skipped ${infraPath} (already exists)`);
     }
+  }
+
+  // Write the example seed test from the profile's template — runnable starter
+  // that the user edits in place. Idempotent like helpers/infra.
+  const examplePath = join(testsDir, testProfile.exampleFilename);
+  if (!(await pathExists(examplePath)) || force) {
+    const exampleTemplate = await readProfileTemplate(testProfile.id, testProfile.exampleFilename);
+    await writeUtf8(examplePath, exampleTemplate);
+    consola.log(`[design-tests:write] Written ${examplePath}`);
+  } else {
+    consola.log(`[design-tests:write] Skipped ${examplePath} (already exists)`);
   }
 
   // Group test cases by entrypoint. Test cases without an entrypoint are skipped

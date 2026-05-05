@@ -56,6 +56,7 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     gitProvider,
     reviewerEnabled: false,
     includeDirty: false,
+    strict: true,
     stagingEnvironment: {
       engine: 'docker',
       app: { sidecarPort: 8080, sidecarPath: '/exec' },
@@ -78,6 +79,12 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     patchExclude: undefined,
     verbose: false,
     testOnly: false,
+    subtasks: [{ content: 'implement', title: 'my-feat' }],
+    currentSubtaskIndex: 0,
+    enableSubtaskSequence: false,
+    allowSaifctlInPatch: false,
+    skipStagingTests: false,
+    sandboxExtract: 'none',
   };
 }
 
@@ -85,16 +92,28 @@ const baseArtifact: RunArtifact = {
   runId: 'run-inspect-1',
   baseCommitSha: 'abc123',
   runCommits: [{ message: 'saifctl: coding attempt 1', diff: 'original patch\n' }],
-  specRef: 'saifctl/features/my-feat',
+  sandboxHostAppliedCommitCount: 0,
+  subtasks: [
+    {
+      id: 'st-insp',
+      title: 'my-feat',
+      content: 'implement',
+      status: 'pending',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  ],
+  currentSubtaskIndex: 0,
   rules: [],
   config: {
     featureName: 'my-feat',
+    featureRelativePath: 'saifctl/features/my-feat',
     gitProviderId: 'github',
     testProfileId: 'node-vitest',
     sandboxProfileId: 'node-pnpm-python',
     agentProfileId: 'openhands',
     projectDir: '/tmp/proj',
-    maxRuns: 5,
+    maxAttemptsPerSubtask: 5,
+    subtasks: [{ content: 'implement', title: 'my-feat' }],
     llm: {},
     saifctlDir: 'saifctl',
     projectName: 'proj',
@@ -284,14 +303,16 @@ vi.mock('../utils/git.js', async (importOriginal) => {
 
 vi.mock('../llm-config.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
+  const mockLlmConfig = vi.fn().mockReturnValue({
+    modelId: 'claude-3-5-sonnet-latest',
+    provider: 'anthropic',
+    fullModelString: 'anthropic/claude-3-5-sonnet-latest',
+    apiKey: 'test-key',
+  });
   return {
     ...actual,
-    resolveAgentLlmConfig: vi.fn().mockReturnValue({
-      modelId: 'claude-3-5-sonnet-latest',
-      provider: 'anthropic',
-      fullModelString: 'anthropic/claude-3-5-sonnet-latest',
-      apiKey: 'test-key',
-    }),
+    resolveAgentLlmConfig: mockLlmConfig,
+    resolveAgentLlmConfigForContainer: mockLlmConfig,
   };
 });
 
@@ -299,13 +320,18 @@ vi.mock('./loop.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    buildInitialTask: vi.fn().mockResolvedValue('initial task'),
+    resolveIterativeLoopTaskFromSubtask: vi.fn().mockResolvedValue('initial task'),
     logIterativeLoopSettings: vi.fn(),
   };
 });
 
 vi.mock('./agent-task.js', () => ({
   buildTaskPrompt: vi.fn().mockResolvedValue('inspect task prompt'),
+  // Re-export the workspace-mode constants the orchestrator imports alongside
+  // buildTaskPrompt; without these, loop.ts crashes with "No
+  // AGENT_WORKSPACE_CONTAINER export" the moment it builds a critic prompt.
+  AGENT_WORKSPACE_CONTAINER: { kind: 'container', root: '/workspace' },
+  AGENT_WORKSPACE_HOST: { kind: 'host' },
 }));
 
 describe('runInspect', () => {

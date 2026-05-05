@@ -32,16 +32,27 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
     baseCommitSha: 'abc',
     basePatchDiff: 'SECRET_BASE',
     runCommits: [{ message: 'm', diff: 'SECRET_RUN' }],
-    specRef: 'saifctl/features/x',
+    subtasks: [
+      {
+        id: `st-${runId}`,
+        title: 'feat-x',
+        content: 'task',
+        status: 'pending' as const,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+    currentSubtaskIndex: 0,
     rules: [],
     config: {
       featureName: 'feat-x',
+      featureRelativePath: 'saifctl/features/x',
       gitProviderId: 'github',
       testProfileId: 'vitest',
       sandboxProfileId: 'vitest',
       agentProfileId: 'openhands',
       projectDir: '/tmp',
-      maxRuns: 5,
+      maxAttemptsPerSubtask: 5,
+      subtasks: [{ content: 'task' }],
       llm: {},
       saifctlDir: 'saifctl',
       projectName: 'test',
@@ -83,6 +94,7 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
     controlSignal: null,
     pausedSandboxBasePath: null,
     liveInfra: null,
+    inspectSession: null,
   };
   await writeFile(join(dir, `${runId}.json`), JSON.stringify(doc), 'utf8');
 }
@@ -143,6 +155,7 @@ describe('saifctl run list --format json', () => {
         runId: 'lst1',
         featureName: 'feat-x',
         specRef: 'saifctl/features/x',
+        featureRelativePath: 'saifctl/features/x',
         status: 'failed',
         startedAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
@@ -247,10 +260,16 @@ describe('saifctl run get', () => {
         runId: string;
         basePatchDiff: string;
         runCommits: Array<{ diff: string }>;
+        subtasks: Array<{ content: string }>;
+        currentSubtaskIndex: number;
       };
       expect(parsed.runId).toBe('get1');
       expect(parsed.basePatchDiff).toBe('SECRET_BASE');
       expect(parsed.runCommits[0]?.diff).toBe('SECRET_RUN');
+      expect(parsed.subtasks).toHaveLength(1);
+      expect(parsed.subtasks[0]?.content).toBe('task');
+      expect(parsed.currentSubtaskIndex).toBe(0);
+      expect(parsed).not.toHaveProperty('specRef');
     });
   });
 

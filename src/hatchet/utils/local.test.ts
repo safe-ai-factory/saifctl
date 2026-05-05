@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { consola } from '../../logger.js';
 import { createLocalHatchetRunner, LocalHatchetRunner } from './local.js';
 
 describe('createLocalHatchetRunner / LocalHatchetRunner', () => {
@@ -197,7 +198,7 @@ describe('createLocalHatchetRunner / LocalHatchetRunner', () => {
   });
 
   it('onFailure handler errors are logged and do not replace the original error', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => undefined);
 
     const hatchet = createLocalHatchetRunner();
     const wf = hatchet.workflow<Record<string, never>, { bad: never }>({ name: 'hook-throws' });

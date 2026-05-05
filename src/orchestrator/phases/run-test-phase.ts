@@ -25,6 +25,7 @@ export interface RunTestPhaseInput {
     | 'projectName'
     | 'testImage'
     | 'testScript'
+    | 'testProfile'
     | 'testRetries'
     | 'stagingEnvironment'
   >;
@@ -48,6 +49,7 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
     projectName,
     testImage,
     testScript,
+    testProfile,
     testRetries,
     stagingEnvironment,
   } = opts;
@@ -56,6 +58,7 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
+    testProfile,
   });
 
   let lastResult: TestsResult = { status: 'failed', stderr: '', stdout: '', rawJunitXml: null };

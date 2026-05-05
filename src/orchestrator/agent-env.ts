@@ -6,7 +6,14 @@
 import { join, resolve } from 'node:path';
 
 import type { SaifctlConfig } from '../config/schema.js';
-import { LLM_API_KEYS, saifctlTaskFilePath } from '../constants.js';
+import {
+  LLM_API_KEYS,
+  saifctlTaskFilePath,
+  subtaskDonePath,
+  subtaskExitPath,
+  subtaskNextPath,
+  subtaskRetriesPath,
+} from '../constants.js';
 import type { ContainerEnv } from '../engines/types.js';
 import type { LlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
@@ -27,8 +34,38 @@ const RESERVED_ENV_KEYS = new Set([
   'SAIFCTL_TASK_PATH',
   'SAIFCTL_WORKSPACE_BASE',
   'SAIFCTL_RUN_ID',
+  'SAIFCTL_ENABLE_SUBTASK_SEQUENCE',
+  'SAIFCTL_NEXT_SUBTASK_PATH',
+  'SAIFCTL_SUBTASK_DONE_PATH',
+  'SAIFCTL_SUBTASK_EXIT_PATH',
+  'SAIFCTL_SUBTASK_RETRIES_PATH',
+  /** Factory-enforced: uv must use OS TLS (corporate MITM / Leash CA in trust store). */
+  'UV_NATIVE_TLS',
+  /** Factory-enforced: LiteLLM/httpx/requests use OS CA bundle (not certifi-only) for MITM proxies. */
+  'SSL_CERT_FILE',
+  'REQUESTS_CA_BUNDLE',
+  'CURL_CA_BUNDLE',
+  /** Factory-enforced: Node.js ignores SSL_CERT_FILE; NODE_EXTRA_CA_CERTS appends the OS bundle
+   *  (including Leash-injected MITM CAs) to Node's built-in trust store. Required for all
+   *  Node-based agents (cursor, claude, kilocode, copilot, opencode, etc.). */
+  'NODE_EXTRA_CA_CERTS',
   'LLM_API_KEY',
+  /**
+   * Full provider-prefixed model string (e.g. `anthropic/claude-haiku-4-5`,
+   * `openrouter/anthropic/claude-haiku-4-5`). What LiteLLM-style multi-provider
+   * agents (aider, openhands, mini-swe-agent, terminus, deepagents, opencode,
+   * kilocode, forge) consume directly.
+   */
   'LLM_MODEL',
+  /**
+   * Bare model id with the provider prefix stripped
+   * (e.g. `claude-haiku-4-5`). What single-provider native CLIs that talk
+   * directly to one vendor's API (claude, codex, gemini, copilot, cursor,
+   * qwen) want — those tools reject the factory's `provider/model` form.
+   * Mirrors {@link LlmConfig.modelId} 1:1; matches the long-standing
+   * REVIEWER_LLM_MODEL semantics.
+   */
+  'LLM_MODEL_ID',
   'LLM_PROVIDER',
   'LLM_BASE_URL',
   'REVIEWER_LLM_PROVIDER',
@@ -222,6 +259,28 @@ export type CoderContainerEnvMode =
   /** Host-side agent spawn (`--engine local`): workspace paths are host directories, not `/workspace`. */
   | { kind: 'host'; codePath: string; saifctlPath: string };
 
+/** Debian/bookworm and saifctl coder images: merged CA store (includes proxy-injected CAs). */
+const DEBIAN_SYSTEM_CA_BUNDLE = '/etc/ssl/certs/ca-certificates.crt';
+
+/**
+ * Path to the OS CA bundle for Python HTTP clients (LiteLLM uses HTTPX; requests honors REQUESTS_CA_BUNDLE).
+ * Container mode always uses the Debian path. Host mode picks the first existing path among common locations.
+ */
+async function resolveSystemCaBundlePath(mode: CoderContainerEnvMode): Promise<string | null> {
+  if (mode.kind === 'container') {
+    return DEBIAN_SYSTEM_CA_BUNDLE;
+  }
+  const candidates = [
+    DEBIAN_SYSTEM_CA_BUNDLE,
+    '/etc/pki/tls/certs/ca-bundle.crt',
+    '/etc/ssl/cert.pem',
+  ];
+  for (const p of candidates) {
+    if (await pathExists(p)) return p;
+  }
+  return null;
+}
+
 /**
  * Builds env vars for the coder container.
  *
@@ -253,6 +312,17 @@ export async function buildCoderContainerEnv(opts: {
   taskPrompt: string;
   gateRetries: number;
   runId: string;
+  /**
+   * When true, sets `SAIFCTL_ENABLE_SUBTASK_SEQUENCE` so the shell stays alive between subtasks
+   * waiting for the next prompt or exit signal. Must be true when the run has more than one subtask.
+   */
+  enableSubtaskSequence: boolean;
+  /**
+   * When true, omits task/gate/subtask-specific env vars (SAIFCTL_INITIAL_TASK, SAIFCTL_GATE_RETRIES,
+   * SAIFCTL_ENABLE_SUBTASK_SEQUENCE, and subtask signal paths). Used by `sandbox --interactive` which
+   * runs sandbox-start.sh instead of coder-start.sh and has no task or gate loop.
+   */
+  sandboxInteractive?: boolean;
 }): Promise<ContainerEnv> {
   const {
     mode,
@@ -265,6 +335,8 @@ export async function buildCoderContainerEnv(opts: {
     taskPrompt,
     gateRetries,
     runId,
+    enableSubtaskSequence,
+    sandboxInteractive,
   } = opts;
 
   const agentSecretEnvFromFile = await loadAgentSecretEnvFromSecretFiles(
@@ -276,16 +348,36 @@ export async function buildCoderContainerEnv(opts: {
 
   const env: Record<string, string> = {
     ...safeAgentEnv,
-    SAIFCTL_INITIAL_TASK: taskPrompt,
-    SAIFCTL_GATE_RETRIES: String(gateRetries),
+    // uv defaults to rustls, which ignores the OS CA bundle; native TLS picks up injected CAs
+    // (e.g. StrongDM Leash MITM). Applies to all uv invocations in the coder container / local agent.
+    UV_NATIVE_TLS: '1',
     SAIFCTL_RUN_ID: runId,
+    // Two model env vars exposed to every agent — see FORWARDED_AGENT_ENV_KEYS
+    // docstrings above for which agents read which:
+    //   LLM_MODEL    — full `provider/model[/sub-model]` form (LiteLLM-style)
+    //   LLM_MODEL_ID — bare model id (native single-provider CLIs like Claude Code)
+    // Each agent.sh picks the one its CLI expects. Mirrors LlmConfig.fullModelString
+    // and LlmConfig.modelId 1:1; no shell-side parsing required.
     LLM_MODEL: llmConfig.fullModelString,
+    LLM_MODEL_ID: llmConfig.modelId,
     ...(llmConfig.provider ? { LLM_PROVIDER: llmConfig.provider } : {}),
     ...(llmConfig.baseURL ? { LLM_BASE_URL: llmConfig.baseURL } : {}),
-    ...(reviewer ? { SAIFCTL_REVIEWER_ENABLED: '1' } : {}),
-    ...(reviewer ? { REVIEWER_LLM_MODEL: reviewer.llmConfig.modelId } : {}),
-    ...(reviewer?.llmConfig.provider ? { REVIEWER_LLM_PROVIDER: reviewer.llmConfig.provider } : {}),
-    ...(reviewer?.llmConfig.baseURL ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL } : {}),
+    // Task/gate/subtask vars are omitted for sandbox-interactive (sandbox-start.sh has no loop).
+    ...(!sandboxInteractive
+      ? {
+          SAIFCTL_INITIAL_TASK: taskPrompt,
+          SAIFCTL_GATE_RETRIES: String(gateRetries),
+          ...(reviewer ? { SAIFCTL_REVIEWER_ENABLED: '1' } : {}),
+          ...(reviewer ? { REVIEWER_LLM_MODEL: reviewer.llmConfig.modelId } : {}),
+          ...(reviewer?.llmConfig.provider
+            ? { REVIEWER_LLM_PROVIDER: reviewer.llmConfig.provider }
+            : {}),
+          ...(reviewer?.llmConfig.baseURL
+            ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL }
+            : {}),
+          ...(enableSubtaskSequence ? { SAIFCTL_ENABLE_SUBTASK_SEQUENCE: '1' } : {}),
+        }
+      : {}),
   };
 
   if (mode.kind === 'container') {
@@ -293,7 +385,16 @@ export async function buildCoderContainerEnv(opts: {
       SAIFCTL_WORKSPACE_BASE: CONTAINER_WORKSPACE,
       SAIFCTL_STARTUP_SCRIPT: '/saifctl/startup.sh',
       SAIFCTL_AGENT_INSTALL_SCRIPT: '/saifctl/agent-install.sh',
-      SAIFCTL_AGENT_SCRIPT: '/saifctl/agent.sh',
+      // Agent script and subtask signal paths are not needed for sandbox-interactive.
+      ...(!sandboxInteractive
+        ? {
+            SAIFCTL_AGENT_SCRIPT: '/saifctl/agent.sh',
+            SAIFCTL_SUBTASK_DONE_PATH: subtaskDonePath(CONTAINER_WORKSPACE),
+            SAIFCTL_NEXT_SUBTASK_PATH: subtaskNextPath(CONTAINER_WORKSPACE),
+            SAIFCTL_SUBTASK_EXIT_PATH: subtaskExitPath(CONTAINER_WORKSPACE),
+            SAIFCTL_SUBTASK_RETRIES_PATH: subtaskRetriesPath(CONTAINER_WORKSPACE),
+          }
+        : {}),
     });
   } else {
     const { codePath, saifctlPath } = mode;
@@ -301,9 +402,17 @@ export async function buildCoderContainerEnv(opts: {
       SAIFCTL_WORKSPACE_BASE: codePath,
       SAIFCTL_STARTUP_SCRIPT: join(saifctlPath, 'startup.sh'),
       SAIFCTL_AGENT_INSTALL_SCRIPT: join(saifctlPath, 'agent-install.sh'),
-      SAIFCTL_GATE_SCRIPT: join(saifctlPath, 'gate.sh'),
-      SAIFCTL_AGENT_SCRIPT: join(saifctlPath, 'agent.sh'),
-      SAIFCTL_TASK_PATH: saifctlTaskFilePath(codePath),
+      ...(!sandboxInteractive
+        ? {
+            SAIFCTL_GATE_SCRIPT: join(saifctlPath, 'gate.sh'),
+            SAIFCTL_AGENT_SCRIPT: join(saifctlPath, 'agent.sh'),
+            SAIFCTL_TASK_PATH: saifctlTaskFilePath(codePath),
+            SAIFCTL_SUBTASK_DONE_PATH: subtaskDonePath(codePath),
+            SAIFCTL_NEXT_SUBTASK_PATH: subtaskNextPath(codePath),
+            SAIFCTL_SUBTASK_EXIT_PATH: subtaskExitPath(codePath),
+            SAIFCTL_SUBTASK_RETRIES_PATH: subtaskRetriesPath(codePath),
+          }
+        : {}),
     });
   }
 
@@ -321,6 +430,17 @@ export async function buildCoderContainerEnv(opts: {
   Object.assign(secretEnv, agentSecretEnvFromFile);
   const fromAgentSecrets = resolveAgentSecretEnv(agentSecretKeys);
   Object.assign(secretEnv, fromAgentSecrets);
+
+  const systemCaBundle = await resolveSystemCaBundlePath(mode);
+  if (systemCaBundle) {
+    env.SSL_CERT_FILE = systemCaBundle;
+    env.REQUESTS_CA_BUNDLE = systemCaBundle;
+    env.CURL_CA_BUNDLE = systemCaBundle;
+    // Node.js has its own bundled CA store and ignores SSL_CERT_FILE.
+    // NODE_EXTRA_CA_CERTS appends the OS bundle (which includes Leash-injected
+    // MITM CAs) without replacing Node's built-in roots.
+    env.NODE_EXTRA_CA_CERTS = systemCaBundle;
+  }
 
   return { env, secretEnv };
 }

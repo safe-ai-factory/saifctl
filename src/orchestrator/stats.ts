@@ -123,6 +123,8 @@ export async function readInnerRounds(logPath: string): Promise<InnerRoundSummar
 /** Builds one outer-attempt summary for run artifact / Hatchet wire output. */
 export function buildOuterAttemptSummary(input: {
   attempt: number;
+  subtaskIndex: number;
+  subtaskAttempt: number;
   phase: OuterAttemptPhase;
   innerRounds: InnerRoundSummary[];
   commitCount: number;
@@ -133,6 +135,8 @@ export function buildOuterAttemptSummary(input: {
   const completedAt = new Date().toISOString();
   return {
     attempt: input.attempt,
+    subtaskIndex: input.subtaskIndex,
+    subtaskAttempt: input.subtaskAttempt,
     phase: input.phase,
     innerRoundCount: input.innerRounds.length,
     innerRounds: input.innerRounds,

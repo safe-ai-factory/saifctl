@@ -110,6 +110,33 @@ describe('generateTests', () => {
     expect(content).toContain('sidecar:health');
   });
 
+  it('writes the example seed test from the profile template', async () => {
+    const result = await generateTests({
+      feature,
+      testProfile: DEFAULT_TEST_PROFILE,
+    });
+    const examplePath = join(result.testsDir, 'example.spec.ts');
+    expect(await pathExists(examplePath)).toBe(true);
+    const content = await readUtf8(examplePath);
+    // Contract: header signals "edit-in-place" so users don't think it's auto-regenerated,
+    // and the body uses the same execSidecar transport as helpers.ts so it actually runs.
+    expect(content).toContain('EDIT IN PLACE');
+    expect(content).toContain('execSidecar');
+  });
+
+  it('does not overwrite example.spec.ts when it already exists', async () => {
+    const testsDir = join(feature.absolutePath, 'tests');
+    const examplePath = join(testsDir, 'example.spec.ts');
+    await writeUtf8(examplePath, '// custom example, edited by user');
+
+    await generateTests({
+      feature,
+      testProfile: DEFAULT_TEST_PROFILE,
+    });
+
+    expect(await readUtf8(examplePath)).toBe('// custom example, edited by user');
+  });
+
   it('generates spec files for each unique entrypoint', async () => {
     const result = await generateTests({
       feature,

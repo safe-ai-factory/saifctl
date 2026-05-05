@@ -38,11 +38,15 @@ async function writeRunJson(
     runId,
     baseCommitSha: 'abc',
     runCommits: [],
-    specRef: 'saifctl/features/x',
+    rules: [],
     config: { featureName: row.featureName },
     status: row.status,
     startedAt: '2026-01-01T00:00:00.000Z',
     updatedAt: row.updatedAt,
+    controlSignal: null,
+    pausedSandboxBasePath: null,
+    liveInfra: null,
+    inspectSession: null,
   };
   await writeFile(join(dir, `${runId}.json`), JSON.stringify(doc), 'utf8');
 }

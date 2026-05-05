@@ -30,21 +30,23 @@ async function writeRunJson(
     status: 'failed' | 'completed';
     startedAt?: string;
     updatedAt: string;
-    taskId?: string;
   },
 ): Promise<void> {
   const dir = join(projectDir, '.saifctl', 'runs');
   await mkdir(dir, { recursive: true });
   const doc = {
     runId,
-    taskId: row.taskId,
     baseCommitSha: 'abc',
     runCommits: [],
-    specRef: 'saifctl/features/x',
+    rules: [],
     config: { featureName: row.featureName },
     status: row.status,
     startedAt: row.startedAt ?? '2026-01-01T00:00:00.000Z',
     updatedAt: row.updatedAt,
+    controlSignal: null,
+    pausedSandboxBasePath: null,
+    liveInfra: null,
+    inspectSession: null,
   };
   await writeFile(join(dir, `${runId}.json`), JSON.stringify(doc), 'utf8');
 }
@@ -152,36 +154,6 @@ describe('saifctl run ls', () => {
       expect(text).toContain('1 run(s):');
       expect(text).toContain('fail1');
       expect(text).not.toContain('ok1');
-    });
-  });
-
-  it('respects --task filter', async () => {
-    await withTempProject(async (projectDir) => {
-      await writeRunJson(projectDir, 'r1', {
-        featureName: 'a',
-        status: 'failed',
-        updatedAt: '2026-03-20T10:00:00.000Z',
-        taskId: 'task-alpha',
-      });
-      await writeRunJson(projectDir, 'r2', {
-        featureName: 'b',
-        status: 'failed',
-        updatedAt: '2026-03-21T11:00:00.000Z',
-        taskId: 'task-beta',
-      });
-
-      const lines = await runRunSubcommand([
-        'ls',
-        '--project-dir',
-        projectDir,
-        '--task',
-        'task-beta',
-      ]);
-      const text = lines.join('\n');
-
-      expect(text).toContain('1 run(s):');
-      expect(text).toContain('r2');
-      expect(text).not.toContain('r1');
     });
   });
 

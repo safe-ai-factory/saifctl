@@ -15,6 +15,7 @@ import {
   type RunStatus,
   StaleArtifactError,
 } from './types.js';
+import { normalizeLoadedRunArtifact } from './utils/normalize-artifact.js';
 import { allowsBeginRunStartFromArtifact } from './utils/statuses.js';
 
 const NAMESPACE = 'runs';
@@ -32,11 +33,8 @@ export function createRunStorage(uriOrShorthand: string, projectDir: string): Ru
   return new RunStorage(storage, uriOrShorthand);
 }
 
-function buildFilters(filter?: { taskId?: string; status?: RunStatus }): StorageFilter[] {
+function buildFilters(filter?: { status?: RunStatus }): StorageFilter[] {
   const filters: StorageFilter[] = [];
-  if (filter?.taskId != null) {
-    filters.push({ type: 'match', field: 'taskId', value: filter.taskId });
-  }
   if (filter?.status != null) {
     filters.push({ type: 'match', field: 'status', value: filter.status });
   }
@@ -71,7 +69,6 @@ export class RunStorage {
       ...artifact,
       runId,
       startedAt: existing?.startedAt ?? artifact.startedAt,
-      taskId: artifact.taskId ?? existing?.taskId,
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
       liveInfra: artifact.liveInfra,
@@ -94,7 +91,6 @@ export class RunStorage {
       runId,
       status: 'running',
       startedAt: existing?.startedAt ?? artifact.startedAt,
-      taskId: artifact.taskId ?? existing?.taskId,
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
       liveInfra: artifact.liveInfra,
@@ -144,15 +140,15 @@ export class RunStorage {
 
   async getRun(runId: string): Promise<RunArtifact | null> {
     const r = await this.storage.get(runId);
-    if (r && r.inspectSession === undefined) {
-      return { ...r, inspectSession: null };
-    }
-    return r;
+    if (!r) return null;
+    const withInspect = r.inspectSession === undefined ? { ...r, inspectSession: null } : r;
+    return normalizeLoadedRunArtifact(withInspect);
   }
 
-  async listRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<RunArtifact[]> {
+  async listRuns(filter?: { status?: RunStatus }): Promise<RunArtifact[]> {
     const filters = buildFilters(filter);
-    return this.storage.list(filters.length > 0 ? filters : undefined);
+    const rows = await this.storage.list(filters.length > 0 ? filters : undefined);
+    return rows.map((r) => normalizeLoadedRunArtifact(r));
   }
 
   /**
@@ -266,7 +262,7 @@ export class RunStorage {
     await this.storage.delete(runId);
   }
 
-  async clearRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<void> {
+  async clearRuns(filter?: { status?: RunStatus }): Promise<void> {
     const filters = buildFilters(filter);
     await this.storage.clear(filters.length > 0 ? filters : undefined);
   }

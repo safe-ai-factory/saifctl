@@ -17,16 +17,28 @@ const dummyArtifact: RunArtifact = {
   runId: 'test-1',
   baseCommitSha: 'abc123',
   runCommits: [{ message: 'm', diff: 'diff' }],
-  specRef: 'saifctl/features/x',
+  sandboxHostAppliedCommitCount: 0,
+  subtasks: [
+    {
+      id: 'st-dummy',
+      title: 'x',
+      content: 'task',
+      status: 'pending',
+      createdAt: '2026-01-01T12:00:00.000Z',
+    },
+  ],
+  currentSubtaskIndex: 0,
   rules: [],
   config: {
     featureName: 'x',
+    featureRelativePath: 'saifctl/features/x',
     gitProviderId: 'github',
     testProfileId: 'vitest',
     sandboxProfileId: 'vitest',
     agentProfileId: 'openhands',
     projectDir: '/tmp',
-    maxRuns: 5,
+    maxAttemptsPerSubtask: 5,
+    subtasks: [{ content: 'task', title: 'x' }],
     llm: {},
     saifctlDir: 'saifctl',
     projectName: 'test',
@@ -458,26 +470,20 @@ describe('createRunStorage', () => {
         ...dummyArtifact,
         runId: 'run-1',
         status: 'failed',
-        taskId: 'task-a',
       });
       await storage.saveRun('run-2', {
         ...dummyArtifact,
         runId: 'run-2',
         status: 'completed',
-        taskId: 'task-a',
       });
       await storage.saveRun('run-3', {
         ...dummyArtifact,
         runId: 'run-3',
         status: 'failed',
-        taskId: 'task-b',
       });
 
       const failed = await storage.listRuns({ status: 'failed' });
       expect(failed).toHaveLength(2);
-      const taskB = await storage.listRuns({ taskId: 'task-b' });
-      expect(taskB).toHaveLength(1);
-      expect(taskB[0].runId).toBe('run-3');
 
       await storage.clearRuns({ status: 'failed' });
       expect(await storage.getRun('run-1')).toBeNull();

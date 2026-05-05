@@ -117,10 +117,6 @@ const lsCommand = defineCommand({
   },
   args: {
     ...commonRunArgs,
-    task: {
-      type: 'string' as const,
-      description: 'Filter by task ID',
-    },
     status: {
       type: 'string' as const,
       description: 'Filter by status (failed, completed, running, paused, etc.)',
@@ -160,7 +156,6 @@ const lsCommand = defineCommand({
 
     const runs = (
       await storage.listRuns({
-        taskId: typeof args.task === 'string' ? args.task : undefined,
         status: typeof args.status === 'string' ? (args.status as RunStatus) : undefined,
       })
     ).slice();
@@ -174,11 +169,11 @@ const lsCommand = defineCommand({
       const rows = runs.map((r) => ({
         runId: r.runId,
         featureName: r.config.featureName,
-        specRef: r.specRef,
+        specRef: r.config.featureRelativePath,
+        featureRelativePath: r.config.featureRelativePath,
         status: r.status,
         startedAt: r.startedAt,
         updatedAt: r.updatedAt,
-        ...(r.taskId != null && r.taskId !== '' ? { taskId: r.taskId } : {}),
       }));
       const pretty = args.pretty !== false;
       outputCliData(JSON.stringify(rows, null, pretty ? 2 : undefined));

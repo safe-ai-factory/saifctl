@@ -5,10 +5,15 @@
 #   - bash on PATH  — this script is bash; gate scripts are invoked as `bash "$GATE_SCRIPT"`.
 #   - sh on PATH    — semantic reviewer is invoked as `sh "$SAIFCTL_REVIEWER_SCRIPT"` when set.
 #
-# Runs the agent script, then calls /saifctl/gate.sh (injected read-only per-run).
-# If the gate passes (exit 0), the container exits successfully.
+# Runs the agent script for one or more subtasks, then calls /saifctl/gate.sh after each round.
+# For multi-subtask runs the host sets SAIFCTL_ENABLE_SUBTASK_SEQUENCE and delivers subsequent task
+# prompts via SAIFCTL_NEXT_SUBTASK_PATH and signals completion via SAIFCTL_SUBTASK_EXIT_PATH; the
+# container stays alive between subtasks. When SAIFCTL_ENABLE_SUBTASK_SEQUENCE is unset, the
+# container exits 0 after the first successful subtask (single-task / legacy behavior).
+#
+# If the gate passes (exit 0), the subtask completes successfully.
 # If the agent script or the gate (or reviewer) fails, the failure output is appended
-# to the task prompt and the agent is re-invoked, up to SAIFCTL_GATE_RETRIES times.
+# to the task prompt and the agent is re-invoked, up to the effective gate retry count.
 #
 # Environment variables:
 #   SAIFCTL_INITIAL_TASK        — the full task prompt (required)
@@ -38,6 +43,21 @@
 #                                 This script renames the file when consumed so the next round
 #                                 picks up only new content.
 #   SAIFCTL_RUN_ID                  — (optional) orchestrator run id; echoed in round banners for logs.
+#   SAIFCTL_ENABLE_SUBTASK_SEQUENCE — when set to a non-empty value, after each successful subtask
+#                                 wait for SAIFCTL_SUBTASK_EXIT_PATH or SAIFCTL_NEXT_SUBTASK_PATH.
+#                                 When unset, exit 0 after the first successful subtask.
+#   SAIFCTL_NEXT_SUBTASK_PATH  — (optional) path the host writes the next subtask prompt to between
+#                                 subtasks. Shell polls this file after writing the done signal.
+#                                 default: subtask-next.md next to task.md.
+#   SAIFCTL_SUBTASK_DONE_PATH  — (optional) path where this script writes the subtask exit code
+#                                 after each subtask's inner loop completes. Host polls this.
+#                                 default: subtask-done next to task.md.
+#   SAIFCTL_SUBTASK_EXIT_PATH  — (optional) path the host creates to signal clean termination.
+#                                 When present, the shell exits 0 after completing the current subtask.
+#                                 default: subtask-exit next to task.md.
+#   SAIFCTL_SUBTASK_RETRIES_PATH — (optional) path the host writes a positive integer to override
+#                                 SAIFCTL_GATE_RETRIES for the next subtask only. Consumed on read.
+#                                 default: subtask-retries next to task.md.
 #
 # Agent stdout boundaries (for host log formatting): one line each, echoed by this script only —
 #   [SAIFCTL:AGENT_START]  — before bash "$AGENT_SCRIPT" (streams live via tee)
@@ -61,6 +81,10 @@ GATE_RETRIES="${SAIFCTL_GATE_RETRIES:-5}"
 TASK_PATH="${SAIFCTL_TASK_PATH:-/workspace/.saifctl/task.md}"
 ROUNDS_STATS_PATH="${SAIFCTL_ROUNDS_STATS_PATH:-$(dirname "$TASK_PATH")/stats.jsonl}"
 PENDING_RULES_PATH="${SAIFCTL_PENDING_RULES_PATH:-$(dirname "$TASK_PATH")/pending-rules.md}"
+NEXT_SUBTASK_PATH="${SAIFCTL_NEXT_SUBTASK_PATH:-$(dirname "$TASK_PATH")/subtask-next.md}"
+SUBTASK_DONE_PATH="${SAIFCTL_SUBTASK_DONE_PATH:-$(dirname "$TASK_PATH")/subtask-done}"
+SUBTASK_EXIT_PATH="${SAIFCTL_SUBTASK_EXIT_PATH:-$(dirname "$TASK_PATH")/subtask-exit}"
+SUBTASK_RETRIES_PATH="${SAIFCTL_SUBTASK_RETRIES_PATH:-$(dirname "$TASK_PATH")/subtask-retries}"
 
 if [ -z "${SAIFCTL_INITIAL_TASK:-}" ]; then
   echo "[coder-start] ERROR: SAIFCTL_INITIAL_TASK is not set." >&2
@@ -80,20 +104,6 @@ fi
 if [ ! -f "$AGENT_SCRIPT" ]; then
   echo "[coder-start] ERROR: agent script not found: $AGENT_SCRIPT" >&2
   exit 1
-fi
-
-echo "[coder-start] Running startup script: $SAIFCTL_STARTUP_SCRIPT"
-bash "$SAIFCTL_STARTUP_SCRIPT"
-echo "[coder-start] Startup script completed."
-
-if [ -n "${SAIFCTL_AGENT_INSTALL_SCRIPT:-}" ]; then
-  if [ ! -f "$SAIFCTL_AGENT_INSTALL_SCRIPT" ]; then
-    echo "[coder-start] ERROR: agent install script not found: $SAIFCTL_AGENT_INSTALL_SCRIPT" >&2
-    exit 1
-  fi
-  echo "[coder-start] Running agent install script: $SAIFCTL_AGENT_INSTALL_SCRIPT"
-  bash "$SAIFCTL_AGENT_INSTALL_SCRIPT"
-  echo "[coder-start] Agent install script completed."
 fi
 
 # Print one JSON string token for the entire file contents, or "" if no encoder.
@@ -157,17 +167,28 @@ log_inner_round_summary() {
   printf '%s\n' "$line" >> "$ROUNDS_STATS_PATH"
 }
 
-main() {
-  local INITIAL_TASK="$SAIFCTL_INITIAL_TASK"
+# One subtask: inner agent → gate → optional reviewer loop, up to effective_retries rounds.
+# Args: initial_task effective_retries subtask_label
+# Returns 0 on success, 1 on failure.
+run_subtask() {
+  local INITIAL_TASK="$1"
+  local effective_retries="$2"
+  local subtask_label="$3"
+
+  mkdir -p "$(dirname "$ROUNDS_STATS_PATH")"
+  printf '' > "$ROUNDS_STATS_PATH"
+  mkdir -p "$(dirname "$PENDING_RULES_PATH")"
+  printf '' > "$PENDING_RULES_PATH"
+
   local round=0
   local current_task="$INITIAL_TASK"
   local gate_output gate_exit round_started_at
-  local agent_output agent_exit
+  local agent_output agent_exit agent_tmpfile pending_content
 
-  while [ "$round" -lt "$GATE_RETRIES" ]; do
+  while [ "$round" -lt "$effective_retries" ]; do
     round=$((round + 1))
     round_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "[coder-start] ===== Round $round/$GATE_RETRIES${SAIFCTL_RUN_ID:+ (run $SAIFCTL_RUN_ID)} ====="
+    echo "[coder-start] ===== ${subtask_label} Round $round/$effective_retries${SAIFCTL_RUN_ID:+ (run $SAIFCTL_RUN_ID)} ====="
 
     # Human feedback queued on the host (e.g. `saifctl run rules create` while the agent runs).
     if [ -f "$PENDING_RULES_PATH" ] && [ -s "$PENDING_RULES_PATH" ]; then
@@ -202,9 +223,9 @@ main() {
 
     # Agent script failed, log and retry.
     if [ "$agent_exit" -ne 0 ]; then
-      echo "[coder-start] Agent FAILED (round $round/$GATE_RETRIES, exit $agent_exit):"
+      echo "[coder-start] Agent FAILED (round $round/$effective_retries, exit $agent_exit):"
       log_inner_round_summary agent_failed "$agent_output"
-      if [ "$round" -ge "$GATE_RETRIES" ]; then
+      if [ "$round" -ge "$effective_retries" ]; then
         break
       fi
       current_task="$(printf '%s\n\n## Agent Script Failed (exit %s)\n\n```\n%s\n```\n\nFix the above issues.' \
@@ -237,7 +258,7 @@ main() {
       if [ -z "${SAIFCTL_REVIEWER_ENABLED:-}" ]; then
         log_inner_round_summary gate_passed ""
         echo "[coder-start] Gate PASSED."
-        exit 0
+        return 0
       fi
 
       REVIEWER_SCRIPT="/saifctl/reviewer.sh"
@@ -254,15 +275,15 @@ main() {
       if [ "$gate_exit" -eq 0 ]; then
         log_inner_round_summary reviewer_passed ""
         echo "[coder-start] Gate PASSED (static checks + reviewer)."
-        exit 0
+        return 0
       else
         # Log and proceed to error branch.
-        echo "[coder-start] Reviewer FAILED (round $round/$GATE_RETRIES):"
+        echo "[coder-start] Reviewer FAILED (round $round/$effective_retries):"
         log_inner_round_summary reviewer_failed "$gate_output"
       fi
     else
       # Log and proceed to error branch.
-      echo "[coder-start] Gate FAILED (round $round/$GATE_RETRIES):"
+      echo "[coder-start] Gate FAILED (round $round/$effective_retries):"
       log_inner_round_summary gate_failed "$gate_output"
     fi
 
@@ -271,7 +292,7 @@ main() {
     ######################
 
     # If we've reached the max number of retries, exit with failure.
-    if [ "$round" -ge "$GATE_RETRIES" ]; then
+    if [ "$round" -ge "$effective_retries" ]; then
       break
     fi
 
@@ -280,8 +301,124 @@ main() {
       "$INITIAL_TASK" "$gate_output")"
   done
 
-  echo "[coder-start] Exhausted $GATE_RETRIES inner round(s) without success."
-  exit 1
+  echo "[coder-start] Exhausted $effective_retries inner round(s) without success (${subtask_label})."
+  return 1
+}
+
+#
+# Last-resort signal — fires on ANY exit path (clean, error, signal). Without
+# this, a `set -e` death between the subtask inner loop and the explicit
+# `printf > $SUBTASK_DONE_PATH` line would leave the host driver
+# (`pollSubtaskDone`) polling forever for a file that never appears, which
+# in turn deadlocks `Promise.all([engine, driver])` in `runCodingPhase`.
+#
+# The orchestrator-side fix (SAIFCTL_ENGINE_EXITED_REASON) is the authoritative
+# safety net for cases where even this trap can't fire (SIGKILL, container
+# torn down). This script-level handshake is the cleaner protocol that lets
+# the orchestrator distinguish "shell died with known exit code" from
+# "container vanished".
+#
+# `_subtask_done_signaled` is set by the explicit happy-path write so the
+# trap is a no-op when the script reached the normal write line successfully.
+_subtask_done_signaled=0
+write_subtask_done_signal() {
+  local code="$1"
+  if [ "$_subtask_done_signaled" -eq 1 ]; then return 0; fi
+  _subtask_done_signaled=1
+  # Best-effort: never fail the trap itself (we are dying anyway).
+  rm -f "$SUBTASK_DONE_PATH" 2>/dev/null || true
+  printf '%d' "$code" > "$SUBTASK_DONE_PATH" 2>/dev/null || true
+}
+
+main() {
+  # `subtask_exit` is the *intended* exit code of the most recently completed
+  # subtask. The trap reads it on unexpected exit; defaults to 1 (failure).
+  # shellcheck disable=SC2034 # consumed by the trap, set inside the loop.
+  local subtask_exit=1
+  trap 'write_subtask_done_signal "${subtask_exit:-1}"' EXIT
+
+  echo "[coder-start] Running startup script: $SAIFCTL_STARTUP_SCRIPT"
+  bash "$SAIFCTL_STARTUP_SCRIPT"
+  echo "[coder-start] Startup script completed."
+
+  if [ -n "${SAIFCTL_AGENT_INSTALL_SCRIPT:-}" ]; then
+    if [ ! -f "$SAIFCTL_AGENT_INSTALL_SCRIPT" ]; then
+      echo "[coder-start] ERROR: agent install script not found: $SAIFCTL_AGENT_INSTALL_SCRIPT" >&2
+      exit 1
+    fi
+    echo "[coder-start] Running agent install script: $SAIFCTL_AGENT_INSTALL_SCRIPT"
+    bash "$SAIFCTL_AGENT_INSTALL_SCRIPT"
+    echo "[coder-start] Agent install script completed."
+  fi
+
+  local current_task="$SAIFCTL_INITIAL_TASK"
+  local subtask_num=0
+  local effective_retries retries_val subtask_label
+
+  while true; do
+    # Reset per-iteration signaling state. `subtask_exit` defaults to 1 so
+    # that a death anywhere in this iteration (before `run_subtask` even
+    # starts, between iterations, etc.) is reported as failure rather than
+    # carrying the previous subtask's exit code into a false "succeeded"
+    # signal for the next subtask.
+    _subtask_done_signaled=0
+    subtask_exit=1
+
+    subtask_num=$((subtask_num + 1))
+    subtask_label="Subtask $subtask_num"
+    echo "[coder-start] ===== $subtask_label ====="
+
+    effective_retries="$GATE_RETRIES"
+    if [ -f "$SUBTASK_RETRIES_PATH" ] && [ -s "$SUBTASK_RETRIES_PATH" ]; then
+      retries_val="$(cat "$SUBTASK_RETRIES_PATH")"
+      rm -f "$SUBTASK_RETRIES_PATH"
+      if printf '%s' "$retries_val" | grep -qE '^[1-9][0-9]*$'; then
+        effective_retries="$retries_val"
+        echo "[coder-start] Per-subtask gate retries override: $effective_retries"
+      else
+        echo "[coder-start] WARNING: ignored invalid subtask-retries value: $retries_val" >&2
+      fi
+    fi
+
+    set +e
+    run_subtask "$current_task" "$effective_retries" "$subtask_label"
+    subtask_exit=$?
+    set -e
+
+    # Happy-path explicit write — also marks the trap as a no-op for this
+    # iteration. We keep both paths so a successful run produces a single
+    # `Wrote done signal.` log line and a deterministic file mtime.
+    write_subtask_done_signal "$subtask_exit"
+    echo "[coder-start] $subtask_label done (exit $subtask_exit). Wrote done signal."
+
+    if [ "$subtask_exit" -ne 0 ]; then
+      echo "[coder-start] $subtask_label FAILED — exiting." >&2
+      exit 1
+    fi
+
+    echo "[coder-start] $subtask_label COMPLETED successfully."
+
+    # Without multi-subtask sequencing, exit after first success (matches pre–Phase 6 host behavior).
+    if [ -z "${SAIFCTL_ENABLE_SUBTASK_SEQUENCE:-}" ]; then
+      exit 0
+    fi
+
+    echo "[coder-start] Waiting for next instruction (next subtask or exit signal)..."
+    while true; do
+      if [ -f "$SUBTASK_EXIT_PATH" ]; then
+        echo "[coder-start] Exit signal received — all subtasks complete."
+        exit 0
+      fi
+      if [ -f "$NEXT_SUBTASK_PATH" ] && [ -s "$NEXT_SUBTASK_PATH" ]; then
+        break
+      fi
+      sleep 1
+    done
+
+    current_task="$(cat "$NEXT_SUBTASK_PATH")"
+    mv "$NEXT_SUBTASK_PATH" "${NEXT_SUBTASK_PATH}.consumed.${subtask_num}"
+    echo "[coder-start] Received subtask $((subtask_num + 1)) prompt."
+  done
 }
 
 main "$@"

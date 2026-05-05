@@ -34,6 +34,7 @@ import {
   RunCannotStopError,
   type RunCommit,
   type RunInspectSession,
+  type RunSubtask,
   StaleArtifactError,
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
@@ -44,6 +45,7 @@ import {
   isRunAwaitingPauseCompletion,
   isRunAwaitingStopCompletion,
 } from '../runs/utils/statuses.js';
+import { runSubtasksFromInputs } from '../runs/utils/subtasks.js';
 import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
@@ -199,6 +201,12 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
      * paused sandbox path is still on disk.
      */
     reuseExistingSandbox?: boolean;
+    /** Subtasks copied from the stored {@link RunArtifact} when continuing a run. */
+    seedSubtasks?: RunSubtask[];
+    /** Cursor into {@link seedSubtasks} from the stored artifact. */
+    currentSubtaskIndex?: number;
+    /** From {@link RunArtifact#sandboxHostAppliedCommitCount} (host extract cursor for resume). */
+    sandboxHostAppliedCommitCount: number;
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -296,6 +304,7 @@ type Fail2PassOpts = Pick<
   | 'agentScript'
   | 'stageScript'
   | 'testScript'
+  | 'testProfile'
   | 'cedarScript'
   | 'verbose'
   | 'includeDirty'
@@ -345,6 +354,7 @@ async function runFail2PassCore(
     feature,
     sandboxBasePath: sandbox.sandboxBasePath,
     testScript,
+    testProfile: opts.testProfile,
   });
 
   const stagingEngine = createEngine(stagingEnvironment);
@@ -475,6 +485,27 @@ async function abortRunStartIfStopRequested(runStorage: RunStorage, runId: strin
 }
 
 /**
+ * Hatchet-experimental gate (per release-readiness Decision D-04).
+ *
+ * The remote-server Hatchet path is not generally available in v0.1.0. When
+ * `HATCHET_CLIENT_TOKEN` is set (`isLocal === false`), users must additionally
+ * opt in via `SAIFCTL_EXPERIMENTAL_HATCHET=1`. Local mode (`LocalHatchetRunner`)
+ * is unaffected; this is purely a guard on the remote-dispatch branch.
+ *
+ * Throws a single, clear error pointing the user at either fallback. Exported
+ * so the gate can be unit-tested independently of `runStartCore`.
+ */
+export function assertHatchetReady(isLocal: boolean): void {
+  if (isLocal) return;
+  if (process.env.SAIFCTL_EXPERIMENTAL_HATCHET === '1') return;
+  throw new Error(
+    'Hatchet integration is not yet available in v0.1.0. ' +
+      'Use local mode (unset HATCHET_CLIENT_TOKEN) or enable the experimental ' +
+      'flag SAIFCTL_EXPERIMENTAL_HATCHET=1 to opt in to the in-progress path.',
+  );
+}
+
+/**
  * Creates a fresh sandbox and runs the full Ralph Wiggum iterative loop:
  *   1. Run OpenHands to implement the feature
  *   2. Extract the patch
@@ -524,6 +555,17 @@ async function runStartCore(
     runContext = await captureBaseGitState(projectDir);
   }
 
+  const { subtasks: runArtifactSubtasks, currentSubtaskIndex: runArtifactSubtaskIndex } = opts
+    .fromArtifact?.seedSubtasks?.length
+    ? {
+        subtasks: opts.fromArtifact.seedSubtasks.map((s) => ({ ...s })),
+        currentSubtaskIndex: opts.fromArtifact.currentSubtaskIndex ?? 0,
+      }
+    : {
+        subtasks: runSubtasksFromInputs(opts.subtasks),
+        currentSubtaskIndex: opts.currentSubtaskIndex ?? 0,
+      };
+
   // ─── Hatchet path ─────────────────────────────────────────────────────────
   // When HATCHET_CLIENT_TOKEN is set, dispatch via Hatchet (distributed mode).
   // IMPORTANT: Do not call createSandbox here — the worker's provision-sandbox task creates
@@ -535,7 +577,25 @@ async function runStartCore(
   // on the worker via deserializeOrchestratorOpts — no ambient in-process state needed.
   const { hatchet, isLocal } = getHatchetClient();
   if (!isLocal) {
+    assertHatchetReady(isLocal);
     consola.log('[orchestrator] Hatchet token detected — dispatching via Hatchet workflow.');
+    consola.warn(
+      '[orchestrator] SAIFCTL_EXPERIMENTAL_HATCHET=1 — Hatchet support is experimental ' +
+        'and incomplete (run resume on a paused sandbox is not supported yet).',
+    );
+
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    //        The problem:
+    //        A paused sandbox is local state on one specific machine.
+    //        The sandbox directory and Docker network live on the worker's filesystem.
+    //        When run resume tries to reuse them,
+    //        it must run on the same worker. Hatchet's default scheduling is
+    //        round-robin / load-balanced — no guarantee of worker affinity.
+    if (opts.fromArtifact?.pausedSandbox) {
+      throw new Error("Hatchet + 'run resume' path does not work yet.");
+    }
 
     const serializedOpts = serializeOrchestratorOpts(opts);
     const featRunWorkflow = createFeatRunWorkflow();
@@ -584,7 +644,9 @@ async function runStartCore(
         baseCommitSha: runContext.baseCommitSha,
         basePatchDiff: runContext.basePatchDiff,
         runCommits: [],
-        specRef: feature.relativePath,
+        sandboxHostAppliedCommitCount: 0,
+        subtasks: runArtifactSubtasks.map((s) => ({ ...s })),
+        currentSubtaskIndex: runArtifactSubtaskIndex,
         rules: runContext.rules,
         status: 'starting',
         opts: loopOpts,
@@ -648,7 +710,11 @@ async function runStartCore(
         baseCommitSha: runContext.baseCommitSha,
         basePatchDiff: runContext.basePatchDiff,
         runCommits: opts.fromArtifact?.seedRunCommits ?? [],
-        specRef: feature.relativePath,
+        sandboxHostAppliedCommitCount: opts.fromArtifact
+          ? opts.fromArtifact.sandboxHostAppliedCommitCount
+          : 0,
+        subtasks: runArtifactSubtasks.map((s) => ({ ...s })),
+        currentSubtaskIndex: runArtifactSubtaskIndex,
         rules: runContext.rules,
         status: 'running',
         opts: loopOpts,
@@ -699,6 +765,10 @@ async function runStartCore(
     seedRunCommits: opts.fromArtifact?.seedRunCommits ?? [],
     seedRoundSummaries: opts.fromArtifact?.seedRoundSummaries,
     registry,
+    loopRunSubtasks: opts.fromArtifact?.seedSubtasks?.length
+      ? opts.fromArtifact.seedSubtasks.map((s) => ({ ...s }))
+      : runArtifactSubtasks.map((s) => ({ ...s })),
+    loopCurrentSubtaskIndex: opts.fromArtifact?.currentSubtaskIndex ?? runArtifactSubtaskIndex,
   });
 }
 
@@ -870,6 +940,9 @@ async function fromArtifactCore(
     artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
     resumedCodingInfra: null,
     reuseExistingSandbox: !!opts.reuseSandboxIfPresent,
+    seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
+    currentSubtaskIndex: artifact.currentSubtaskIndex,
+    sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
   };
 
   try {
@@ -1028,6 +1101,9 @@ async function runResumeCore(
     seedRoundSummaries: artifact.roundSummaries,
     pausedSandbox: resumeSandbox,
     resumedCodingInfra,
+    seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
+    currentSubtaskIndex: artifact.currentSubtaskIndex,
+    sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
   };
 
   return runStartCore(mergedOpts, registry);
@@ -1473,6 +1549,9 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     persistedRunId: runId,
     artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
     resumedCodingInfra: null,
+    seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
+    currentSubtaskIndex: artifact.currentSubtaskIndex,
+    sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
   };
 
   // Use a bare CleanupRegistry (no SIGINT wiring — signal handling is done inside onReady).
@@ -1523,7 +1602,9 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         baseCommitSha: artifact.baseCommitSha,
         basePatchDiff: artifact.basePatchDiff,
         runCommits: nextCommits,
-        specRef: feature.relativePath,
+        sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
+        subtasks: artifact.subtasks.map((s) => ({ ...s })),
+        currentSubtaskIndex: artifact.currentSubtaskIndex,
         lastFeedback: artifact.lastFeedback,
         rules: cloneRunRules(artifact.rules),
         roundSummaries: artifact.roundSummaries,

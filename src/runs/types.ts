@@ -48,6 +48,19 @@ export const SAIFCTL_PAUSE_ABORT_REASON = 'saifctl-pause';
 /** Passed to `AbortController.abort()` when `run stop` requests immediate teardown. */
 export const SAIFCTL_STOP_ABORT_REASON = 'saifctl-stop';
 
+/**
+ * Passed to `AbortController.abort()` when the coder engine container exited
+ * before the host driver received a `subtask-done` signal — i.e. the shell
+ * died (silent `set -e`, OOM-kill, signal) without writing the protocol's
+ * exit-code handshake file. Without this abort, `pollSubtaskDone` would poll
+ * forever and `Promise.all([engine, driver])` would deadlock.
+ *
+ * Treated by `runCodingPhase` as a normal completion-with-failure (no
+ * subtask results, caller marks the run failed). Distinct from `pause` /
+ * `stop` so callers can tell user-initiated control from container death.
+ */
+export const SAIFCTL_ENGINE_EXITED_REASON = 'saifctl-engine-exited';
+
 export type RunControlAction = 'pause' | 'stop';
 
 /**
@@ -147,9 +160,148 @@ export type OuterAttemptPhase =
   /** Agent finished; staging tests skipped (`skipStagingTests`, e.g. sandbox / POC designer). */
   | 'sandbox_complete';
 
+/**
+ * Compile-time-known critic prompt metadata (Block 4 of TODO_phases_and_critics).
+ *
+ * The compiler emits one of these on every critic subtask. Everything except
+ * `phase.baseRef` is known at compile time — `baseRef` is the git rev at the
+ * start of the phase's implementer subtask and is captured by the loop just
+ * before the critic subtask becomes the active row. The renderer in
+ * `src/specs/phases/critic-prompt.ts` consumes this metadata together with
+ * the runtime `phase.baseRef` to mustache-render the subtask's `content`.
+ *
+ * `content` on the subtask carries the raw `critics/<id>.md` body — the
+ * manifest stays faithful to what the user wrote. Rendering is a runtime
+ * concern; the artifact is never mutated.
+ */
+export interface RunSubtaskCriticPrompt {
+  criticId: string;
+  /** 1-based round counter; matches the subtask title. */
+  round: number;
+  totalRounds: number;
+  /**
+   * Each critic round compiles to two subtasks: 'discover' (writes findings
+   * to {@link findingsPath}; does NOT modify code) and 'fix' (reads findings,
+   * applies fixes, deletes the file). See §6 of the planning doc.
+   */
+  step: 'discover' | 'fix';
+  /**
+   * Container-side path (under `/workspace`) of the temp findings file
+   * shared between this round's discover + fix subtasks. Pinned per
+   * (phase, critic, round) so re-runs are deterministic.
+   */
+  findingsPath: string;
+  /**
+   * Mustache `feature.*` and `phase.{id,dir,spec,tests}` values precomputed
+   * by the compiler. Inlined here so the loop can render without re-walking
+   * the feature dir. `phase.baseRef` is filled in by the loop.
+   */
+  vars: {
+    feature: { name: string; dir: string; plan: string };
+    phase: { id: string; dir: string; spec: string; tests: string };
+  };
+}
+
+/**
+ * Per-subtask test scope — the gate's view of which test directories are
+ * in-scope for this subtask.
+ *
+ * - `include`: absolute paths (host-side) to test directories that should be
+ *   merged into the gate's testsDir. Each path follows the same `tests/`
+ *   layout the test runner expects (`public/`, `hidden/`, `helpers.ts`,
+ *   `infra.spec.ts`). Caller (Block 3 phase compiler) is responsible for
+ *   producing absolute paths; the loop does not validate them.
+ * - `cumulative`: when `true` (default), prior subtasks' `include` paths are
+ *   prepended in subtask order — phases use this so phase N gates on
+ *   `phases/01..N/tests/` cumulatively. Set `false` for an isolated scope
+ *   that ignores prior subtasks (e.g. spike phases).
+ *
+ * When `testScope` is omitted (legacy / non-phased path), the loop uses the
+ * feature's `tests/` directory verbatim — no behavior change.
+ */
+export interface RunSubtaskTestScope {
+  include?: string[];
+  cumulative?: boolean;
+}
+
+/**
+ * Serialized subtask definition (manifest / {@link RunArtifact#config}).
+ * Runtime fields (`id`, `status`, timestamps) are assigned by the orchestrator.
+ */
+export interface RunSubtaskInput {
+  title?: string;
+  content: string;
+  gateScript?: string;
+  agentScript?: string;
+  gateRetries?: number;
+  reviewerEnabled?: boolean;
+  agentEnv?: Record<string, string>;
+  testScope?: RunSubtaskTestScope;
+  /**
+   * Phase id this subtask belongs to (Block 4). Set by the phase compiler on
+   * every emitted subtask (impl + each critic round). Used by the loop to
+   * capture `phase.baseRef` when an impl subtask starts and to look it up
+   * again when subsequent critic subtasks for that phase render.
+   *
+   * Omitted on legacy / non-phased subtasks; loop has no per-phase tracking
+   * for those.
+   */
+  phaseId?: string;
+  /**
+   * Present on critic subtasks (Block 4). Tells the loop to mustache-render
+   * `content` against the closed variable set + the runtime baseRef before
+   * invoking the agent. Absence ⇒ `content` is used verbatim (impl subtasks,
+   * legacy non-phased path).
+   */
+  criticPrompt?: RunSubtaskCriticPrompt;
+}
+
+/**
+ * One unit of work within a run. Single-task runs use a one-element {@link RunArtifact#subtasks} list.
+ */
+export interface RunSubtask {
+  id: string;
+  title?: string;
+  content: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  gateScript?: string;
+  agentScript?: string;
+  gateRetries?: number;
+  reviewerEnabled?: boolean;
+  agentEnv?: Record<string, string>;
+  testScope?: RunSubtaskTestScope;
+  /** See {@link RunSubtaskInput#phaseId}. Round-tripped through the manifest. */
+  phaseId?: string;
+  /** See {@link RunSubtaskInput#criticPrompt}. Round-tripped through the manifest. */
+  criticPrompt?: RunSubtaskCriticPrompt;
+  /**
+   * Block 4 runtime state — git rev at the start of this phase's impl
+   * subtask. Captured by the loop the first time the impl subtask is
+   * activated; reused by every critic subtask in the same phase to render
+   * `{{phase.baseRef}}` in their mustache templates.
+   *
+   * Only meaningful on impl subtasks (those with `phaseId` and no
+   * `criticPrompt`). Critic subtasks read this from their phase's impl row.
+   *
+   * Runtime-only — intentionally NOT mirrored on `RunSubtaskInput` (per the
+   * Block 4 plan clarification "Do NOT persist into `RunSubtaskInput` (it's
+   * runtime state, not config)"). Resume preserves this via
+   * `seedSubtasks` (which clones `artifact.subtasks` directly without going
+   * through the manifest-stripping `runSubtasksToInputs` round-trip).
+   */
+  phaseBaseRef?: string;
+}
+
 export interface OuterAttemptSummary {
-  /** 1-based outer attempt index */
+  /** 1-based outer attempt index (monotonic across the whole run). */
   attempt: number;
+  /** 0-based index into {@link RunArtifact#subtasks}. */
+  subtaskIndex: number;
+  /** 1-based attempt counter within the current subtask. */
+  subtaskAttempt: number;
   phase: OuterAttemptPhase;
   innerRoundCount: number;
   innerRounds: InnerRoundSummary[];
@@ -213,7 +365,6 @@ export interface RunLiveInfra {
 
 export interface RunArtifact {
   runId: string;
-  taskId?: string;
 
   /**
    * Monotonic counter (only goes up) incremented on every successful {@link RunStorage.saveRun}.
@@ -228,8 +379,18 @@ export interface RunArtifact {
   /** Commits from coding rounds / inspect sessions (apply in order; each diff is one replayed commit; one outer round may add several). */
   runCommits: RunCommit[];
 
-  /** Feature path, e.g. saifctl/features/feat-stripe-webhooks */
-  specRef: string;
+  /**
+   * How many leading entries of {@link runCommits} were already applied to the host working tree
+   * via sandbox extract (`host-apply` / `host-apply-filtered`). Used to resume without double-applying
+   * after incremental per-subtask extract.
+   */
+  sandboxHostAppliedCommitCount: number;
+
+  /** Ordered subtasks for this run (single-task runs have exactly one entry). */
+  subtasks: RunSubtask[];
+  /** Index into {@link subtasks} for the active subtask (0-based). */
+  currentSubtaskIndex: number;
+
   /** Sanitized test failure summary for Ralph Wiggum feedback */
   lastFeedback?: string;
 

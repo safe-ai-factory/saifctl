@@ -2,6 +2,8 @@
  * Orchestrator option merge and resolution: CLI/artifact layers, LLM config, and full {@link OrchestratorOpts} resolution.
  */
 
+import { resolve } from 'node:path';
+
 import { DEFAULT_AGENT_PROFILE, resolveAgentProfile } from '../agent-profiles/index.js';
 import type { AgentProfile } from '../agent-profiles/types.js';
 import {
@@ -36,8 +38,9 @@ import { getGitProvider } from '../git/index.js';
 import type { GitProvider } from '../git/types.js';
 import { isSupportedAgentName, type LlmOverrides, SUPPORTED_AGENT_NAMES } from '../llm-config.js';
 import { consola } from '../logger.js';
-import type { RunArtifact } from '../runs/types.js';
+import type { RunArtifact, RunSubtaskInput } from '../runs/types.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
+import { runSubtasksToInputs } from '../runs/utils/subtasks.js';
 import { DEFAULT_SANDBOX_PROFILE, resolveSandboxProfile } from '../sandbox-profiles/index.js';
 import type { SandboxProfile } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
@@ -47,6 +50,7 @@ import { validateImageTag } from '../utils/docker.js';
 import { readUtf8 } from '../utils/io.js';
 import { mergeAgentSecretKeysFromReads } from './agent-env.js';
 import type { OrchestratorOpts } from './modes.js';
+import { loadSubtasksFromFile, resolveSubtasks } from './resolve-subtasks.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
 
 // ---------------------------------------------------------------------------
@@ -205,6 +209,7 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'gateRetries',
   'reviewerEnabled',
   'includeDirty',
+  'strict',
   'push',
   'pr',
   'targetBranch',
@@ -214,7 +219,8 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'codingEnvironment',
   'patchExclude',
   'allowSaifctlInPatch',
-  'taskPromptOverride',
+  'subtasks',
+  'currentSubtaskIndex',
   'fromArtifact',
   'verbose',
   'skipStagingTests',
@@ -223,9 +229,15 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'sandboxExtractExclude',
 ] as const satisfies readonly (keyof OrchestratorOpts)[];
 
-/** CLI payload: every key may appear; `undefined` means “do not override” (merge). */
+/**
+ * CLI payload: every {@link OrchestratorOpts} key may appear; `undefined` means “do not override” (merge).
+ * {@link subtasksFilePath} is handled in {@link resolveOrchestratorOpts} and is not part of merged opts.
+ */
 export type OrchestratorCliInput = {
   [K in keyof OrchestratorOpts]: OrchestratorOpts[K] | undefined;
+} & {
+  /** When set, replaces resolved subtasks from this path (relative to project dir or absolute). */
+  subtasksFilePath?: string;
 };
 
 /**
@@ -255,6 +267,26 @@ export interface OrchestratorBaselineContext {
   projectDir: string;
   saifctlDir: string;
   config: SaifctlConfig;
+  /**
+   * Fallback project name used when no explicit `--project`, config default, or `package.json`
+   * name is found. When omitted, missing project name throws. Used by `saifctl sandbox` where
+   * the project directory may not be a Node package.
+   */
+  projectNameFallback?: string;
+  /**
+   * Whether an artifact will overwrite `subtasks` after baseline (`run resume` / fork).
+   * When true, baseline skips phase compilation entirely — recompiling the feature dir
+   * is wasted work and (more importantly) must not exit-1 on a stale `feature.yml`
+   * when the artifact already carries authoritative subtasks.
+   */
+  artifactWillOverride?: boolean;
+  /**
+   * Path passed via `--subtasks <file>` (relative to project dir or absolute).
+   * When set, baseline loads that file directly instead of compiling phases /
+   * reading subtasks.json — matching the documented escape-hatch precedence
+   * (Block 3 of TODO_phases_and_critics §3).
+   */
+  subtasksFilePath?: string;
 }
 
 /**
@@ -264,13 +296,25 @@ export interface OrchestratorBaselineContext {
 async function applyOrchestratorBaseline(
   ctx: OrchestratorBaselineContext,
 ): Promise<OrchestratorOpts> {
-  const { feature, projectDir, saifctlDir, config } = ctx;
+  const {
+    feature,
+    projectDir,
+    saifctlDir,
+    config,
+    projectNameFallback,
+    artifactWillOverride,
+    subtasksFilePath,
+  } = ctx;
   const noCli = undefined;
 
   const maxRuns = config?.defaults?.maxRuns ?? DEFAULT_ORCHESTRATOR_MAX_RUNS;
   const llm = mergeLlmOverridesLayers(llmOverridesFromSaifctlConfig(config), undefined, undefined);
   const sandboxBaseDir = resolveSandboxBaseDir(config);
-  const projectName = await resolveProjectName({ projectDir, config });
+  const projectName = await resolveProjectName({
+    projectDir,
+    config,
+    fallback: projectNameFallback,
+  });
   const testProfile = pickTestProfile(noCli, config);
   const testImage = resolveTestImageTag(noCli, testProfile.id, config);
   const resolveAmbiguity = config?.defaults?.resolveAmbiguity ?? DEFAULT_RESOLVE_AMBIGUITY;
@@ -313,6 +357,38 @@ async function applyOrchestratorBaseline(
   const gateRetries = config?.defaults?.gateRetries ?? DEFAULT_ORCHESTRATOR_GATE_RETRIES;
   const reviewerEnabled = config?.defaults?.reviewerEnabled ?? DEFAULT_REVIEWER_ENABLED;
   const includeDirty = config?.defaults?.includeDirty ?? false;
+  // Block 7: project-wide test mutability default. CLI delta (`--strict` /
+  // `--no-strict`) is merged in later via `mergeDefinedOrchestratorOpts`;
+  // here we only resolve baseline → config → built-in default `true`.
+  const strict = config?.defaults?.strict ?? true;
+
+  // Subtasks priority (Block 3 of TODO_phases_and_critics):
+  //   1. `--subtasks <file>` (escape hatch) — loaded directly here so the
+  //      mutual-exclusion check in `resolveSubtasks` is bypassed.
+  //   2. Artifact resume (`run resume` / fork) — baseline returns a placeholder
+  //      that `mergeArtifactOntoDefaults` overwrites with the artifact's
+  //      authoritative subtasks. Skips phase compilation entirely so a stale
+  //      `feature.yml` can't fail-fast a resume that wouldn't have used it.
+  //   3. Otherwise — `resolveSubtasks` chooses between phases/, subtasks.json,
+  //      or the synthesized plan-only path.
+  let subtasks: RunSubtaskInput[];
+  const subtasksFileRaw = subtasksFilePath?.trim();
+  if (subtasksFileRaw) {
+    subtasks = await loadSubtasksFromFile(resolve(projectDir, subtasksFileRaw));
+  } else if (artifactWillOverride) {
+    subtasks = [];
+  } else {
+    subtasks = await resolveSubtasks({
+      subtasksFlag: undefined,
+      featureAbsolutePath: feature.absolutePath,
+      featureName: feature.name,
+      saifctlDir,
+      gateScript: gateR.gateScript,
+      projectDir,
+    });
+  }
+  const currentSubtaskIndex = 0;
+
   const agentEnv = await mergeAgentEnvFromReads({
     projectDir,
     config,
@@ -367,6 +443,7 @@ async function applyOrchestratorBaseline(
     gateRetries,
     reviewerEnabled,
     includeDirty,
+    strict,
     push,
     pr,
     targetBranch,
@@ -380,6 +457,9 @@ async function applyOrchestratorBaseline(
     allowSaifctlInPatch: false,
     skipStagingTests: false,
     sandboxExtract: 'none',
+    subtasks,
+    currentSubtaskIndex,
+    enableSubtaskSequence: subtasks.length > 1,
   };
 }
 
@@ -402,6 +482,12 @@ export interface ResolveOrchestratorOptsParams {
    * reuses file config for a phase when its engine matches the target.
    */
   engineCli: string | undefined;
+  /**
+   * Fallback project name when no explicit `--project`, config default, or `package.json`
+   * name is found. When omitted, missing project name throws. Used by `saifctl sandbox` where
+   * the project directory may not be a Node package.
+   */
+  projectNameFallback?: string;
 }
 
 /**
@@ -411,14 +497,26 @@ export interface ResolveOrchestratorOptsParams {
 export async function resolveOrchestratorOpts(
   params: ResolveOrchestratorOptsParams,
 ): Promise<OrchestratorOpts> {
-  const { projectDir, saifctlDir, config, feature, cli, cliModelDelta, artifact, engineCli } =
-    params;
+  const {
+    projectDir,
+    saifctlDir,
+    config,
+    feature,
+    cli,
+    cliModelDelta,
+    artifact,
+    engineCli,
+    projectNameFallback,
+  } = params;
 
   const defaults = await applyOrchestratorBaseline({
     feature,
     projectDir,
     saifctlDir,
     config,
+    projectNameFallback,
+    artifactWillOverride: artifact !== null,
+    subtasksFilePath: cli.subtasksFilePath,
   });
 
   let base = defaults;
@@ -457,10 +555,16 @@ export async function resolveOrchestratorOpts(
     process.exit(1);
   }
 
+  // `--subtasks` was already consumed by `applyOrchestratorBaseline` above
+  // (the file is loaded directly there to bypass phase compilation entirely).
+  // No re-loading needed here; merged.subtasks already reflects it.
+
   const keepArtifactCedar = artifact !== null && cli.cedarPolicyPath === undefined;
   if (!keepArtifactCedar) {
     merged.cedarScript = await readUtf8(merged.cedarPolicyPath);
   }
+
+  merged.enableSubtaskSequence = merged.subtasks.length > 1;
 
   return merged;
 }
@@ -486,6 +590,14 @@ async function mergeArtifactOntoDefaults(
     agentProfileId: d.agentProfileId as OrchestratorOpts['agentProfileId'],
   };
   delete (merged as { featureName?: string }).featureName;
+  delete (merged as { featureRelativePath?: string }).featureRelativePath;
+
+  if (artifact.subtasks?.length) {
+    merged.subtasks = runSubtasksToInputs(artifact.subtasks);
+  }
+  merged.currentSubtaskIndex = artifact.currentSubtaskIndex ?? 0;
+  merged.enableSubtaskSequence = merged.subtasks.length > 1;
+
   return merged;
 }
 

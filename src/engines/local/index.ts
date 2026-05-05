@@ -144,7 +144,9 @@ export class LocalEngine implements Engine {
         const onAbort = () => {
           child.kill();
           clearTimeout(timer);
-          reject(new Error('Agent step cancelled via abort signal'));
+          const abortReason =
+            signal?.reason != null ? ` (reason: ${String(signal.reason)})` : '';
+          reject(new Error(`Agent step cancelled via abort signal${abortReason}`));
         };
 
         if (signal) {

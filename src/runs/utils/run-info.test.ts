@@ -8,17 +8,29 @@ const minimalArtifact: RunArtifact = {
   baseCommitSha: 'abc',
   basePatchDiff: 'base-diff-content',
   runCommits: [{ message: 'm', diff: 'run-diff-content' }],
-  specRef: 'saifctl/features/x',
+  sandboxHostAppliedCommitCount: 0,
+  subtasks: [
+    {
+      id: 'st-r1',
+      title: 'feat',
+      content: 'do',
+      status: 'pending',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  ],
+  currentSubtaskIndex: 0,
   rules: [],
   lastFeedback: 'feedback line',
   config: {
     featureName: 'feat',
+    featureRelativePath: 'saifctl/features/x',
     gitProviderId: 'github',
     testProfileId: 'vitest',
     sandboxProfileId: 'vitest',
     agentProfileId: 'openhands',
     projectDir: '/p',
-    maxRuns: 3,
+    maxAttemptsPerSubtask: 3,
+    subtasks: [{ content: 'do', title: 'feat' }],
     llm: {},
     saifctlDir: 'saifctl',
     projectName: 'proj',
@@ -106,7 +118,13 @@ describe('toRunInfoJson', () => {
   it('preserves other top-level fields', () => {
     const view = toRunInfoJson(minimalArtifact);
     expect(view.runId).toBe('r1');
-    expect(view.specRef).toBe('saifctl/features/x');
+    expect(view.config.featureRelativePath).toBe('saifctl/features/x');
+    expect(view.config.maxAttemptsPerSubtask).toBe(3);
+    expect(view.config).not.toHaveProperty('specRef');
+    expect(view.config).not.toHaveProperty('taskId');
+    expect(view.config).not.toHaveProperty('maxRuns');
+    expect(view.subtasks).toHaveLength(1);
+    expect(view.currentSubtaskIndex).toBe(0);
     expect(view.lastFeedback).toBe('feedback line');
     expect(view.status).toBe('failed');
   });

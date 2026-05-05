@@ -20,17 +20,29 @@ function makeSourceArtifact(runId: string): RunArtifact {
     baseCommitSha: 'abc123dead',
     basePatchDiff: 'diff --git a/x b/x\n',
     runCommits: [{ message: 'step1', diff: 'patch hunk\n' }],
-    specRef: 'saifctl/features/my-feat',
+    sandboxHostAppliedCommitCount: 0,
+    subtasks: [
+      {
+        id: 'st-1',
+        title: 'my-feat',
+        content: 'implement',
+        status: 'pending',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+    currentSubtaskIndex: 0,
     rules: [],
     lastFeedback: 'try again',
     config: {
       featureName: 'my-feat',
+      featureRelativePath: 'saifctl/features/my-feat',
       gitProviderId: 'github',
       testProfileId: 'node-vitest',
       sandboxProfileId: 'node-pnpm-python',
       agentProfileId: 'openhands',
       projectDir: '/ignored-on-merge',
-      maxRuns: 5,
+      maxAttemptsPerSubtask: 5,
+      subtasks: [{ content: 'implement', title: 'my-feat' }],
       llm: {},
       saifctlDir: 'saifctl',
       projectName: 'proj',
@@ -115,7 +127,7 @@ describe('forkStoredRun', () => {
       expect(forked!.runCommits).toEqual(source.runCommits);
       expect(forked!.lastFeedback).toBe(source.lastFeedback);
       expect(forked!.status).toBe('failed');
-      expect(forked!.config.maxRuns).toBe(17);
+      expect(forked!.config.maxAttemptsPerSubtask).toBe(17);
       expect(forked!.config.featureName).toBe('my-feat');
     } finally {
       await rm(projectDir, { recursive: true, force: true });

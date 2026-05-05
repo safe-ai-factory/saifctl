@@ -15,7 +15,9 @@ import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
   readStorageStringFromCli,
+  readStrictFromCli,
   resolveStorageOverrides,
+  resolveStrictFlag,
   scriptSourcePathForReporting,
 } from './utils.js';
 
@@ -93,5 +95,44 @@ describe('scriptSourcePathForReporting', () => {
     const proj = resolve('/tmp/saifctl-proj');
     const script = resolve('/opt/saifctl/builtin.sh');
     expect(scriptSourcePathForReporting(proj, script)).toBe(script);
+  });
+});
+
+// Block 7: --strict / --no-strict flag plumbing. Strict is the safe default,
+// so the resolver must NEVER silently flip it to false. CLI value wins, then
+// project config, then built-in true. `undefined` from the CLI is the "no
+// flag passed" signal — distinguishing it from an explicit `--no-strict`
+// (false) is what makes the tri-state work.
+describe('readStrictFromCli', () => {
+  it('returns true when --strict is passed', () => {
+    expect(readStrictFromCli({ strict: true })).toBe(true);
+  });
+  it('returns false when --no-strict is passed', () => {
+    expect(readStrictFromCli({ strict: false })).toBe(false);
+  });
+  it('returns undefined when neither flag is passed (delegates to config/default)', () => {
+    expect(readStrictFromCli({})).toBeUndefined();
+    expect(readStrictFromCli({ strict: undefined })).toBeUndefined();
+  });
+});
+
+describe('resolveStrictFlag', () => {
+  it('CLI true wins over config false', () => {
+    expect(resolveStrictFlag({ cli: true, config: { defaults: { strict: false } } })).toBe(true);
+  });
+  it('CLI false wins over config true', () => {
+    // The user explicitly opted out via --no-strict; respect it even when
+    // config says strict.
+    expect(resolveStrictFlag({ cli: false, config: { defaults: { strict: true } } })).toBe(false);
+  });
+  it('config wins when CLI is undefined', () => {
+    expect(resolveStrictFlag({ cli: undefined, config: { defaults: { strict: false } } })).toBe(
+      false,
+    );
+  });
+  it('falls back to true when neither CLI nor config sets strict', () => {
+    expect(resolveStrictFlag({ cli: undefined, config: undefined })).toBe(true);
+    expect(resolveStrictFlag({ cli: undefined, config: { defaults: {} } })).toBe(true);
+    expect(resolveStrictFlag({ cli: undefined, config: {} })).toBe(true);
   });
 });

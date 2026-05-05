@@ -11,6 +11,7 @@ import { spawnUserCmd, spawnUserCmdCapture } from '../utils/io.js';
 const phases = [
   { name: 'Types', command: 'npx tsc --noEmit' },
   { name: 'Lint', command: 'npm run lint' },
+  { name: 'Lint Workflows', command: 'npm run lint:workflows' },
   { name: 'Dead Code', command: 'npm run knip' },
   { name: 'Format', command: 'npm run format:check' },
   { name: 'Custom Constraints', command: 'npm run validate' },

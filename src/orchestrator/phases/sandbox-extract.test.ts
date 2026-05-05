@@ -44,4 +44,19 @@ describe('filterUnifiedDiffByPrefix', () => {
     });
     expect(out).toContain('saifctl/features/a.md');
   });
+
+  it('filtering disjoint sub-patches then concatenating matches filtering the full patch', () => {
+    const patch1 = 'diff --git a/docs/a.md b/docs/a.md\n--- a/docs/a.md\n+++ b/docs/a.md\n+a\n';
+    const patch2 = 'diff --git a/docs/b.md b/docs/b.md\n--- a/docs/b.md\n+++ b/docs/b.md\n+b\n';
+    const full = `${patch1}\n${patch2}`;
+    const filteredFull = filterUnifiedDiffByPrefix({ patch: full, includePrefix: 'docs/' });
+    const f1 = filterUnifiedDiffByPrefix({ patch: patch1, includePrefix: 'docs/' });
+    const f2 = filterUnifiedDiffByPrefix({ patch: patch2, includePrefix: 'docs/' });
+    expect(
+      [f1, f2]
+        .filter((s) => s.trim())
+        .join('\n')
+        .trim(),
+    ).toBe(filteredFull.trim());
+  });
 });

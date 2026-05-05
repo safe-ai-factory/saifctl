@@ -42,28 +42,48 @@ import {
   type RunLiveInfra,
   type RunRule,
   type RunStatus,
+  type RunSubtask,
+  type RunSubtaskInput,
+  SAIFCTL_PAUSE_ABORT_REASON,
+  SAIFCTL_STOP_ABORT_REASON,
   StaleArtifactError,
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
+import {
+  cleanupFindingsForFixRow,
+  ensureCriticFindingsParentDir,
+} from '../specs/phases/critic-findings.js';
+import { createSandboxFileResolver, renderCriticPrompt } from '../specs/phases/critic-prompt.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/cleanup.js';
 import { git, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
+import { AGENT_WORKSPACE_CONTAINER, AGENT_WORKSPACE_HOST, buildTaskPrompt } from './agent-task.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import type { OrchestratorOpts } from './modes.js';
+import { formatImmutableViolations, inspectImmutableTestChanges } from './mutability-check.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import { runCodingPhase } from './phases/run-coding-phase.js';
 import { applySandboxExtractToHost, type SandboxExtractMode } from './phases/sandbox-extract.js';
+import type { SubtaskCodingResult, SubtaskDriverAction } from './phases/subtask-driver-types.js';
+import { loadPhaseSpecFilenames, surfaceModifiedPathsAfterRound } from './post-round-warnings.js';
 import {
   destroySandbox,
   extractIncrementalRoundPatch,
   listFilePathsInUnifiedDiff,
   type PatchExcludeRule,
+  prepareSubtaskSignalDir,
   type Sandbox,
+  updateSandboxSubtaskScripts,
 } from './sandbox.js';
 import { buildOuterAttemptSummary } from './stats.js';
+import {
+  type ResolvedSubtaskTestScope,
+  resolveSubtaskTestScope,
+  synthesizeMergedTestsDir,
+} from './test-scope.js';
 
 /**
  * Builds `extractPatch` exclude rules: fixed guardrails plus optional caller rules.
@@ -289,12 +309,18 @@ export interface IterativeLoopOpts {
    */
   allowSaifctlInPatch?: boolean;
   /**
-   * When set, used as the full coding-agent task instead of {@link buildInitialTask}
-   * (plan.md + specification.md + rules). {@link resolveIterativeLoopTask} still appends
-   * run rules when present. Used by the POC designer so the agent receives POC instructions
-   * without relying on plan/spec under the synthetic `-poc` feature dir.
+   * Subtask inputs for this run (resolved from plan/spec, `subtasks.json`, or `--subtasks`).
+   * Run rules are appended to the active subtask’s {@link RunSubtaskInput#content} each outer attempt
+   * via {@link resolveIterativeLoopTaskFromSubtask}.
    */
-  taskPromptOverride?: string;
+  subtasks: RunSubtaskInput[];
+  /** 0-based index into {@link subtasks} / runtime {@link RunSubtask} rows for the active unit of work. */
+  currentSubtaskIndex: number;
+  /**
+   * When true, injects `SAIFCTL_ENABLE_SUBTASK_SEQUENCE` and subtask signal paths so `coder-start.sh`
+   * stays alive between subtasks. Set from `subtasks.length > 1` in {@link resolveOrchestratorOpts}.
+   */
+  enableSubtaskSequence: boolean;
   /**
    * When true, run the semantic AI reviewer (Argus) after static checks pass.
    * Requires the Argus binary. Disable with --no-reviewer.
@@ -323,6 +349,14 @@ export interface IterativeLoopOpts {
    * The stack is torn down cleanly after each agent run regardless of outcome.
    */
   codingEnvironment: NormalizedCodingEnvironment;
+  /**
+   * Block 7 (§5.6): project-wide default for `tests.mutable`. `true` (default)
+   * keeps feature/phase test dirs immutable unless overridden; `false` flips
+   * the default to mutable. Resolved via `--strict` / `--no-strict` →
+   * `defaults.strict` → built-in default `true`. `saifctl/tests/` stays
+   * immutable regardless.
+   */
+  strict: boolean;
   /**
    * When true, verbose logs are enabled.
    */
@@ -365,6 +399,12 @@ export interface IterativeLoopOpts {
    * coding agent. Threaded through to {@link RunAgentOpts#inspectMode}.
    */
   inspectMode?: RunAgentOpts['inspectMode'];
+  /**
+   * When true, the container runs `sandbox-start.sh` (startup + agent-install, then sleep) instead
+   * of `coder-start.sh`. Task/gate/subtask env vars are omitted from the container environment.
+   * Set by `sandbox --interactive`. Combined with `inspectMode` to use the idle container + exec pattern.
+   */
+  sandboxInteractive?: boolean;
 }
 
 /** Outcome of {@link runIterativeLoop} and other orchestrator entry points (distinct from stored {@link RunArtifact} status). */
@@ -599,6 +639,10 @@ export async function runIterativeLoop(
     /** When starting from a Run: seed the first agent round with this feedback */
     initialErrorFeedback: string | null;
     registry: CleanupRegistry;
+    /** Subtask rows persisted on the run artifact (fresh seed or from stored run). */
+    loopRunSubtasks: RunSubtask[];
+    /** 0-based index into {@link loopRunSubtasks} for the active subtask. */
+    loopCurrentSubtaskIndex: number;
   },
 ): Promise<OrchestratorResult> {
   const {
@@ -619,6 +663,7 @@ export async function runIterativeLoop(
     agentEnv,
     agentProfileId,
     testScript,
+    testProfile,
     reviewerEnabled,
     codingEnvironment,
     runStorage,
@@ -637,10 +682,23 @@ export async function runIterativeLoop(
     fromArtifact,
     patchExclude: optsPatchExclude,
     inspectMode,
-    taskPromptOverride,
+    sandboxInteractive,
+    strict,
+    loopRunSubtasks,
+    loopCurrentSubtaskIndex,
+    gateScript: runGateScriptContent,
   } = opts;
 
   const runId = sandbox.runId;
+
+  // Block 8 (§9): resolve per-phase spec filename overrides ONCE at loop init.
+  // Most projects use the built-in default (`spec.md`), but a project that
+  // sets `phases.defaults.spec: SPEC.md` in feature.yml should still have
+  // deviations under that filename surfaced. Loading per-round would re-read
+  // feature.yml + every phase.yml on a hot path; loading once amortises it.
+  // Failures here are non-fatal — the worst case is the classifier falls back
+  // to `'spec.md'`, which is the dominant case anyway.
+  const phaseSpecFilenames = await loadPhaseSpecFilenames(feature.absolutePath);
 
   //////////////////////////////////////////////////
   // Globals
@@ -670,6 +728,13 @@ export async function runIterativeLoop(
   let attempts = seedRoundSummaries?.length ?? 0;
   let sandboxDestroyed = false;
 
+  /**
+   * How many leading {@link runCommitsAccum} entries are already applied to the host via
+   * {@link applySandboxExtractToHost}. Seeded from the run artifact when resuming so we do not
+   * double-apply after incremental per-subtask extract in sandbox mode.
+   */
+  let lastExtractedCommitCount = fromArtifact ? fromArtifact.sandboxHostAppliedCommitCount : 0;
+
   let pauseSnapshotLiveInfra: RunLiveInfra | null = null;
 
   //////////////////////////////////////////////////
@@ -677,7 +742,21 @@ export async function runIterativeLoop(
   //////////////////////////////////////////////////
 
   // Strip loop-internal fields from opts once; the remainder is safe to persist.
-  const { registry: _reg, runStorage: _rs, runContext: _rc, fromArtifact: _fa, ...loopOpts } = opts;
+  const {
+    registry: _reg,
+    runStorage: _rs,
+    runContext: _rc,
+    fromArtifact: _fa,
+    loopRunSubtasks: _lrs,
+    loopCurrentSubtaskIndex: _lci,
+    ...loopOpts
+  } = opts;
+
+  /** Mutable cursor persisted on the artifact while the run progresses. */
+  let subtaskCursorIndex = loopCurrentSubtaskIndex;
+
+  const subtaskAttemptNumber = (subtaskIndex: number) =>
+    1 + roundSummaries.filter((s) => s.subtaskIndex === subtaskIndex).length;
 
   /**
    * Builds and saves a {@link RunArtifact} to storage with optimistic-locking revision tracking.
@@ -708,7 +787,9 @@ export async function runIterativeLoop(
         baseCommitSha: runContext.baseCommitSha,
         basePatchDiff: runContext.basePatchDiff,
         runCommits: runCommitsAccum,
-        specRef: feature.relativePath,
+        sandboxHostAppliedCommitCount: lastExtractedCommitCount,
+        subtasks: loopRunSubtasks.map((s) => ({ ...s })),
+        currentSubtaskIndex: subtaskCursorIndex,
         lastFeedback: overrides.lastFeedback,
         rules: runContext.rules,
         roundSummaries,
@@ -851,11 +932,28 @@ export async function runIterativeLoop(
   //////////////////////////////////////////////////
 
   return await withCleanup(async () => {
-    const testRunnerOpts = await prepareTestRunnerOpts({
-      feature,
-      sandboxBasePath: sandbox.sandboxBasePath,
-      testScript,
-    });
+    // Per-subtask test scope (Block 2 of TODO_phases_and_critics): the legacy
+    // path passes no scope and gets the feature's whole tests/ dir. Phased
+    // features (Block 3) emit `testScope` on each subtask; we re-derive the
+    // runner opts at every subtask transition so the gate sees only that
+    // phase's cumulative test set.
+    const refreshTestRunnerOpts = async (): Promise<
+      Awaited<ReturnType<typeof prepareTestRunnerOpts>>
+    > => {
+      const scope = resolveSubtaskTestScope({
+        subtasks: loopRunSubtasks,
+        currentSubtaskIndex: subtaskCursorIndex,
+      });
+      return await prepareTestRunnerOpts({
+        feature,
+        sandboxBasePath: sandbox.sandboxBasePath,
+        testScript,
+        testProfile,
+        testScope: scope.sources.length > 0 ? scope : null,
+      });
+    };
+
+    let testRunnerOpts = await refreshTestRunnerOpts();
 
     // Resolve the coder agent's LLM config once per loop.
     const patchExclude = buildPatchExcludeRules({
@@ -954,36 +1052,142 @@ export async function runIterativeLoop(
     // Main Loop - 'run start'
     //////////////////////////////////////////////////
 
-    const maxAttempts = (seedRoundSummaries?.length ?? 0) + maxRuns;
-    while (attempts < maxAttempts) {
+    // Snapshot HEAD before this coding round: used as the diff base for
+    // `extractIncrementalRoundPatch` and as the reset target when staging tests fail
+    // (discard this attempt's work without losing earlier rounds or seeded commits).
+    let perSubtaskPreRoundHead = (
+      await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
+    ).trim();
+    /**
+     * `git rev-parse HEAD` at coding session start — pause/stop commit extraction base.
+     * For {@link runCodingPhase} — fixed at session start, not per subtask, so mid-run pause
+     * captures every commit since the coding session began (all completed subtasks plus
+     * in-progress work). Updating this each subtask would drop earlier subtask commits
+     * from the abort snapshot.
+     */
+    const pausePreRoundHead = perSubtaskPreRoundHead;
+    /** "Once" rule ids to consume after the first successful inner completion in this session. */
+    let pendingOnceIds = runContext ? activeOnceRuleIds(runContext.rules) : [];
+
+    /** Holder so TS sees assignments from `onSubtaskComplete` (async callback) as observable after `await`. */
+    const runTerminal: { result: OrchestratorResult | null } = { result: null };
+    const codingAbort = new AbortController();
+
+    /**
+     * Block 4: capture the git rev-parse HEAD at the start of each phase's
+     * impl subtask. Critics in the same phase render `{{phase.baseRef}}`
+     * against this value. Idempotent — only sets when not already set, so
+     * resume from `seedSubtasks` (which preserves `phaseBaseRef` on the
+     * runtime row) doesn't overwrite a baseRef from a prior session.
+     */
+    const recordPhaseBaseRefIfImpl = (idx: number, head: string): void => {
+      const row = loopRunSubtasks[idx];
+      if (!row) return;
+      if (row.phaseId && !row.criticPrompt && !row.phaseBaseRef) {
+        row.phaseBaseRef = head;
+      }
+    };
+    recordPhaseBaseRefIfImpl(subtaskCursorIndex, perSubtaskPreRoundHead);
+
+    /**
+     * Block 4: render a critic subtask's raw `content` (the verbatim
+     * `critics/<id>.md` body) into the final prompt by mustache-binding the
+     * closed variable set + the runtime `phase.baseRef`.
+     *
+     * The impl subtask for the same phase carries `phaseBaseRef`. Critics
+     * look it up here. Throws loudly if missing — that means the loop saw a
+     * critic subtask before its phase's impl ran, which would be a bug in
+     * the compiler ordering or a manually-edited subtasks.json.
+     */
+    const renderCriticContent = (row: RunSubtask): string => {
+      if (!row.criticPrompt || !row.phaseId) return row.content;
+      const impl = loopRunSubtasks.find((s) => s.phaseId === row.phaseId && !s.criticPrompt);
+      const baseRef = impl?.phaseBaseRef;
+      if (!baseRef) {
+        throw new Error(
+          `[orchestrator] Critic subtask '${row.title ?? row.id}' has no captured ` +
+            `phase.baseRef for phase '${row.phaseId}'. Phase impl subtask must run ` +
+            `(or be seeded from a paused artifact) before critic subtasks render.`,
+        );
+      }
+      return renderCriticPrompt({
+        template: row.content,
+        vars: {
+          feature: row.criticPrompt.vars.feature,
+          phase: { ...row.criticPrompt.vars.phase, baseRef },
+          critic: {
+            id: row.criticPrompt.criticId,
+            round: row.criticPrompt.round,
+            totalRounds: row.criticPrompt.totalRounds,
+            step: row.criticPrompt.step,
+            findingsPath: row.criticPrompt.findingsPath,
+          },
+        },
+        // The agent runs in the container with /workspace mounted to
+        // sandbox.codePath. `{{> file <p>}}` paths are workspace-relative;
+        // the sandbox-aware resolver canonicalises both root and target via
+        // realpath and refuses any path that resolves outside the sandbox
+        // (blocks symlink-escape reads of host files).
+        readFile: createSandboxFileResolver(sandbox.codePath),
+      });
+    };
+
+    const buildFullSubtaskPrompt = async (row: RunSubtask, err: string): Promise<string> => {
+      // Block 4b: ensure the findings-file parent dir exists before any
+      // critic subtask runs. The discover step writes
+      // `/workspace/.saifctl/critic-findings/<phase>--<critic>--r<n>.md`;
+      // an agent that does `cat > path` (no implicit mkdir) would fail
+      // silently, and fix would then read a missing file and no-op away
+      // the whole critic round. Idempotent + best-effort.
+      await ensureCriticFindingsParentDir({ codePath: sandbox.codePath, row });
+      const base = await resolveIterativeLoopTaskFromSubtask({
+        content: renderCriticContent(row),
+        rules: runContext ? rulesForPrompt(runContext.rules) : [],
+      });
+      return buildTaskPrompt({
+        codePath: sandbox.codePath,
+        task: base,
+        saifctlDir,
+        feature,
+        errorFeedback: err.trim() ? err : '',
+        // `--engine local` runs the agent on the host (cwd: codePath); other
+        // engines bind-mount codePath at /workspace inside the coder
+        // container. The directive must reference whichever path the agent
+        // actually reaches.
+        workspace:
+          codingEnvironment.engine === 'local' ? AGENT_WORKSPACE_HOST : AGENT_WORKSPACE_CONTAINER,
+      });
+    };
+
+    const onSubtaskComplete = async (
+      completedSubtask: SubtaskCodingResult,
+    ): Promise<SubtaskDriverAction> => {
+      const { subtaskIndex, innerExitCode, innerRounds } = completedSubtask;
+
       attempts++;
-      consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxAttempts} (run ${runId}) =====`);
-
-      //////////////////////////////////////////////////
-      // Prep
-      //////////////////////////////////////////////////
-
       const attemptStartedAt = new Date().toISOString();
+      consola.log(
+        `\n[orchestrator] ===== ATTEMPT ${attempts} (run ${runId}, subtask ${subtaskIndex + 1}/${loopRunSubtasks.length}, subtask attempt ${subtaskAttemptNumber(subtaskIndex)}) =====`,
+      );
 
-      // Snapshot HEAD before this coding round: used as the diff base for
-      // `extractIncrementalRoundPatch` and as the reset target when staging tests fail
-      // (discard this attempt's work without losing earlier rounds or seeded commits).
-      const preRoundHead = (
-        await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
-      ).trim();
+      if (innerExitCode !== 0) {
+        consola.warn(
+          `[orchestrator] Subtask ${subtaskIndex + 1} inner loop exited ${innerExitCode} (gate/reviewer exhausted or agent failure). Outer loop will still verify / retry per max runs.`,
+        );
+      }
 
       // Part of real-time human feedback and 'run stop' / 'run pause' control signals.
       // To detect if we received some actions from the user, we refresh the Run artifact
       // on each attempt (outer loop). It stores info on pending control signals (pause / stop)
       // or new Run rules that were created during the previous attempt.
-      let controlBeforeRound: 'pause' | 'stop' | null = null;
+      let controlBefore: 'pause' | 'stop' | null = null;
       if (runStorage && runContext) {
         const freshArtifact = await runStorage.getRun(runId);
         if (freshArtifact) {
           // Check for control signals (pause / stop)
           const a = freshArtifact.controlSignal?.action;
           if (a === 'pause' || a === 'stop') {
-            controlBeforeRound = a;
+            controlBefore = a;
           }
           // Check for new Run rules
           runContext.rules = reconcileRunRulesWithStorage({
@@ -998,96 +1202,31 @@ export async function runIterativeLoop(
       }
 
       // Act on control signals (pause / stop) from storage
-      if (controlBeforeRound === 'stop')
-        return controlResult('stopped', 'Run stopped by request (before coding round).');
-      if (controlBeforeRound === 'pause')
-        return controlResult('paused', 'Run paused by request (before coding round).');
-
-      // Some Run rules are marked as "once" and should be consumed after the coding round.
-      // Thus these rules are included in the task prompt only on the first round.
-      const onceIdsThisRound = runContext ? activeOnceRuleIds(runContext.rules) : [];
-      const task = await resolveIterativeLoopTask({
-        taskPromptOverride,
-        feature,
-        saifctlDir,
-        rules: runContext ? rulesForPrompt(runContext.rules) : [],
-      });
-
-      //////////////////////////////////////////////////
-      // Run agent
-      //////////////////////////////////////////////////
-
-      // Run agent (fresh context every iteration — Ralph Wiggum)
-      // The coding engine sets up its network + compose services, runs the coder agent,
-      // then tears itself down (or pauses) depending on control signals.
-      const codingResult = await runCodingPhase({
-        sandbox,
-        attempt: attempts,
-        errorFeedback,
-        task,
-        resumedCodingInfra,
-        storage: runStorage && runContext ? { runStorage, runContext } : null,
-        registry: registry ?? null,
-        preRoundHeadSha: preRoundHead,
-        patchExclude,
-        onInfraReady: async (infra) => {
-          await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
-        },
-        opts: {
-          llm,
-          projectDir,
-          projectName,
-          feature,
-          dangerousNoLeash,
-          coderImage,
-          gateRetries,
-          agentEnv,
-          agentSecretKeys,
-          agentSecretFiles,
-          agentProfileId,
-          reviewerEnabled,
-          codingEnvironment,
-          saifctlDir,
-          inspectMode,
-        },
-      });
-
-      // Consume resumed infra after the first round (setup was skipped; next round provisions fresh).
-      resumedCodingInfra = null;
-
-      // Act on control signals (pause / stop) received during the coding round.
-      // For 'stop' and 'pause' we preserve the changes made by the agent
-      // by saving the commits to the run artifact.
-      switch (codingResult.outcome) {
-        case 'stopped': {
-          const { commits } = codingResult;
-          runCommitsAccum = [...runCommitsAccum, ...commits];
-          return controlResult('stopped', 'Run stopped by request.');
-        }
-        case 'paused': {
-          const { commits, liveInfra } = codingResult;
-          runCommitsAccum = [...runCommitsAccum, ...commits];
-          pauseSnapshotLiveInfra = { coding: liveInfra, staging: null };
-          return controlResult('paused', 'Run paused by request.');
-        }
-        default:
-          break;
+      if (controlBefore === 'stop') {
+        codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+        return { kind: 'abort' };
       }
-      // Inspect session ended — skip tests, git branch creation, and further iterations.
-      if (codingResult.outcome === 'inspected')
-        return controlResult('stopped', 'Inspect session complete.');
-
-      //////////////////////////////////////////////////
-      // Run completed; extract patch
-      //////////////////////////////////////////////////
-
-      const { innerRounds } = codingResult;
+      if (controlBefore === 'pause') {
+        codingAbort.abort(SAIFCTL_PAUSE_ABORT_REASON);
+        return { kind: 'abort' };
+      }
 
       // Mark once rules as consumed if they were used this round, then persist so storage
       // stays authoritative before the next reconcile (start of next outer attempt).
-      if (runContext && onceIdsThisRound.length > 0) {
-        markOnceRulesConsumed(runContext.rules, onceIdsThisRound);
+      if (runContext && pendingOnceIds.length > 0) {
+        markOnceRulesConsumed(runContext.rules, pendingOnceIds);
+        pendingOnceIds = [];
         await saveRunningArtifact('consumed rules');
+      }
+
+      const st = loopRunSubtasks[subtaskIndex];
+      if (!st) {
+        runTerminal.result = controlResult(
+          'failed',
+          `Missing subtask at index ${subtaskIndex} (have ${loopRunSubtasks.length}).`,
+        );
+        codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+        return { kind: 'abort' };
       }
 
       // Extract incremental patch(es) for this round
@@ -1095,11 +1234,96 @@ export async function runIterativeLoop(
       const { patch: patchContent, commits: roundCommits } = await extractIncrementalRoundPatch(
         sandbox.codePath,
         {
-          preRoundHeadSha: preRoundHead,
+          preRoundHeadSha: perSubtaskPreRoundHead,
           attempt: attempts,
           exclude: patchExclude,
         },
       );
+
+      // Block 7 (§5.6 / §9 "diff-inspection"): if the agent committed anything
+      // this round, check whether they touched any test path that resolves as
+      // immutable per the three-layer model. We do this BEFORE staging tests
+      // run (the agent could otherwise silently rewrite the contract tests
+      // they're being judged against). On violations: roll back the round to
+      // `perSubtaskPreRoundHead`, send the violation list as feedback, and
+      // either retry or abort per the subtask budget — same shape as a
+      // staging-test failure.
+      if (roundCommits.length > 0) {
+        const inspection = await inspectImmutableTestChanges({
+          codePath: sandbox.codePath,
+          projectDir,
+          saifctlDir,
+          featureAbsolutePath: feature.absolutePath,
+          projectDefaultStrict: strict,
+          preRoundHead: perSubtaskPreRoundHead,
+        });
+
+        // Block 8 (§9 "modification-surfacing warning"): independent of the
+        // mutability gate above, surface any plan/spec/test modifications to
+        // the run log + a per-run JSONL breadcrumb. Fire this BEFORE the
+        // violation branch so warnings persist even when the round will be
+        // rolled back — the user wants to see attempted deviations, not just
+        // the ones that survived the gate. `inspection.changedPaths` is the
+        // same `git diff --name-only` shape the warning module expects, so
+        // we reuse it instead of re-shelling out to git.
+        await surfaceModifiedPathsAfterRound({
+          round: attempts,
+          subtaskIndex,
+          phaseId: st.phaseId ?? null,
+          criticId: st.criticPrompt?.criticId ?? null,
+          changedPaths: inspection.changedPaths,
+          saifctlDir,
+          featureRelativePath: feature.relativePath.replaceAll('\\', '/'),
+          phaseSpecFilenames,
+          projectDir,
+          runId,
+        });
+
+        if (inspection.violations.length > 0) {
+          const msg = formatImmutableViolations(inspection.violations);
+          consola.error(`\n[orchestrator] ${msg}`);
+          errorFeedback = msg;
+          lastErrorFeedback = errorFeedback;
+          if (runContext) runContext.lastErrorFeedback = errorFeedback;
+
+          roundSummaries = [
+            ...roundSummaries,
+            buildOuterAttemptSummary({
+              attempt: attempts,
+              subtaskIndex,
+              subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
+              phase: 'tests_failed',
+              innerRounds,
+              commitCount: roundCommits.length,
+              patchBytes: patchContent.length,
+              errorFeedback,
+              startedAt: attemptStartedAt,
+            }),
+          ];
+          await saveRoundProgress();
+
+          // Reset round commits from this attempt — same rollback the
+          // staging-test-failure path uses below.
+          await gitResetHard({ cwd: sandbox.codePath, ref: perSubtaskPreRoundHead });
+          await gitClean({ cwd: sandbox.codePath });
+
+          if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
+            consola.error(
+              `\n[orchestrator] Max attempts (${maxRuns}) reached for subtask ${subtaskIndex + 1}/${loopRunSubtasks.length} due to immutable-test violations.`,
+            );
+            runTerminal.result = controlResult(
+              'failed',
+              `Subtask ${subtaskIndex + 1} failed: agent persistently modified immutable test files.\n${msg}`,
+            );
+            codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+            return { kind: 'abort' };
+          }
+          return {
+            kind: 'retry',
+            prompt: await buildFullSubtaskPrompt(st, errorFeedback),
+          };
+        }
+      }
 
       // Detect if there has been any changes made to the sandbox by the agent.
       // Previously we checked only the current patch, but changes may be already committed.
@@ -1115,11 +1339,13 @@ export async function runIterativeLoop(
         // Sandbox mode may make no changes in the container (e.g. user just needed
         // to run a non-coding agent in isolation).
         // So we return early with a success status.
-        if (skipStagingTests) {
+        if (skipStagingTests && subtaskIndex === loopRunSubtasks.length - 1) {
           roundSummaries = [
             ...roundSummaries,
             buildOuterAttemptSummary({
               attempt: attempts,
+              subtaskIndex,
+              subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
               phase: 'no_changes',
               innerRounds,
               commitCount: 0,
@@ -1129,17 +1355,21 @@ export async function runIterativeLoop(
             }),
           ];
           await saveRoundProgress();
-          await destroySandbox(sandbox.sandboxBasePath);
-          sandboxDestroyed = true;
-          return {
+          runTerminal.result = {
             status: 'success',
             attempts,
             runId,
             message: 'Sandbox run complete (no git changes).',
           };
+          return { kind: 'exit' };
         }
 
+        const innerHint =
+          innerExitCode !== 0
+            ? `Inner validation did not complete successfully (exit ${innerExitCode}). `
+            : '';
         errorFeedback =
+          innerHint +
           'No changes were made. Please implement the feature as described in the plan.';
         lastErrorFeedback = errorFeedback;
         if (runContext) {
@@ -1150,6 +1380,8 @@ export async function runIterativeLoop(
           ...roundSummaries,
           buildOuterAttemptSummary({
             attempt: attempts,
+            subtaskIndex,
+            subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
             phase: 'no_changes',
             innerRounds,
             commitCount: 0,
@@ -1159,7 +1391,23 @@ export async function runIterativeLoop(
           }),
         ];
         await saveRoundProgress();
-        continue;
+
+        // Empty patch on this outer attempt: fail if budget for this subtask is exhausted; else retry.
+        if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
+          consola.error(
+            `\n[orchestrator] Max attempts (${maxRuns}) reached for subtask ${subtaskIndex + 1}/${loopRunSubtasks.length} without success.`,
+          );
+          runTerminal.result = controlResult(
+            'failed',
+            `Subtask ${subtaskIndex + 1} failed after ${subtaskAttemptNumber(subtaskIndex)} attempt(s). Last error:\n${errorFeedback}`,
+          );
+          codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+          return { kind: 'abort' };
+        }
+        return {
+          kind: 'retry',
+          prompt: await buildFullSubtaskPrompt(st, errorFeedback),
+        };
       }
 
       // No changes this round, but the sandbox already has commits (e.g. seeded runCommits)
@@ -1186,11 +1434,11 @@ export async function runIterativeLoop(
         consola.log(`[orchestrator] Extracted patch (${patchContent.length} bytes)`);
 
         const patchPaths = listFilePathsInUnifiedDiff(patchContent);
-        if (patchPaths.length === 0) {
+        if (patchPaths.length === 0 && patchContent.trim()) {
           consola.warn(
             '[orchestrator] No paths parsed from patch diff --git headers — patch may be malformed or empty of file sections.',
           );
-        } else {
+        } else if (patchPaths.length > 0) {
           consola.log(
             `[orchestrator] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
           );
@@ -1205,10 +1453,38 @@ export async function runIterativeLoop(
         consola.log('\n[orchestrator] Sandbox mode — skipping staging tests.');
         const extractMode = sandboxExtractOpt ?? 'none';
 
+        /** Apply only commits not yet on the host (`git apply` is not idempotent across the full list). */
+        const applyIncrementalHostExtract = async (): Promise<void> => {
+          if (extractMode !== 'host-apply' && extractMode !== 'host-apply-filtered') return;
+          const newCommits = runCommitsAccum.slice(lastExtractedCommitCount);
+          if (newCommits.length === 0) return;
+          const ok = await applySandboxExtractToHost({
+            runCommits: newCommits,
+            projectDir,
+            runId,
+            mode: extractMode,
+            includePrefix: sandboxExtractInclude,
+            excludePrefix: sandboxExtractExclude,
+          });
+          if (ok) {
+            lastExtractedCommitCount = runCommitsAccum.length;
+            try {
+              await writeUtf8(
+                join(sandbox.sandboxBasePath, 'sandbox-host-applied-commit-count.txt'),
+                `${lastExtractedCommitCount}\n`,
+              );
+            } catch {
+              // best-effort — Ctrl+C save may still read prior artifact count
+            }
+          }
+        };
+
         roundSummaries = [
           ...roundSummaries,
           buildOuterAttemptSummary({
             attempt: attempts,
+            subtaskIndex,
+            subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
             phase: roundPatchEmpty ? 'no_changes' : 'sandbox_complete',
             innerRounds,
             commitCount: roundCommits.length,
@@ -1218,21 +1494,36 @@ export async function runIterativeLoop(
         ];
         await saveRoundProgress();
 
-        if (extractMode === 'host-apply' || extractMode === 'host-apply-filtered') {
-          await applySandboxExtractToHost({
-            runCommits: runCommitsAccum,
-            projectDir,
-            runId,
-            mode: extractMode,
-            includePrefix: sandboxExtractInclude,
-            excludePrefix: sandboxExtractExclude,
-          });
+        // Multi-subtask sandbox: advance cursor, reset incremental patch base, refresh "once" rules — driver returns `next` with new scripts/prompt.
+        const nextIdx = subtaskIndex + 1;
+        if (nextIdx < loopRunSubtasks.length) {
+          subtaskCursorIndex = nextIdx;
+          const nextSt = loopRunSubtasks[nextIdx];
+          if (!nextSt) {
+            runTerminal.result = controlResult(
+              'failed',
+              `Missing subtask at index ${nextIdx} (have ${loopRunSubtasks.length}).`,
+            );
+            codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+            return { kind: 'abort' };
+          }
+          await applyIncrementalHostExtract();
+          perSubtaskPreRoundHead = (
+            await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
+          ).trim();
+          recordPhaseBaseRefIfImpl(subtaskCursorIndex, perSubtaskPreRoundHead);
+          pendingOnceIds = runContext ? activeOnceRuleIds(runContext.rules) : [];
+          return {
+            kind: 'next',
+            gateScript: nextSt.gateScript ?? runGateScriptContent,
+            agentScript: nextSt.agentScript,
+            gateRetries: nextSt.gateRetries,
+            prompt: await buildFullSubtaskPrompt(nextSt, ''),
+          };
         }
 
-        await destroySandbox(sandbox.sandboxBasePath);
-        sandboxDestroyed = true;
-
-        return {
+        await applyIncrementalHostExtract();
+        runTerminal.result = {
           status: 'success',
           attempts,
           runId,
@@ -1241,6 +1532,7 @@ export async function runIterativeLoop(
               ? 'Sandbox run complete; host working tree updated where applicable.'
               : 'Sandbox run complete (no staging tests; no host apply).',
         };
+        return { kind: 'exit' };
       }
 
       //////////////////////////////////////////////////
@@ -1266,12 +1558,23 @@ export async function runIterativeLoop(
 
       // Success path - apply patch to host as git branch (optionally open PR)
       if (verify.kind === 'passed') {
-        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
+        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — staging complete for this subtask');
+
+        // Block 4b: orchestrator-owned findings-file lifecycle. Earlier
+        // drafts had the BUILTIN_FIX_TEMPLATE delete the file before
+        // verifying tests, which silently lost data on the test-failure-
+        // then-retry path (file gone, retry reads missing → no-op).
+        // Saifctl deletes after the fix subtask passes its gate; on
+        // failure we leave the file in place so the retry sees the same
+        // findings. No-op for non-fix rows.
+        await cleanupFindingsForFixRow({ codePath: sandbox.codePath, row: st });
 
         roundSummaries = [
           ...roundSummaries,
           buildOuterAttemptSummary({
             attempt: attempts,
+            subtaskIndex,
+            subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
             phase: 'tests_passed',
             innerRounds,
             commitCount: roundCommits.length,
@@ -1281,30 +1584,42 @@ export async function runIterativeLoop(
         ];
         await saveRoundProgress();
 
-        await applyPatchToHost({
-          codePath: sandbox.codePath,
-          projectDir,
-          feature,
-          runId,
-          commits: runCommitsAccum,
-          hostBasePatchPath: sandbox.hostBasePatchPath,
-          push,
-          pr,
-          gitProvider,
-          llm,
-          verbose,
-          targetBranch,
-          startCommit: runContext?.baseCommitSha?.trim() || undefined,
-        });
-        await destroySandbox(sandbox.sandboxBasePath);
-        sandboxDestroyed = true;
+        const nextIdx = subtaskIndex + 1;
+        if (nextIdx < loopRunSubtasks.length) {
+          subtaskCursorIndex = nextIdx;
+          const nextSt = loopRunSubtasks[nextIdx];
+          if (!nextSt) {
+            runTerminal.result = controlResult(
+              'failed',
+              `Missing subtask at index ${nextIdx} (have ${loopRunSubtasks.length}).`,
+            );
+            codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+            return { kind: 'abort' };
+          }
+          perSubtaskPreRoundHead = (
+            await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
+          ).trim();
+          recordPhaseBaseRefIfImpl(subtaskCursorIndex, perSubtaskPreRoundHead);
+          pendingOnceIds = runContext ? activeOnceRuleIds(runContext.rules) : [];
+          // Per-subtask test scope (Block 2): refresh testsDir for the next
+          // subtask. Legacy / no-scope subtasks fall back to feature/tests/.
+          testRunnerOpts = await refreshTestRunnerOpts();
+          return {
+            kind: 'next',
+            gateScript: nextSt.gateScript ?? runGateScriptContent,
+            agentScript: nextSt.agentScript,
+            gateRetries: nextSt.gateRetries,
+            prompt: await buildFullSubtaskPrompt(nextSt, ''),
+          };
+        }
 
-        return {
+        runTerminal.result = {
           status: 'success',
           attempts,
           runId,
           message: `Feature implemented successfully in ${attempts} attempt(s).`,
         };
+        return { kind: 'exit' };
       }
 
       // Tests aborted - discard this attempt's work and reset to the pre-round HEAD
@@ -1315,6 +1630,8 @@ export async function runIterativeLoop(
           ...roundSummaries,
           buildOuterAttemptSummary({
             attempt: attempts,
+            subtaskIndex,
+            subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
             phase: 'aborted',
             innerRounds,
             commitCount: roundCommits.length,
@@ -1331,13 +1648,14 @@ export async function runIterativeLoop(
           join(sandbox.sandboxBasePath, 'run-commits.json'),
           JSON.stringify(runCommitsAccum),
         );
-        await destroySandbox(sandbox.sandboxBasePath);
-        sandboxDestroyed = true;
-        return {
+        runTerminal.result = {
           status: 'failed',
           attempts,
+          runId,
           message: `Tests were aborted after ${attempts} attempt(s).`,
         };
+        codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+        return { kind: 'abort' };
       }
 
       //////////////////////////////////////////////////
@@ -1365,6 +1683,8 @@ export async function runIterativeLoop(
         ...roundSummaries,
         buildOuterAttemptSummary({
           attempt: attempts,
+          subtaskIndex,
+          subtaskAttempt: subtaskAttemptNumber(subtaskIndex),
           phase: 'tests_failed',
           innerRounds,
           commitCount: roundCommits.length,
@@ -1388,19 +1708,173 @@ export async function runIterativeLoop(
       );
 
       // Reset to state at start of this attempt (Ralph: discard failed round only; keep stored-run seed)
-      await gitResetHard({ cwd: sandbox.codePath, ref: preRoundHead });
+      await gitResetHard({ cwd: sandbox.codePath, ref: perSubtaskPreRoundHead });
       await gitClean({ cwd: sandbox.codePath });
+
+      // Staging failed after rollback: stop if per-subtask attempt budget is exhausted; else retry.
+      if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
+        consola.error(
+          `\n[orchestrator] Max attempts (${maxRuns}) reached for subtask ${subtaskIndex + 1}/${loopRunSubtasks.length} without success.`,
+        );
+        runTerminal.result = controlResult(
+          'failed',
+          `Subtask ${subtaskIndex + 1} failed after ${subtaskAttemptNumber(subtaskIndex)} attempt(s). Last error:\n${errorFeedback}`,
+        );
+        codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+        return { kind: 'abort' };
+      }
+
+      return {
+        kind: 'retry',
+        prompt: await buildFullSubtaskPrompt(st, errorFeedback),
+      };
+    };
+
+    // Sync control + rules from storage, then exit early if user asked pause/stop before another coding phase.
+    {
+      let controlBeforeRound: 'pause' | 'stop' | null = null;
+      if (runStorage && runContext) {
+        const freshArtifact = await runStorage.getRun(runId);
+        if (freshArtifact) {
+          const a = freshArtifact.controlSignal?.action;
+          if (a === 'pause' || a === 'stop') controlBeforeRound = a;
+          runContext.rules = reconcileRunRulesWithStorage({
+            inMemory: runContext.rules,
+            fromStorage: freshArtifact.rules ?? [],
+          });
+          if (freshArtifact.artifactRevision !== undefined) {
+            runContext.expectedArtifactRevision = freshArtifact.artifactRevision;
+          }
+        }
+      }
+      if (controlBeforeRound === 'stop')
+        return controlResult('stopped', 'Run stopped by request (before coding round).');
+      if (controlBeforeRound === 'pause')
+        return controlResult('paused', 'Run paused by request (before coding round).');
+    }
+
+    // Current subtask row for this outer iteration; push its gate/agent scripts and clear signal files (non-inspect).
+    const activeRow = loopRunSubtasks[subtaskCursorIndex];
+    if (!activeRow) {
+      throw new Error(
+        `[orchestrator] No subtask at index ${subtaskCursorIndex} (have ${loopRunSubtasks.length}).`,
+      );
+    }
+
+    if (!inspectMode) {
+      await updateSandboxSubtaskScripts({
+        saifctlPath: sandbox.saifctlPath,
+        gateScript: activeRow.gateScript ?? runGateScriptContent,
+        agentScript: activeRow.agentScript,
+      });
+
+      await prepareSubtaskSignalDir(sandbox.sandboxBasePath);
     }
 
     //////////////////////////////////////////////////
-    // Max attempts reached
+    // Run agent
     //////////////////////////////////////////////////
 
-    consola.error(`\n[orchestrator] Max runs (${maxRuns}) reached without success.`);
+    const task = await buildFullSubtaskPrompt(activeRow, errorFeedback);
+
+    // Run agent (fresh context every iteration — Ralph Wiggum)
+    // The coding engine sets up its network + compose services, runs the coder agent,
+    // then tears itself down (or pauses) depending on control signals.
+    const codingResult = await runCodingPhase({
+      sandbox,
+      attempt: attempts + 1,
+      errorFeedback,
+      task,
+      subtasks: loopRunSubtasks.slice(subtaskCursorIndex),
+      startSubtaskIndex: subtaskCursorIndex,
+      onSubtaskComplete: inspectMode ? async () => ({ kind: 'abort' as const }) : onSubtaskComplete,
+      resumedCodingInfra,
+      storage: runStorage && runContext ? { runStorage, runContext } : null,
+      registry: registry ?? null,
+      preRoundHeadSha: pausePreRoundHead,
+      patchExclude,
+      codingAbortController: codingAbort,
+      signal: codingAbort.signal,
+      onInfraReady: async (infra) => {
+        await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
+      },
+      opts: {
+        llm,
+        projectDir,
+        projectName,
+        feature,
+        dangerousNoLeash,
+        coderImage,
+        gateRetries,
+        agentEnv,
+        agentSecretKeys,
+        agentSecretFiles,
+        agentProfileId,
+        reviewerEnabled,
+        codingEnvironment,
+        saifctlDir,
+        inspectMode,
+        sandboxInteractive,
+        // Matches shell `SAIFCTL_ENABLE_SUBTASK_SEQUENCE`: driver + exit/next signaling whenever
+        // we run a real coding session (inspect uses an idle container, no subtask protocol).
+        enableSubtaskSequence: !inspectMode,
+      },
+    });
+
+    resumedCodingInfra = null;
+
+    // Terminal outcome set inside `onSubtaskComplete` (success/fail/stop): full runs apply commits to host; success always destroys the sandbox here.
+    if (runTerminal.result) {
+      const done = runTerminal.result;
+      if (done.status === 'success' && !skipStagingTests) {
+        await applyPatchToHost({
+          codePath: sandbox.codePath,
+          projectDir,
+          feature,
+          runId,
+          commits: runCommitsAccum,
+          hostBasePatchPath: sandbox.hostBasePatchPath,
+          push,
+          pr,
+          gitProvider,
+          llm,
+          verbose,
+          targetBranch,
+          startCommit: runContext?.baseCommitSha?.trim() || undefined,
+        });
+      }
+      if (done.status === 'success') {
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+      }
+      return done;
+    }
+
+    // Act on control signals (pause / stop) received during the coding round.
+    // For 'stop' and 'pause' we preserve the changes made by the agent
+    // by saving the commits to the run artifact.
+    switch (codingResult.outcome) {
+      case 'stopped': {
+        const { commits } = codingResult;
+        runCommitsAccum = [...runCommitsAccum, ...commits];
+        return controlResult('stopped', 'Run stopped by request.');
+      }
+      case 'paused': {
+        const { commits, liveInfra } = codingResult;
+        runCommitsAccum = [...runCommitsAccum, ...commits];
+        pauseSnapshotLiveInfra = { coding: liveInfra, staging: null };
+        return controlResult('paused', 'Run paused by request.');
+      }
+      default:
+        break;
+    }
+    // Inspect session ended — skip tests, git branch creation, and further iterations.
+    if (codingResult.outcome === 'inspected')
+      return controlResult('stopped', 'Inspect session complete.');
 
     return controlResult(
       'failed',
-      `Failed after ${attempts} attempt(s). Last error:\n${errorFeedback}`,
+      `Coding phase ended without success. Last error:\n${errorFeedback || lastErrorFeedback || '(none)'}`,
     );
   });
 }
@@ -1562,74 +2036,24 @@ export async function runVagueSpecsCheckerForFailure(
   return { ambiguityResolved: true, sanitizedHint: '' };
 }
 
-interface BuildInitialTaskOpts {
-  feature: Feature;
-  saifctlDir: string;
-  /** User rules to inject (already filtered and orderedempty to skip section. */
+/**
+ * Builds the agent task string for one outer attempt: subtask body plus optional run rules
+ * (same “User feedback” section shape as before).
+ */
+export async function resolveIterativeLoopTaskFromSubtask(opts: {
+  content: string;
   rules: readonly RunRule[];
-}
-
-async function buildInitialTask(opts: BuildInitialTaskOpts): Promise<string> {
-  const { feature, saifctlDir, rules } = opts;
-  const planPath = join(feature.absolutePath, 'plan.md');
-  const specPath = join(feature.absolutePath, 'specification.md');
-
-  const parts = [
-    `Implement the feature '${feature.name}' as described in the plan below.`,
-    `Write code in the /workspace directory. Do NOT modify files in the /${saifctlDir}/ directory.`,
-    'When complete, ensure the code compiles and passes linting.',
-  ];
-
-  if (await pathExists(planPath)) {
-    parts.push('', '## Plan', '', await readUtf8(planPath));
-  }
-
-  if (await pathExists(specPath)) {
-    parts.push('', '## Specification', '', await readUtf8(specPath));
-  }
-
-  if (rules.length > 0) {
+}): Promise<string> {
+  const body = opts.content.trim();
+  const parts = [body];
+  if (opts.rules.length > 0) {
     parts.push('', '## User feedback', '');
-    for (const r of rules) {
+    for (const r of opts.rules) {
       const label = r.scope === 'once' ? '(this round only)' : '(always)';
       parts.push(`- [${label}] ${r.content}`);
     }
   }
-
   return parts.join('\n');
-}
-
-export interface ResolveIterativeLoopTaskOpts {
-  taskPromptOverride?: string;
-  feature: Feature;
-  saifctlDir: string;
-  rules: readonly RunRule[];
-}
-
-/**
- * Builds the task string for one outer coding attempt: either {@link taskPromptOverride}
- * (plus optional run rules) or {@link buildInitialTask}.
- */
-export async function resolveIterativeLoopTask(
-  opts: ResolveIterativeLoopTaskOpts,
-): Promise<string> {
-  const override = opts.taskPromptOverride?.trim();
-  if (override) {
-    const parts = [override];
-    if (opts.rules.length > 0) {
-      parts.push('', '## User feedback', '');
-      for (const r of opts.rules) {
-        const label = r.scope === 'once' ? '(this round only)' : '(always)';
-        parts.push(`- [${label}] ${r.content}`);
-      }
-    }
-    return parts.join('\n');
-  }
-  return buildInitialTask({
-    feature: opts.feature,
-    saifctlDir: opts.saifctlDir,
-    rules: opts.rules,
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1668,25 +2092,66 @@ interface PrepareTestRunnerOptsArgs {
    * inside the Test Runner container (read-only).
    */
   testScript: string;
+  /**
+   * Active test profile. Used by the multi-source merger to know which
+   * helpers/infra/example filenames to materialize per-source label.
+   */
+  testProfile: TestProfile;
+  /**
+   * Per-subtask test scope (Block 2 of TODO_phases_and_critics).
+   *
+   * - `null` / omitted: legacy behavior — gate runs the feature's whole
+   *   `tests/` dir.
+   * - `{ sources: [...] }` from {@link resolveSubtaskTestScope}: gate runs
+   *   only the listed source dirs (single-source short-circuit, multi-source
+   *   merged via symlinks under `<sandbox>/test-scope/`).
+   *
+   * `testScript` is unaffected by scope.
+   */
+  testScope?: ResolvedSubtaskTestScope | null;
 }
 
 /**
  * Prepares the test runner filesystem inputs for a feature run.
  *
- * Returns `testsDir` (the tests/ directory for the feature), `reportDir` (sandbox root,
- * so that `runTests` can find results.xml at `{sandboxRoot}/results.xml`), and
- * `testScriptPath` (always set — written from DEFAULT_TEST_SCRIPT or a custom override).
+ * Returns `testsDir` (the tests/ directory the runner should bind-mount —
+ * either the feature's `tests/`, a single phase's `tests/`, or a synthesized
+ * merged dir under the sandbox), `reportDir` (sandbox root, so that
+ * `runTests` can find results.xml at `{sandboxRoot}/results.xml`), and
+ * `testScriptPath` (always set — written from DEFAULT_TEST_SCRIPT or a
+ * custom override).
  *
  * Spec files are expected to already exist — generated by `saifctl feat design`.
+ *
+ * Per-subtask scope is honored via `testScope`. Without phase-compiled
+ * subtasks (legacy / non-phased path), `testScope` is omitted and the
+ * function returns `<feature>/tests/` exactly as before. With phases, the
+ * caller must call this function fresh at every subtask transition (the
+ * loop does this — see the `refreshTestRunnerOpts` closure inside
+ * `runIterativeLoop`).
  */
 export async function prepareTestRunnerOpts({
   feature,
   sandboxBasePath,
   testScript,
+  testProfile,
+  testScope,
 }: PrepareTestRunnerOptsArgs): Promise<
   Pick<RunTestsOpts, 'testsDir' | 'reportDir' | 'testScriptPath'>
 > {
-  const testsDir = join(feature.absolutePath, 'tests');
+  let testsDir: string;
+  if (testScope && testScope.sources.length > 0) {
+    testsDir = await synthesizeMergedTestsDir({
+      sources: testScope.sources,
+      destDir: join(sandboxBasePath, 'test-scope-merged'),
+      testProfile,
+    });
+    consola.log(
+      `[orchestrator] testsDir scoped to ${testScope.sources.length} source(s); resolved to ${testsDir}`,
+    );
+  } else {
+    testsDir = join(feature.absolutePath, 'tests');
+  }
 
   const testScriptPath = join(sandboxBasePath, 'test.sh');
   await writeUtf8(testScriptPath, testScript, { mode: 0o755 });

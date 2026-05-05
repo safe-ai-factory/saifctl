@@ -97,15 +97,20 @@ export interface ApplySandboxExtractToHostOpts {
   excludePrefix?: string;
 }
 
-/** Writes patch to a temp file, runs `git apply`, then removes the file (best-effort). */
+/**
+ * Writes patch to a temp file, runs `git apply`, then removes the file (best-effort).
+ *
+ * @returns `true` when the host is in sync with the given commits for extract purposes (applied,
+ *   nothing to apply, or filtered diff empty). `false` only when `git apply` fails.
+ */
 export async function applySandboxExtractToHost(
   opts: ApplySandboxExtractToHostOpts,
-): Promise<void> {
+): Promise<boolean> {
   const { runCommits, projectDir, runId, mode, includePrefix, excludePrefix } = opts;
 
   if (runCommits.length === 0) {
     consola.warn('[sandbox] No commits to extract — nothing to apply to host.');
-    return;
+    return true;
   }
 
   assertRunCommitsSafeForHost(runCommits);
@@ -125,7 +130,7 @@ export async function applySandboxExtractToHost(
     });
     if (!diff.trim()) {
       consola.warn(`[sandbox] No changes under "${inc}" — nothing to apply.`);
-      return;
+      return true;
     }
   } else {
     diff = fullDiff;
@@ -144,7 +149,7 @@ export async function applySandboxExtractToHost(
   } catch (err) {
     consola.error('[sandbox] Failed to apply patch to host:', err);
     consola.warn(`[sandbox] Raw patch written to: ${patchPath} — apply manually.`);
-    return;
+    return false;
   }
 
   try {
@@ -152,4 +157,5 @@ export async function applySandboxExtractToHost(
   } catch {
     // best-effort
   }
+  return true;
 }

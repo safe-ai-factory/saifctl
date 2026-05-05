@@ -9,7 +9,10 @@
  *   design-tests      Generate tests from existing specs only (second step of design).
  *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
  *   design            Generate specs, tests, and validate the tests (full design workflow)
- *   run               Start an agent to implement the specs. Runs until it passes your tests.
+ *   run               Start an agent to implement the specs. For phased features (those with a
+ *                     `phases/` dir), each phase + its critics expand to subtasks before the loop runs.
+ *   phases            Inspect / validate phase configuration: `feat phases list`, `feat phases validate`,
+ *                     `feat phases compile` (preview the subtask plan a run would execute).
  *   Alias: saifctl feature
  */
 
@@ -48,10 +51,12 @@ import {
   resolveTestImageTag,
 } from '../../orchestrator/options.js';
 import type { Feature } from '../../specs/discover.js';
+import { loadFeatureConfig } from '../../specs/phases/load.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import {
   featRunArgs,
   featTestsArgs,
+  forceArg,
   indexerArg,
   modelOverrideArgs,
   nameArg,
@@ -94,8 +99,10 @@ import {
   resolveDiscoveryOptions,
   resolveProjectName,
   resolveSaifctlDirRelative,
+  resolveStrictFlag,
   shouldRunDiscovery,
 } from '../utils.js';
+import phasesCommand, { runValidationAndPrint } from './feat-phases.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type CommandArgs<T extends CommandDef<any>> = Parameters<NonNullable<T['run']>>[0]['args'];
@@ -113,11 +120,6 @@ const yesArg = {
 const designerArg = {
   type: 'string' as const,
   description: `Designer profile for spec generation (default: ${DEFAULT_DESIGNER_PROFILE.id}).`,
-};
-const forceArg = {
-  type: 'boolean' as const,
-  alias: 'f' as const,
-  description: null,
 };
 
 /////////////////////////////////////////////
@@ -561,6 +563,33 @@ async function _runDesignFail2pass(opts: {
   args: DesignFail2passArgs;
 }): Promise<void> {
   const { feature, projectDir, saifctlDir, config, args } = opts;
+
+  // Block 7 (§5.6 / §9): fail2pass cannot evaluate "tests must initially fail"
+  // when the agent is the one writing them. Skip when the resolved feature-
+  // level mutability is `true` without an explicit `fail2pass` override — the
+  // resolver would otherwise auto-flip `fail2pass: false` and run a no-op
+  // verification. The skip path is informational, not a failure.
+  //
+  // Resolution mirrors the runtime classifier: `feature.yml.tests.mutable` ⇒
+  // project default (`defaults.strict` from saifctl/config.yml ⇒ built-in
+  // strict=true). `feat design-fail2pass` itself doesn't take `--strict`, so
+  // CLI delta is `undefined` here — config and built-in supply the floor.
+  const featureCfgLoad = await loadFeatureConfig(feature.absolutePath);
+  const featureCfg = featureCfgLoad?.config;
+  const featureTests = featureCfg?.tests;
+  const projectDefaultStrict = resolveStrictFlag({ cli: undefined, config });
+  const resolvedMutable = featureTests?.mutable ?? !projectDefaultStrict;
+  if (resolvedMutable && featureTests?.fail2pass === undefined) {
+    const reason =
+      featureTests?.mutable === true
+        ? 'feature.yml sets tests.mutable=true'
+        : `defaults.strict=false (project-wide --no-strict baseline)`;
+    consola.log(
+      `\n[design-fail2pass] Skipping fail2pass for feature '${feature.name}': ${reason} with no explicit tests.fail2pass override. The agent writes the tests in this configuration, so initial-failure verification doesn't apply. Set tests.fail2pass: true in feature.yml to force the check.`,
+    );
+    return;
+  }
+
   const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
 
   const projectName = await resolveProjectName({ project: args.project, projectDir, config });
@@ -629,6 +658,7 @@ async function _runDesignFail2pass(opts: {
     agentScript,
     stageScript,
     testScript,
+    testProfile,
     startupScript,
     cedarScript,
     includeDirty,
@@ -717,7 +747,8 @@ const designCommand = defineCommand({
 const runCommand = defineCommand({
   meta: {
     name: 'run',
-    description: 'Start an agent to implement the specs. Runs until it passes tests',
+    description:
+      'Start an agent to implement the specs. Runs until it passes tests. Phased features (with a `phases/` dir) compile each phase + its critics into subtasks; the loop iterates per-subtask, gating tests after each one',
   },
   args: featRunArgs,
   async run({ args }) {
@@ -745,6 +776,23 @@ export const parseRunArgs = async (args: CommandArgs<typeof runCommand>) => {
   const feature = await getFeatOrPrompt(args, projectDir);
   const runArgs = args as FeatRunArgs;
   setVerboseLogging(runArgs.verbose === true);
+
+  // Block 6 — pre-flight phases validation. When the feature has a `phases/`
+  // dir we validate up-front so the user sees errors before the orchestrator
+  // boots (otherwise validation surfaces transitively from `resolveSubtasks`,
+  // mid-setup, with less context). Skipped when `--subtasks` is set: the
+  // user is explicitly bypassing phase compilation, so phase config validity
+  // is irrelevant to that run.
+  if (!runArgs.subtasks?.trim()) {
+    const phasesDir = join(feature.absolutePath, 'phases');
+    if (await pathExists(phasesDir)) {
+      const ok = await runValidationAndPrint({
+        featureAbsolutePath: feature.absolutePath,
+        featureName: feature.name,
+      });
+      if (!ok) process.exit(1);
+    }
+  }
 
   const cli = await buildOrchestratorCliInputFromFeatArgs(runArgs, {
     projectDir,
@@ -782,6 +830,7 @@ const featCommand = defineCommand({
     'design-fail2pass': designFail2passCommand,
     'design-tests': designTestsCommand,
     run: runCommand,
+    phases: phasesCommand,
   },
 });
 

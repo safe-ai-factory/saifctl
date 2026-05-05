@@ -60,6 +60,12 @@ const testImageArg = {
   description: 'Test runner Docker image tag (default: saifctl-test-<profile>:latest).',
 };
 
+export const engineArg = {
+  type: 'string' as const,
+  description:
+    'Override infra engines: `docker`, `local`, or `coding=docker,staging=helm`. Sets environments.*.engine for this run.',
+};
+
 export const profileArg = {
   type: 'string' as const,
   description:
@@ -91,14 +97,27 @@ export const modelOverrideArgs = {
   },
 };
 
+export const verboseArg = {
+  type: 'boolean' as const,
+  alias: 'v' as const,
+  description: 'Show verbose logs. Default: quiet logs.',
+};
+
+/**
+ * `--force` / `-f`. Each command should spread this and override the
+ * description with the verb that fits its semantics ("Overwrite existing
+ * scaffold files", "Always re-run the designer", etc.).
+ */
+export const forceArg = {
+  type: 'boolean' as const,
+  alias: 'f' as const,
+  description: 'Overwrite existing files (default: skip when present).',
+};
+
 // Tests-only args — used by design-fail2pass, test (staging + test runner, no coder agent)
 export const featTestsArgs = {
   'sandbox-base-dir': sandboxBaseDirArg,
-  engine: {
-    type: 'string' as const,
-    description:
-      'Override infra engines: `docker`, `local`, or `coding=docker,staging=helm`. Sets environments.*.engine for this run.',
-  },
+  engine: engineArg,
   profile: profileArg,
   'test-script': testScriptArg,
   'test-image': testImageArg,
@@ -174,11 +193,105 @@ export const runTestArgs = {
     description:
       'Git hosting provider for push/PR. github | gitlab | bitbucket | azure | gitea (default: github).',
   },
-  verbose: {
-    type: 'boolean' as const,
-    alias: 'v' as const,
-    description: 'Show verbose logs. Default: quiet logs.',
-  },
+  verbose: verboseArg,
+};
+
+export const dangerousNoLeashArg = {
+  type: 'boolean' as const,
+  description:
+    'Skip Leash; run the coder container with plain docker run (same image, mounts, env, and container name as Leash — no Cedar / Leash proxy). For no container, use `--engine local`',
+};
+
+export const cedarArg = {
+  type: 'string' as const,
+  description:
+    'Absolute path to Cedar policy file for Leash (default: src/orchestrator/policies/default.cedar).',
+};
+
+export const coderImageArg = {
+  type: 'string' as const,
+  description: 'Docker image for the coder container (default: from --profile).',
+};
+
+export const gateRetriesArg = {
+  type: 'string' as const,
+  description: 'Max gate retries per run (default: 10).',
+};
+
+export const subtasksArg = {
+  type: 'string' as const,
+  // Undocumented escape hatch (Block 3 of TODO_phases_and_critics). The
+  // supported sources are `phases/` (preferred) or `subtasks.json` in the
+  // feature dir; this flag bypasses both. Kept available for emergency
+  // manual control but intentionally not promoted in --help.
+  description:
+    '(internal escape hatch; prefer phases/ or subtasks.json in the feature dir) Path to a subtasks JSON file (relative to project dir or absolute).',
+};
+
+/**
+ * `--strict` / `--no-strict` (Block 7 of TODO_phases_and_critics) — flips the
+ * project-wide default for `tests.mutable`. Applies project-wide; saifctl/tests/
+ * stays immutable regardless. Distinct from `--dangerous-no-leash`, which
+ * removes the gate/test guarantee entirely.
+ *
+ * Default `true` (strict ⇒ default-immutable) per §9. The actual default is
+ * applied by `resolveStrictFlag` so the CLI can distinguish "user passed
+ * --strict" from "user passed nothing" and fall back to
+ * `defaults.strict` from saifctl/config.yml.
+ */
+export const strictArg = {
+  type: 'boolean' as const,
+  default: undefined,
+  description:
+    "Default mutability for feature/phase test dirs. --strict (default) keeps tests immutable unless tests.mutable: true is set; --no-strict flips the default. Independent of --dangerous-no-leash (which removes the gate/test guarantee entirely). 'saifctl/tests/' stays immutable regardless.",
+};
+
+export const agentEnvArg = {
+  type: 'string' as const,
+  description:
+    'Extra env var(s). Single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2. Values cannot contain commas; use --agent-env-file or config for that.',
+};
+
+export const agentEnvFileArg = {
+  type: 'string' as const,
+  description:
+    'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
+};
+
+export const agentSecretArg = {
+  type: 'string' as const,
+  description:
+    'Env var name(s) to copy from the host into the coder secret env (comma-separated). Values are never passed on the CLI — only names — so secrets never show up in logs.',
+};
+
+export const agentSecretFileArg = {
+  type: 'string' as const,
+  description:
+    'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read when starting from a Run (values are not persisted in the artifact).',
+};
+
+/**
+ * CLI flags forwarded to `saifctl sandbox` by tools like saifdocs.
+ * Omits feat-only options (e.g. --gate-script, --subtasks, push/PR, test runner).
+ */
+export const sandboxPassthroughArgs = {
+  ...modelOverrideArgs,
+  agent: featAgentArgs.agent,
+  'agent-script': featAgentArgs['agent-script'],
+  'agent-install-script': featAgentArgs['agent-install-script'],
+  profile: profileArg,
+  'startup-script': startupScriptArg,
+  'coder-image': coderImageArg,
+  cedar: cedarArg,
+  engine: engineArg,
+  'dangerous-no-leash': dangerousNoLeashArg,
+  'sandbox-base-dir': sandboxBaseDirArg,
+  'agent-env': agentEnvArg,
+  'agent-env-file': agentEnvFileArg,
+  'agent-secret': agentSecretArg,
+  'agent-secret-file': agentSecretFileArg,
+  'gate-retries': gateRetriesArg,
+  verbose: verboseArg,
 };
 
 // Shared body for feat run and `run start` (feature name is feat-run only; start-from-artifact uses the Run).
@@ -190,44 +303,16 @@ const featRunCoreArgs = {
     type: 'string' as const,
     description: 'Max full pipeline runs before giving up (default: 5).',
   },
-  'dangerous-no-leash': {
-    type: 'boolean' as const,
-    description:
-      'Skip Leash; run the coder container with plain docker run (same image, mounts, env, and container name as Leash — no Cedar / Leash proxy). For no container, use `--engine local`',
-  },
-  cedar: {
-    type: 'string' as const,
-    description:
-      'Absolute path to Cedar policy file for Leash (default: src/orchestrator/policies/default.cedar).',
-  },
-  'coder-image': {
-    type: 'string' as const,
-    description: 'Docker image for the coder container (default: from --profile).',
-  },
-  'gate-retries': {
-    type: 'string' as const,
-    description: 'Max gate retries per run (default: 10).',
-  },
-  'agent-env': {
-    type: 'string' as const,
-    description:
-      'Extra env var(s). Single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2. Values cannot contain commas; use --agent-env-file or config for that.',
-  },
-  'agent-env-file': {
-    type: 'string' as const,
-    description:
-      'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
-  },
-  'agent-secret': {
-    type: 'string' as const,
-    description:
-      'Env var name(s) to copy from the host into the coder secret env (comma-separated). Values are never passed on the CLI — only names — so secrets never show up in logs.',
-  },
-  'agent-secret-file': {
-    type: 'string' as const,
-    description:
-      'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read when starting from a Run (values are not persisted in the artifact).',
-  },
+  'dangerous-no-leash': dangerousNoLeashArg,
+  cedar: cedarArg,
+  'coder-image': coderImageArg,
+  'gate-retries': gateRetriesArg,
+  subtasks: subtasksArg,
+  'agent-env': agentEnvArg,
+  'agent-env-file': agentEnvFileArg,
+  'agent-secret': agentSecretArg,
+  'agent-secret-file': agentSecretFileArg,
+  strict: strictArg,
 };
 
 // Run-specific args (feat run, run start). Builds on runTestArgs + agent flags + coder-only options.

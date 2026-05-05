@@ -57,6 +57,27 @@ describe('filterAgentEnv', () => {
     expect(result).toHaveProperty('KEEP', 'yes');
   });
 
+  it('strips UV_NATIVE_TLS (factory-controlled)', () => {
+    const result = filterAgentEnv({ UV_NATIVE_TLS: '0', KEEP: 'yes' });
+    expect(result).not.toHaveProperty('UV_NATIVE_TLS');
+    expect(result).toHaveProperty('KEEP', 'yes');
+  });
+
+  it('strips SSL_CERT_FILE, REQUESTS_CA_BUNDLE, CURL_CA_BUNDLE, NODE_EXTRA_CA_CERTS (factory-controlled)', () => {
+    const result = filterAgentEnv({
+      SSL_CERT_FILE: '/tmp/evil.pem',
+      REQUESTS_CA_BUNDLE: '/tmp/evil2.pem',
+      CURL_CA_BUNDLE: '/tmp/evil3.pem',
+      NODE_EXTRA_CA_CERTS: '/tmp/evil4.pem',
+      KEEP: 'yes',
+    });
+    expect(result).not.toHaveProperty('SSL_CERT_FILE');
+    expect(result).not.toHaveProperty('REQUESTS_CA_BUNDLE');
+    expect(result).not.toHaveProperty('CURL_CA_BUNDLE');
+    expect(result).not.toHaveProperty('NODE_EXTRA_CA_CERTS');
+    expect(result).toHaveProperty('KEEP', 'yes');
+  });
+
   it('strips LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, and LLM_BASE_URL', () => {
     const result = filterAgentEnv({
       LLM_API_KEY: 'secret',
@@ -162,10 +183,67 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       taskPrompt: 't',
       gateRetries: 1,
       runId: 'r',
+      enableSubtaskSequence: false,
     });
     expect(c.env).not.toHaveProperty('LLM_MODEL', 'user-override');
     expect(c.env.LLM_MODEL).toBe('anthropic/m');
     expect(c.env.CUSTOM).toBe('ok');
+    expect(c.env.UV_NATIVE_TLS).toBe('1');
+    expect(c.env.SSL_CERT_FILE).toBe('/etc/ssl/certs/ca-certificates.crt');
+    expect(c.env.REQUESTS_CA_BUNDLE).toBe('/etc/ssl/certs/ca-certificates.crt');
+    expect(c.env.CURL_CA_BUNDLE).toBe('/etc/ssl/certs/ca-certificates.crt');
+    expect(c.env.NODE_EXTRA_CA_CERTS).toBe('/etc/ssl/certs/ca-certificates.crt');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('forces UV_NATIVE_TLS=1 even if agentEnv tries to disable it', async () => {
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: { UV_NATIVE_TLS: '0' },
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 't',
+      gateRetries: 1,
+      runId: 'r',
+      enableSubtaskSequence: false,
+    });
+    expect(c.env.UV_NATIVE_TLS).toBe('1');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('forces Debian CA bundle for container mode even if agentEnv sets SSL_CERT_FILE', async () => {
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: { SSL_CERT_FILE: '/tmp/user.pem' },
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 't',
+      gateRetries: 1,
+      runId: 'r',
+      enableSubtaskSequence: false,
+    });
+    expect(c.env.SSL_CERT_FILE).toBe('/etc/ssl/certs/ca-certificates.crt');
+    expect(c.env.NODE_EXTRA_CA_CERTS).toBe('/etc/ssl/certs/ca-certificates.crt');
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -193,6 +271,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
         taskPrompt: 't',
         gateRetries: 1,
         runId: 'r',
+        enableSubtaskSequence: false,
       });
       expect(c.secretEnv[key]).toBe('from-host');
     } finally {
@@ -222,11 +301,91 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
         taskPrompt: 't',
         gateRetries: 1,
         runId: 'r',
+        enableSubtaskSequence: false,
       });
       expect(c.secretEnv[key]).toBe('from-host');
     } finally {
       if (prev === undefined) delete process.env[key];
       else process.env[key] = prev;
     }
+  });
+
+  it('sets subtask signal paths and sequence flag when enableSubtaskSequence is true (container mode)', async () => {
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: {},
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 't',
+      gateRetries: 1,
+      runId: 'r',
+      enableSubtaskSequence: true,
+    });
+    expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBe('1');
+    expect(c.env.SAIFCTL_SUBTASK_DONE_PATH).toBe('/workspace/.saifctl/subtask-done');
+    expect(c.env.SAIFCTL_NEXT_SUBTASK_PATH).toBe('/workspace/.saifctl/subtask-next.md');
+    expect(c.env.SAIFCTL_SUBTASK_EXIT_PATH).toBe('/workspace/.saifctl/subtask-exit');
+    expect(c.env.SAIFCTL_SUBTASK_RETRIES_PATH).toBe('/workspace/.saifctl/subtask-retries');
+  });
+
+  it('omits SAIFCTL_ENABLE_SUBTASK_SEQUENCE when enableSubtaskSequence is false', async () => {
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: {},
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 't',
+      gateRetries: 1,
+      runId: 'r',
+      enableSubtaskSequence: false,
+    });
+    expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBeUndefined();
+  });
+
+  it('omits task, gate, and subtask env when sandboxInteractive is true (container mode)', async () => {
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: {},
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 'should-not-appear',
+      gateRetries: 99,
+      runId: 'r',
+      enableSubtaskSequence: true,
+      sandboxInteractive: true,
+    });
+    expect(c.env.SAIFCTL_INITIAL_TASK).toBeUndefined();
+    expect(c.env.SAIFCTL_GATE_RETRIES).toBeUndefined();
+    expect(c.env.SAIFCTL_AGENT_SCRIPT).toBeUndefined();
+    expect(c.env.SAIFCTL_SUBTASK_DONE_PATH).toBeUndefined();
+    expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBeUndefined();
+    expect(c.env.SAIFCTL_RUN_ID).toBe('r');
+    expect(c.env.LLM_MODEL).toBe('anthropic/m');
+    expect(c.env.SAIFCTL_STARTUP_SCRIPT).toBe('/saifctl/startup.sh');
+    expect(c.env.SAIFCTL_AGENT_INSTALL_SCRIPT).toBe('/saifctl/agent-install.sh');
   });
 });

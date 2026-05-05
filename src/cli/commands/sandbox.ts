@@ -20,7 +20,7 @@ import {
   parseLlmOverridesCliDelta,
 } from '../../orchestrator/options.js';
 import type { SandboxExtractMode } from '../../orchestrator/phases/sandbox-extract.js';
-import { runSandbox } from '../../orchestrator/sandbox-run.js';
+import { runSandbox, runSandboxInteractive } from '../../orchestrator/sandbox-run.js';
 import type { Feature } from '../../specs/discover.js';
 import { readUtf8 } from '../../utils/io.js';
 import { featFromArtifactArgs, nameArg } from '../args.js';
@@ -42,14 +42,25 @@ const sandboxArgs = {
     ...nameArg,
     description: 'Sandbox label (kebab-case). Default: random id.',
   },
+  interactive: {
+    type: 'boolean' as const,
+    alias: 'i' as const,
+    description: 'Start an interactive sandbox: run startup + agent-install scripts, then idle. ',
+  },
   task: {
     type: 'string' as const,
     alias: 't' as const,
-    description: 'Task prompt for the agent. Required unless --task-file is set.',
+    description:
+      'Task prompt for the agent. Required unless --task-file, --subtasks, or --interactive is set.',
   },
   'task-file': {
     type: 'string' as const,
     description: 'Path to a file whose contents become the task prompt.',
+  },
+  subtasks: {
+    type: 'string' as const,
+    description:
+      'Path to subtasks JSON manifest (same as feat run --subtasks). Cannot be combined with --task/--task-file.',
   },
   extract: {
     type: 'boolean' as const,
@@ -76,16 +87,34 @@ const sandboxCommand = defineCommand({
   },
   args: sandboxArgs,
   async run({ args }) {
+    const interactive = args.interactive === true;
     const taskInline = typeof args.task === 'string' ? args.task.trim() : '';
     const taskFile = typeof args['task-file'] === 'string' ? args['task-file'].trim() : '';
+    const subtasksArg = typeof args.subtasks === 'string' ? args.subtasks.trim() : '';
 
-    if (!taskInline && !taskFile) {
-      consola.error('Error: provide --task/-t or --task-file');
+    const hasTask = Boolean(taskInline || taskFile);
+
+    // --interactive is mutually exclusive with task/subtask flags.
+    if (interactive && (hasTask || subtasksArg)) {
+      consola.error(
+        'Error: --interactive cannot be combined with --task, --task-file, or --subtasks',
+      );
       process.exit(1);
     }
-    if (taskInline && taskFile) {
-      consola.error('Error: use either --task or --task-file, not both');
-      process.exit(1);
+
+    if (!interactive) {
+      if (!hasTask && !subtasksArg) {
+        consola.error('Error: provide --task/-t, --task-file, --subtasks, or --interactive');
+        process.exit(1);
+      }
+      if (subtasksArg && hasTask) {
+        consola.error('Error: do not combine --subtasks with --task or --task-file');
+        process.exit(1);
+      }
+      if (taskInline && taskFile) {
+        consola.error('Error: use either --task or --task-file, not both');
+        process.exit(1);
+      }
     }
 
     const extract = args.extract === true;
@@ -105,11 +134,11 @@ const sandboxCommand = defineCommand({
 
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
 
-    let taskText: string;
+    let taskText: string | undefined;
     if (taskFile) {
       const taskPath = isAbsolute(taskFile) ? taskFile : resolve(projectDir, taskFile);
       taskText = await readUtf8(taskPath);
-    } else {
+    } else if (taskInline) {
       taskText = taskInline;
     }
 
@@ -138,12 +167,11 @@ const sandboxCommand = defineCommand({
     const saifctlRoot = getSaifctlRoot();
     const sandboxCedarPath = join(saifctlRoot, 'src', 'orchestrator', 'policies', 'sandbox.cedar');
     const sandboxGatePath = join(saifctlRoot, 'src', 'orchestrator', 'scripts', 'sandbox-gate.sh');
-    const gateScript = await readUtf8(sandboxGatePath);
 
     const cedarCli =
       typeof args.cedar === 'string' && args.cedar.trim() ? args.cedar.trim() : undefined;
 
-    const featArgs = { ...args, name: baseName } as FeatRunArgs;
+    const featArgs = { ...args, name: baseName, subtasks: subtasksArg || undefined } as FeatRunArgs;
     const cliBase = await buildOrchestratorCliInputFromFeatArgs(featArgs, {
       projectDir,
       saifctlDir,
@@ -154,10 +182,15 @@ const sandboxCommand = defineCommand({
     const runStorageOverride =
       storageRaw !== undefined ? resolveRunStorage(storageRaw, projectDir, config) : undefined;
 
+    // User may still use custom gate script via --gate-script, but default to noop.
+    const defaultSandboxGateScript = await readUtf8(sandboxGatePath);
+    const gateScript = cliBase.gateScript ?? defaultSandboxGateScript;
+    const gateScriptFile = cliBase.gateScriptFile ?? sandboxGatePath;
+
     const cli: OrchestratorCliInput = {
       ...cliBase,
       gateScript,
-      gateScriptFile: sandboxGatePath,
+      gateScriptFile,
       cedarPolicyPath: cedarCli ?? sandboxCedarPath,
       reviewerEnabled: false,
       maxRuns: 1,
@@ -168,12 +201,37 @@ const sandboxCommand = defineCommand({
     const cliModelDelta = parseLlmOverridesCliDelta(args);
     const engineCli = readEngineCliFromCli(args);
 
+    consola.log(`\n[sandbox] Run label: ${baseName}`);
+
+    // --interactive: startup + agent-install, then idle until Ctrl+C.
+    if (interactive) {
+      const sandboxExtract: SandboxExtractMode = extract
+        ? extractInclude
+          ? 'host-apply-filtered'
+          : 'host-apply'
+        : 'none';
+      const result = await runSandboxInteractive({
+        projectDir,
+        saifctlDir,
+        config,
+        feature,
+        cli,
+        cliModelDelta,
+        engineCli,
+        extract: sandboxExtract,
+        extractInclude: extractInclude || undefined,
+        extractExclude: extractExclude || undefined,
+      });
+      consola.log(`\n${result.message}`);
+      if (result.status === 'failed') process.exit(1);
+      return;
+    }
+
     let sandboxExtract: SandboxExtractMode = 'none';
     if (extract) {
       sandboxExtract = extractInclude ? 'host-apply-filtered' : 'host-apply';
     }
 
-    consola.log(`\n[sandbox] Run label: ${baseName}`);
     const result = await runSandbox({
       projectDir,
       saifctlDir,
@@ -182,7 +240,7 @@ const sandboxCommand = defineCommand({
       cli,
       cliModelDelta,
       engineCli,
-      task: taskText,
+      task: taskText ?? undefined,
       extract: sandboxExtract,
       extractInclude: extractInclude || undefined,
       extractExclude: extractExclude || undefined,

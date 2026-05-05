@@ -8,8 +8,8 @@
  * Structure:
  *   feat-run (parent workflow)
  *     └─ provision-sandbox  — creates the rsync'd sandbox once
- *     └─ convergence-loop   — if testOnly: staging tests only; else iterates up to maxRuns times
- *          Each iteration spawns a child workflow:
+ *     └─ convergence-loop   — if testOnly: staging tests only; else iterates subtasks × up to maxRuns attempts each
+ *          Each attempt spawns a child workflow:
  *          feat-run-iteration (child workflow)
  *            └─ run-agent   — 60-min timeout; coder + gate + reviewer + extractPatch
  *            └─ run-tests   — staging engine + test suite (raw result + testSuites)
@@ -46,7 +46,7 @@ import {
   buildPatchExcludeRules,
   logIterativeLoopSettings,
   prepareTestRunnerOpts,
-  resolveIterativeLoopTask,
+  resolveIterativeLoopTaskFromSubtask,
   runStagingTestVerification,
   runVagueSpecsCheckerForFailure,
   sandboxHasCommitsBeyondInitialImport,
@@ -55,7 +55,12 @@ import { getSandboxSourceDir } from '../../orchestrator/modes.js';
 import { applyPatchToHost } from '../../orchestrator/phases/apply-patch.js';
 import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
 import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
-import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
+import {
+  createSandbox,
+  destroySandbox,
+  type Sandbox,
+  updateSandboxSubtaskScripts,
+} from '../../orchestrator/sandbox.js';
 import {
   buildOuterAttemptSummary,
   readInnerRounds,
@@ -67,9 +72,11 @@ import {
   RunAlreadyRunningError,
   type RunCommit,
   type RunRule,
+  type RunSubtask,
   StaleArtifactError,
 } from '../../runs/types.js';
 import { buildRunArtifact } from '../../runs/utils/artifact.js';
+import { runSubtasksFromInputs } from '../../runs/utils/subtasks.js';
 import { gitClean, gitResetHard } from '../../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import { getHatchetClient } from '../client.js';
@@ -147,6 +154,8 @@ const innerRoundSummarySchema = z.object({
 
 const outerAttemptSummarySchema = z.object({
   attempt: z.number(),
+  subtaskIndex: z.number(),
+  subtaskAttempt: z.number(),
   phase: z.enum(['no_changes', 'tests_passed', 'tests_failed', 'aborted', 'sandbox_complete']),
   innerRoundCount: z.number(),
   innerRounds: z.array(innerRoundSummarySchema),
@@ -168,6 +177,22 @@ export const convergenceOutputSchema = z.object({
   roundSummaries: z.array(outerAttemptSummarySchema).optional(),
 });
 export type ConvergenceOutput = z.infer<typeof convergenceOutputSchema>;
+
+function resolveSubtasksForHatchetArtifact(opts: ReturnType<typeof deserializeOrchestratorOpts>): {
+  subtasks: RunSubtask[];
+  currentSubtaskIndex: number;
+} {
+  if (opts.fromArtifact?.seedSubtasks?.length) {
+    return {
+      subtasks: opts.fromArtifact.seedSubtasks.map((s) => ({ ...s })),
+      currentSubtaskIndex: opts.fromArtifact.currentSubtaskIndex ?? 0,
+    };
+  }
+  return {
+    subtasks: runSubtasksFromInputs(opts.subtasks),
+    currentSubtaskIndex: opts.currentSubtaskIndex ?? 0,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Serialized input types (JsonObject-compatible)
@@ -196,6 +221,18 @@ export type FeatRunIterationSerializedInput = HatchetInput & {
   task: string;
   /** JSON-serialized OrchestratorOpts */
   serializedOpts: Record<string, unknown>;
+  /**
+   * Active subtask metadata, plumbed to {@link runAgentPhase} for Block 8's
+   * modifications.log breadcrumb. Optional so older serialized payloads still
+   * deserialize cleanly during a rolling upgrade — when omitted the surfacing
+   * pass logs `subtaskIndex: 0, phaseId: null, criticId: null`, which is still
+   * useful in a single-subtask Hatchet run.
+   */
+  surfaceContext?: {
+    subtaskIndex: number;
+    phaseId: string | null;
+    criticId: string | null;
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -223,7 +260,7 @@ export function createFeatRunIterationWorkflow() {
     scheduleTimeout: '10m',
     fn: async (input, ctx) => {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
-      const { sandbox, attempt, errorFeedback, task } = input;
+      const { sandbox, attempt, errorFeedback, task, surfaceContext } = input;
       const { saifctlDir } = opts;
       const patchExclude = buildPatchExcludeRules({
         saifctlDir,
@@ -240,6 +277,7 @@ export function createFeatRunIterationWorkflow() {
         errorFeedback,
         task,
         patchExclude,
+        surfaceContext,
         opts: {
           llm: opts.llm,
           projectDir: opts.projectDir,
@@ -255,6 +293,7 @@ export function createFeatRunIterationWorkflow() {
           reviewerEnabled: opts.reviewerEnabled,
           codingEnvironment: opts.codingEnvironment,
           saifctlDir,
+          enableSubtaskSequence: false,
         },
         // No CleanupRegistry in Hatchet path (step 1.7 — Hatchet owns the process)
         registry: null,
@@ -293,6 +332,7 @@ export function createFeatRunIterationWorkflow() {
           projectName: opts.projectName,
           testImage: opts.testImage,
           testScript: opts.testScript,
+          testProfile: opts.testProfile,
           testRetries: opts.testRetries,
           stagingEnvironment: opts.stagingEnvironment,
         },
@@ -394,12 +434,18 @@ export function createFeatRunWorkflow() {
       if (runStorage) {
         try {
           const { runStorage: _rs, fromArtifact: _fa, ...loopOpts } = opts;
+          const { subtasks: provSubtasks, currentSubtaskIndex: provSubIdx } =
+            resolveSubtasksForHatchetArtifact(opts);
           const runningArtifact = buildRunArtifact({
             runId: sandboxRaw.runId,
             baseCommitSha: input.runContext.baseCommitSha,
             basePatchDiff: input.runContext.basePatchDiff,
             runCommits: opts.fromArtifact?.seedRunCommits ?? [],
-            specRef: opts.feature.relativePath,
+            sandboxHostAppliedCommitCount: opts.fromArtifact
+              ? opts.fromArtifact.sandboxHostAppliedCommitCount
+              : 0,
+            subtasks: provSubtasks,
+            currentSubtaskIndex: provSubIdx,
             rules: input.runContext.rules,
             roundSummaries: opts.fromArtifact?.seedRoundSummaries,
             status: 'running',
@@ -432,7 +478,7 @@ export function createFeatRunWorkflow() {
     fn: async (input, ctx): Promise<ConvergenceOutput> => {
       const sandboxRaw = await ctx.parentOutput(provisionTask);
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
-      const { maxRuns, feature, saifctlDir, fromArtifact, testOnly } = opts;
+      const { maxRuns, feature, fromArtifact, testOnly } = opts;
 
       const modeLabel = testOnly ? 'test' : fromArtifact ? 'fromArtifact' : 'start';
       consola.log(
@@ -456,6 +502,7 @@ export function createFeatRunWorkflow() {
           feature: opts.feature,
           sandboxBasePath: sandboxRaw.sandboxBasePath,
           testScript: opts.testScript,
+          testProfile: opts.testProfile,
         });
         const verify = await runStagingTestVerification({
           sandbox: sandboxRaw,
@@ -502,8 +549,8 @@ export function createFeatRunWorkflow() {
 
       const rulesState: RunRule[] = rulesFromWire();
 
-      let errorFeedback = fromArtifact?.initialErrorFeedback ?? '';
       let lastPatchContent = '';
+      let lastPatchPath: string | null = null;
       let lastErrorFeedback = '';
       let lastRunId = '';
       let runCommitsAccum: RunCommit[] = [...(fromArtifact?.seedRunCommits ?? [])];
@@ -511,106 +558,212 @@ export function createFeatRunWorkflow() {
       // Offset so attempt numbers continue from where prior invocations left off.
       const attemptOffset = fromArtifact?.seedRoundSummaries?.length ?? 0;
 
-      for (let attempt = 1; attempt <= maxRuns; attempt++) {
-        consola.log(
-          `\n[hatchet] ===== ATTEMPT ${attempt + attemptOffset}/${maxRuns + attemptOffset} (run ${sandboxRaw.runId}) =====`,
-        );
-        const attemptStartedAt = new Date().toISOString();
+      const { subtasks: hatchetSubtasks, currentSubtaskIndex: startSubtaskIndex } =
+        resolveSubtasksForHatchetArtifact(opts);
+      if (hatchetSubtasks.length === 0) {
+        throw new Error(`[hatchet] No subtasks on orchestrator opts (run ${sandboxRaw.runId}).`);
+      }
 
-        // Some rules are marked as "once" and should be consumed after the coding round.
-        // Thus these rules are included in the task prompt only on the first round.
-        const onceIdsThisRound = activeOnceRuleIds(rulesState);
-        const task = await resolveIterativeLoopTask({
-          taskPromptOverride: opts.taskPromptOverride,
-          feature,
-          saifctlDir,
-          rules: rulesForPrompt(rulesState),
-        });
+      let globalAttempt = 0;
 
-        // Hatchet: `runChild` resolves to the child workflow's final aggregate output. For a
-        // multi-task DAG, that object is keyed by each step's `name` (see TS SDK
-        // `WorkflowDeclaration.task` JSDoc — Hatchet's web docs often show `parentOutput` /
-        // single-task `run()` instead). Keys here match `featRunIterationWorkflow` tasks.
-        const iterResult = await ctx.runChild<
-          FeatRunIterationSerializedInput,
-          {
-            'run-agent': AgentPhaseOutput;
-            'run-tests': TestPhaseOutput;
-            'vague-specs-check': VagueSpecsStepOutput;
-          }
-        >(featRunIterationWorkflow.name, {
-          sandbox: sandboxRaw,
-          attempt,
-          errorFeedback,
-          task,
-          serializedOpts: input.serializedOpts,
-        });
-
-        const {
-          'run-agent': agentOut,
-          'run-tests': testOut,
-          'vague-specs-check': vagueOut,
-        } = iterResult;
-
-        const innerRounds = await readInnerRounds(roundsStatsPath(sandboxRaw.sandboxBasePath));
-
-        // Mark once rules as consumed if they were used this round.
-        if (onceIdsThisRound.length > 0) {
-          markOnceRulesConsumed(rulesState, onceIdsThisRound);
+      for (let subtaskIdx = startSubtaskIndex; subtaskIdx < hatchetSubtasks.length; subtaskIdx++) {
+        const activeIn = hatchetSubtasks[subtaskIdx];
+        if (!activeIn) {
+          throw new Error(`[hatchet] No subtask at index ${subtaskIdx} (run ${sandboxRaw.runId}).`);
         }
 
-        const emptyAgentRound = !agentOut.patchContent.trim() || agentOut.commits.length === 0;
-        if (emptyAgentRound && !(await sandboxHasCommitsBeyondInitialImport(sandboxRaw.codePath))) {
-          errorFeedback =
-            'No changes were made. Please implement the feature as described in the plan.';
+        // Each Hatchet child workflow starts a fresh coder container; sync /saifctl scripts
+        // from the active subtask before its attempts (per-subtask gate / agent overrides).
+        await updateSandboxSubtaskScripts({
+          saifctlPath: sandboxRaw.saifctlPath,
+          gateScript: activeIn.gateScript ?? opts.gateScript,
+          agentScript: activeIn.agentScript,
+        });
+
+        const effectiveGateRetries = activeIn.gateRetries ?? opts.gateRetries;
+        const effectiveReviewerEnabled = activeIn.reviewerEnabled ?? opts.reviewerEnabled;
+        const effectiveAgentEnv = { ...opts.agentEnv, ...(activeIn.agentEnv ?? {}) };
+
+        let errorFeedback =
+          subtaskIdx === startSubtaskIndex ? (fromArtifact?.initialErrorFeedback ?? '') : '';
+
+        let subtaskSucceeded = false;
+        let subtaskAttempt = 0;
+
+        for (let attempt = 1; attempt <= maxRuns; attempt++) {
+          subtaskAttempt++;
+          globalAttempt++;
+          const currentGlobalAttempt = globalAttempt + attemptOffset;
+          consola.log(
+            `\n[hatchet] ===== SUBTASK ${subtaskIdx + 1}/${hatchetSubtasks.length} — ATTEMPT ${subtaskAttempt}/${maxRuns} (global ${currentGlobalAttempt}, run ${sandboxRaw.runId}) =====`,
+          );
+          const attemptStartedAt = new Date().toISOString();
+
+          // Some rules are marked as "once" and should be consumed after the coding round.
+          // Thus these rules are included in the task prompt only on the first round.
+          const onceIdsThisRound = activeOnceRuleIds(rulesState);
+          const task = await resolveIterativeLoopTaskFromSubtask({
+            content: activeIn.content,
+            rules: rulesForPrompt(rulesState),
+          });
+
+          const childSerializedOpts: Record<string, unknown> = {
+            ...input.serializedOpts,
+            gateRetries: effectiveGateRetries,
+            reviewerEnabled: effectiveReviewerEnabled,
+            agentEnv: effectiveAgentEnv,
+          };
+
+          // Hatchet: `runChild` resolves to the child workflow's final aggregate output. For a
+          // multi-task DAG, that object is keyed by each step's `name` (see TS SDK
+          // `WorkflowDeclaration.task` JSDoc — Hatchet's web docs often show `parentOutput` /
+          // single-task `run()` instead). Keys here match `featRunIterationWorkflow` tasks.
+          const iterResult = await ctx.runChild<
+            FeatRunIterationSerializedInput,
+            {
+              'run-agent': AgentPhaseOutput;
+              'run-tests': TestPhaseOutput;
+              'vague-specs-check': VagueSpecsStepOutput;
+            }
+          >(featRunIterationWorkflow.name, {
+            sandbox: sandboxRaw,
+            attempt: currentGlobalAttempt,
+            errorFeedback,
+            task,
+            serializedOpts: childSerializedOpts,
+            // Block 8: thread the active subtask's identity to the iteration
+            // child so its run-agent step can JSONL-tag its modifications.log
+            // breadcrumb with phase/critic context. Implementer subtasks have
+            // a phaseId only; critic subtasks (discover/fix) carry both
+            // phaseId and criticPrompt.criticId.
+            surfaceContext: {
+              subtaskIndex: subtaskIdx,
+              phaseId: activeIn.phaseId ?? null,
+              criticId: activeIn.criticPrompt?.criticId ?? null,
+            },
+          });
+
+          const {
+            'run-agent': agentOut,
+            'run-tests': testOut,
+            'vague-specs-check': vagueOut,
+          } = iterResult;
+
+          const innerRounds = await readInnerRounds(roundsStatsPath(sandboxRaw.sandboxBasePath));
+
+          // Mark once rules as consumed if they were used this round.
+          if (onceIdsThisRound.length > 0) {
+            markOnceRulesConsumed(rulesState, onceIdsThisRound);
+          }
+
+          const emptyAgentRound = !agentOut.patchContent.trim() || agentOut.commits.length === 0;
+          if (
+            emptyAgentRound &&
+            !(await sandboxHasCommitsBeyondInitialImport(sandboxRaw.codePath))
+          ) {
+            errorFeedback =
+              'No changes were made. Please implement the feature as described in the plan.';
+            lastErrorFeedback = errorFeedback;
+            lastPatchContent = '';
+            roundSummaries.push(
+              buildOuterAttemptSummary({
+                attempt: currentGlobalAttempt,
+                subtaskIndex: subtaskIdx,
+                subtaskAttempt,
+                phase: 'no_changes',
+                innerRounds,
+                commitCount: 0,
+                patchBytes: 0,
+                errorFeedback,
+                startedAt: attemptStartedAt,
+              }),
+            );
+            continue;
+          }
+
+          runCommitsAccum = [...runCommitsAccum, ...agentOut.commits];
+          await writeUtf8(
+            join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
+            JSON.stringify(runCommitsAccum),
+          );
+
+          lastPatchContent = agentOut.patchContent;
+          lastRunId = testOut.testRunId;
+
+          if (testOut.status === 'passed') {
+            roundSummaries.push(
+              buildOuterAttemptSummary({
+                attempt: currentGlobalAttempt,
+                subtaskIndex: subtaskIdx,
+                subtaskAttempt,
+                phase: 'tests_passed',
+                innerRounds,
+                commitCount: agentOut.commits.length,
+                patchBytes: agentOut.patchContent.length,
+                startedAt: attemptStartedAt,
+              }),
+            );
+            lastPatchPath = agentOut.patchPath;
+            subtaskSucceeded = true;
+            break;
+          }
+
+          if (testOut.status === 'aborted') {
+            consola.log('[hatchet] Test run aborted by cancellation.');
+            if (agentOut.commits.length > 0) {
+              runCommitsAccum = runCommitsAccum.slice(0, -agentOut.commits.length);
+            }
+            await writeUtf8(
+              join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
+              JSON.stringify(runCommitsAccum),
+            );
+            roundSummaries.push(
+              buildOuterAttemptSummary({
+                attempt: currentGlobalAttempt,
+                subtaskIndex: subtaskIdx,
+                subtaskAttempt,
+                phase: 'aborted',
+                innerRounds,
+                commitCount: agentOut.commits.length,
+                patchBytes: agentOut.patchContent.length,
+                startedAt: attemptStartedAt,
+              }),
+            );
+            return {
+              success: false,
+              attempt: currentGlobalAttempt,
+              patchPath: null,
+              lastRunId: testOut.testRunId,
+              lastPatchContent: agentOut.patchContent,
+              lastErrorFeedback: 'Test run was cancelled.',
+              rules: rulesState,
+              roundSummaries,
+            };
+          }
+
+          const base = 'An external service attempted to use this project and failed. ';
+          const hint =
+            vagueOut.sanitizedHint ??
+            'Re-read the plan and specification, and fix the implementation.';
+          errorFeedback = base + hint;
           lastErrorFeedback = errorFeedback;
-          lastPatchContent = '';
+
+          consola.log(`\n[hatchet] Subtask ${subtaskIdx + 1} attempt ${subtaskAttempt} FAILED.`);
+
           roundSummaries.push(
             buildOuterAttemptSummary({
-              attempt: attempt + attemptOffset,
-              phase: 'no_changes',
+              attempt: currentGlobalAttempt,
+              subtaskIndex: subtaskIdx,
+              subtaskAttempt,
+              phase: 'tests_failed',
               innerRounds,
-              commitCount: 0,
-              patchBytes: 0,
+              commitCount: agentOut.commits.length,
+              patchBytes: agentOut.patchContent.length,
               errorFeedback,
               startedAt: attemptStartedAt,
             }),
           );
-          continue;
-        }
 
-        runCommitsAccum = [...runCommitsAccum, ...agentOut.commits];
-        await writeUtf8(
-          join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
-          JSON.stringify(runCommitsAccum),
-        );
-
-        lastPatchContent = agentOut.patchContent;
-        lastRunId = testOut.testRunId;
-
-        if (testOut.status === 'passed') {
-          roundSummaries.push(
-            buildOuterAttemptSummary({
-              attempt: attempt + attemptOffset,
-              phase: 'tests_passed',
-              innerRounds,
-              commitCount: agentOut.commits.length,
-              patchBytes: agentOut.patchContent.length,
-              startedAt: attemptStartedAt,
-            }),
-          );
-          return {
-            success: true,
-            attempt: attempt + attemptOffset,
-            patchPath: agentOut.patchPath,
-            lastRunId,
-            rules: rulesState,
-            roundSummaries,
-          };
-        }
-
-        if (testOut.status === 'aborted') {
-          consola.log('[hatchet] Test run aborted by cancellation.');
           if (agentOut.commits.length > 0) {
             runCommitsAccum = runCommitsAccum.slice(0, -agentOut.commits.length);
           }
@@ -618,69 +771,34 @@ export function createFeatRunWorkflow() {
             join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
             JSON.stringify(runCommitsAccum),
           );
-          roundSummaries.push(
-            buildOuterAttemptSummary({
-              attempt: attempt + attemptOffset,
-              phase: 'aborted',
-              innerRounds,
-              commitCount: agentOut.commits.length,
-              patchBytes: agentOut.patchContent.length,
-              startedAt: attemptStartedAt,
-            }),
+
+          await gitResetHard({ cwd: sandboxRaw.codePath, ref: agentOut.preRoundHeadSha });
+          await gitClean({ cwd: sandboxRaw.codePath });
+        }
+
+        if (!subtaskSucceeded) {
+          consola.error(
+            `\n[hatchet] Subtask ${subtaskIdx + 1} exhausted ${maxRuns} attempt(s) without success.`,
           );
           return {
             success: false,
-            attempt: attempt + attemptOffset,
+            attempt: globalAttempt + attemptOffset, // total attempts across all invocations
             patchPath: null,
-            lastRunId: testOut.testRunId,
-            lastPatchContent: agentOut.patchContent,
-            lastErrorFeedback: 'Test run was cancelled.',
+            lastRunId,
+            lastPatchContent,
+            lastErrorFeedback,
             rules: rulesState,
             roundSummaries,
           };
         }
-
-        const base = 'An external service attempted to use this project and failed. ';
-        const hint =
-          vagueOut.sanitizedHint ??
-          'Re-read the plan and specification, and fix the implementation.';
-        errorFeedback = base + hint;
-        lastErrorFeedback = errorFeedback;
-
-        consola.log(`\n[hatchet] Attempt ${attempt} FAILED.`);
-
-        roundSummaries.push(
-          buildOuterAttemptSummary({
-            attempt: attempt + attemptOffset,
-            phase: 'tests_failed',
-            innerRounds,
-            commitCount: agentOut.commits.length,
-            patchBytes: agentOut.patchContent.length,
-            errorFeedback,
-            startedAt: attemptStartedAt,
-          }),
-        );
-
-        if (agentOut.commits.length > 0) {
-          runCommitsAccum = runCommitsAccum.slice(0, -agentOut.commits.length);
-        }
-        await writeUtf8(
-          join(sandboxRaw.sandboxBasePath, 'run-commits.json'),
-          JSON.stringify(runCommitsAccum),
-        );
-
-        await gitResetHard({ cwd: sandboxRaw.codePath, ref: agentOut.preRoundHeadSha });
-        await gitClean({ cwd: sandboxRaw.codePath });
       }
 
-      consola.error(`\n[hatchet] Max runs (${maxRuns}) reached without success.`);
+      consola.log(`\n[hatchet] All ${hatchetSubtasks.length} subtask(s) completed successfully.`);
       return {
-        success: false,
-        attempt: maxRuns + attemptOffset, // total attempts across all invocations
-        patchPath: null,
+        success: true,
+        attempt: globalAttempt + attemptOffset,
+        patchPath: lastPatchPath,
         lastRunId,
-        lastPatchContent,
-        lastErrorFeedback,
         rules: rulesState,
         roundSummaries,
       };
@@ -733,12 +851,18 @@ export function createFeatRunWorkflow() {
       if (runStorage) {
         try {
           const { runStorage: _rs, fromArtifact: _fa, ...loopOpts } = opts;
+          const { subtasks: doneSubtasks, currentSubtaskIndex: doneSubIdx } =
+            resolveSubtasksForHatchetArtifact(opts);
           const artifact = buildRunArtifact({
             runId: sandboxRaw.runId,
             baseCommitSha: input.runContext.baseCommitSha,
             basePatchDiff: input.runContext.basePatchDiff,
             runCommits,
-            specRef: opts.feature.relativePath,
+            sandboxHostAppliedCommitCount: opts.fromArtifact
+              ? opts.fromArtifact.sandboxHostAppliedCommitCount
+              : 0,
+            subtasks: doneSubtasks,
+            currentSubtaskIndex: doneSubIdx,
             status: 'completed',
             rules: loopResult.rules,
             roundSummaries: loopResult.roundSummaries,
@@ -809,15 +933,22 @@ export function createFeatRunWorkflow() {
 
         try {
           const { runStorage: _rs, fromArtifact: _fa, ...loopOpts } = opts;
+          const failRules = loopResult?.rules ?? input.runContext.rules;
+          const { subtasks: failSubtasks, currentSubtaskIndex: failSubIdx } =
+            resolveSubtasksForHatchetArtifact(opts);
           const artifact = buildRunArtifact({
             runId: sandboxRaw.runId,
             baseCommitSha: input.runContext.baseCommitSha,
             basePatchDiff: input.runContext.basePatchDiff,
             runCommits,
-            specRef: opts.feature.relativePath,
+            sandboxHostAppliedCommitCount: opts.fromArtifact
+              ? opts.fromArtifact.sandboxHostAppliedCommitCount
+              : 0,
+            subtasks: failSubtasks,
+            currentSubtaskIndex: failSubIdx,
             lastFeedback: lastFeedback || undefined,
             status: 'failed',
-            rules: loopResult?.rules ?? input.runContext.rules,
+            rules: failRules,
             roundSummaries: loopResult?.roundSummaries,
             opts: loopOpts,
             controlSignal: null,
