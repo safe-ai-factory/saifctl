@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cursor CLI agent setup script — installs the Cursor `agent` binary as the
-# saifctl unprivileged user. See specification.md §4.1 X08-P7/P8 + the shared
+# saifctl unprivileged user. See release-readiness/X-08-P7/P8 + the shared
 # helpers at /saifctl/saifctl-agent-helpers.sh.
 #
 # The official installer drops the binary at $HOME/.local/bin/agent and prints

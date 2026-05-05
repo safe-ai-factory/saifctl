@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Integration test config (X-08 harness). Authoritative spec:
+ * Integration test config (release-readiness/X-08 harness). Authoritative spec:
  * `saifctl/features/release-readiness/specification.md` §10.
  *
  *   pnpm test:integration       — Docker scenarios (debug agent)

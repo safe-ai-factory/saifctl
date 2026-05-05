@@ -1,6 +1,6 @@
 #!/bin/bash
 # Terminus agent setup script — installs terminus-ai via uv tool install as
-# the saifctl unprivileged user. See specification.md §4.1 X08-P7/P8 + the
+# the saifctl unprivileged user. See release-readiness/X-08-P7/P8 + the
 # shared helpers at /saifctl/saifctl-agent-helpers.sh.
 #
 # Pinned version (checked PyPI 2026-03-21):

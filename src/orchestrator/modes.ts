@@ -485,7 +485,7 @@ async function abortRunStartIfStopRequested(runStorage: RunStorage, runId: strin
 }
 
 /**
- * Hatchet-experimental gate (per release-readiness Decision D-04).
+ * Hatchet-experimental gate (per release-readiness/D-04).
  *
  * The remote-server Hatchet path is not generally available in v0.1.0. When
  * `HATCHET_CLIENT_TOKEN` is set (`isLocal === false`), users must additionally

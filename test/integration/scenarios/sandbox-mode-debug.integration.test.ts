@@ -1,5 +1,5 @@
 /**
- * X-08 Phase 1 — debug-agent integration smoke (no LLM key required).
+ * release-readiness/X-08-P1 — debug-agent integration smoke (no LLM key required).
  *
  * Boots a real Docker container with the `debug` agent profile, which writes
  * a deterministic `dummy.md` matching the dummy feature's public test cases.
@@ -12,7 +12,7 @@
  *
  * Runs under `SAIFCTL_INTEG=1`; skips otherwise.
  *
- * See specification.md §10 (X08-P1).
+ * See release-readiness/X-08-P1.
  */
 import { afterAll, beforeAll, expect, it } from 'vitest';
 
@@ -20,7 +20,7 @@ import { runHarness } from '../harness/runHarness.js';
 import { pruneStrayHarnessContainers } from '../harness/setup/cleanup.js';
 import { describeIntegration, dockerAvailable } from '../harness/setup/env-gate.js';
 
-describeIntegration('integration: sandbox-mode-debug (X08-P1)', () => {
+describeIntegration('integration: sandbox-mode-debug (X-08-P1)', () => {
   beforeAll(async () => {
     const ok = await dockerAvailable();
     if (!ok) {

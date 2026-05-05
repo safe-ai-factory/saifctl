@@ -33,7 +33,7 @@ name: Integration tests (weekly, with LLM)
 # a fix without waiting for Monday.
 #
 # Authoritative spec: saifctl/features/release-readiness/specification.md
-# §4.1, item X08-P3.
+# release-readiness/X-08-P3.
 on:
   schedule:
     # Mondays 06:00 UTC (07/08 local depending on BST). Low-traffic window so
@@ -46,13 +46,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -108,9 +108,18 @@ jobs:
 
       - name: Upload harness logs (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: harness-logs-weekly-${{ github.run_id }}-${{ github.run_attempt }}
           path: .harness-logs/
           if-no-files-found: warn
           retention-days: 30
+
+      # Same rationale as the per-PR workflow: the coder container creates
+      # root-owned files in bind-mounted dirs, the runner user can't remove
+      # them, and that masks downstream errors. See per-PR workflow comment
+      # for the full reasoning. Always-run; never fail the job from cleanup.
+      - name: Cleanup root-owned tmp dirs
+        if: always()
+        run: |
+          sudo rm -rf /tmp/saifctl /tmp/saifctl-integ-* /tmp/leash.code.* 2>/dev/null || true

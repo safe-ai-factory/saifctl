@@ -39,14 +39,16 @@ function parseMcpUrl(value: string): URL {
   throw new Error(`MCP config must be an HTTP or HTTPS URL (e.g. http://... or https://...).`);
 }
 
+interface WrapMcpToolOptions {
+  mcpName: string;
+  tool: { name: string; description?: string | null; inputSchema?: unknown };
+  callTool: (params: { name: string; arguments?: Record<string, unknown> }) => Promise<unknown>;
+}
+
 /**
  * Wraps an MCP server tool as a Mastra-compatible Tool.
  */
-function wrapMcpTool(
-  mcpName: string,
-  tool: { name: string; description?: string | null; inputSchema?: unknown },
-  callTool: (params: { name: string; arguments?: Record<string, unknown> }) => Promise<unknown>,
-): Tool {
+function wrapMcpTool({ mcpName, tool, callTool }: WrapMcpToolOptions): Tool {
   const toolId = `${mcpName}_${tool.name}`;
   // When we call this tool, it calls `client.callTool({ name, arguments })`
   // and returns the raw result.
@@ -78,7 +80,11 @@ async function loadMcpTools(mcpName: string, urlOrValue: string): Promise<Record
   const { tools } = await client.listTools();
   const result: Record<string, Tool> = {};
   for (const t of tools) {
-    const mastraTool = wrapMcpTool(mcpName, t, (params) => client.callTool(params));
+    const mastraTool = wrapMcpTool({
+      mcpName,
+      tool: t,
+      callTool: (params) => client.callTool(params),
+    });
     result[`${mcpName}_${t.name}`] = mastraTool;
   }
 

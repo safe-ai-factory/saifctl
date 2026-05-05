@@ -144,7 +144,6 @@
     "@types/mustache": "^4.2.6",
     "@types/node": "^25",
     "@vitest/coverage-v8": "^2.1.9",
-    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

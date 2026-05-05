@@ -1,6 +1,6 @@
 /**
  * Cross-profile contract: every `Dockerfile.coder` ships the drop-privileges
- * scaffold (X08-P2). Without it, agents that refuse to run as root (Claude
+ * scaffold (release-readiness/X-08-P2). Without it, agents that refuse to run as root (Claude
  * Code with `--dangerously-skip-permissions`, etc.) hang or fail to start.
  *
  * Adding a new sandbox profile? The scaffold is:
@@ -38,7 +38,7 @@ async function discoverCoderDockerfiles(): Promise<string[]> {
   return dockerfiles;
 }
 
-describe('Dockerfile.coder drop-privileges scaffold (X08-P2)', () => {
+describe('Dockerfile.coder drop-privileges scaffold (release-readiness/X-08-P2)', () => {
   it('every coder Dockerfile pre-creates the saifctl user with the npm-global prefix', async () => {
     const dockerfiles = await discoverCoderDockerfiles();
     expect(dockerfiles.length).toBeGreaterThan(0); // smoke: discovery worked
@@ -49,17 +49,17 @@ describe('Dockerfile.coder drop-privileges scaffold (X08-P2)', () => {
       const hasUserCreate = /useradd\s+.*\s+saifctl\b/.test(content);
       const hasNpmPrefixDir = /\/home\/saifctl\/\.npm-global/.test(content);
       const hasUnprivUserEnv = /ENV\s+SAIFCTL_UNPRIV_USER=saifctl/.test(content);
-      const hasUnprivPrefixEnv = /ENV\s+SAIFCTL_UNPRIV_NPM_PREFIX=\/home\/saifctl\/\.npm-global/.test(
-        content,
-      );
+      const hasUnprivPrefixEnv =
+        /ENV\s+SAIFCTL_UNPRIV_NPM_PREFIX=\/home\/saifctl\/\.npm-global/.test(content);
       if (!(hasUserCreate && hasNpmPrefixDir && hasUnprivUserEnv && hasUnprivPrefixEnv)) {
         missing.push(path);
       }
     }
     // Print which file failed for fast triage; assert empty so the failure
     // message lists every offender at once instead of bailing on the first.
-    expect(missing, `Dockerfiles missing the drop-privileges scaffold:\n  ${missing.join('\n  ')}`).toEqual(
-      [],
-    );
+    expect(
+      missing,
+      `Dockerfiles missing the drop-privileges scaffold:\n  ${missing.join('\n  ')}`,
+    ).toEqual([]);
   });
 });

@@ -6,7 +6,7 @@
  *
  * Background: see {@link SAIFCTL_ENGINE_EXITED_REASON} on `runs/types.ts`
  * and the comment at the call site in `run-coding-phase.ts`. Triggered by
- * a real failure observed in X-08 P2 where coder-start.sh died under
+ * a real failure observed in release-readiness/X-08-P2 where coder-start.sh died under
  * `set -e` between the inner-loop end and the explicit done-signal write,
  * causing the orchestrator to hang for 15 minutes until vitest's testTimeout
  * fired.

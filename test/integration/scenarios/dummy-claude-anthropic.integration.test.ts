@@ -1,7 +1,7 @@
 /**
- * X-08 Phase 2 — claude + Anthropic against the dummy feature.
+ * release-readiness/X-08-P2 — claude + Anthropic against the dummy feature.
  *
- * The load-bearing leg of D-07: a real LLM call inside a real container,
+ * The load-bearing leg of release-readiness/D-07: a real LLM call inside a real container,
  * agent reads the dummy spec, writes `dummy.md` matching the public test
  * cases, full pipeline (staging tests, patch, branch).
  *
@@ -13,8 +13,8 @@
  *      orchestrator message, or the produced file (pitfall #4)
  *
  * Runs only when `SAIFCTL_INTEG=1` is set and `SAIFCTL_NO_LLM` is unset —
- * per D-07: "scope LLM calls to one nightly job, not per-PR."
- * See specification.md §10 (X08-P2).
+ * per release-readiness/D-07: "scope LLM calls to one nightly job, not per-PR."
+ * See release-readiness/X-08-P2.
  *
  * Cost estimate: one round, claude-haiku-4-5, < $0.05 typical. Default hard
  * cap 15 minutes wall-clock — covers cold-cache runs (docker pulls + the
@@ -40,7 +40,7 @@ import { runHarness } from '../harness/runHarness.js';
 import { pruneStrayHarnessContainers } from '../harness/setup/cleanup.js';
 import { describeIntegration, getAnthropicKey, itWithLLM } from '../harness/setup/env-gate.js';
 
-describeIntegration('integration: dummy-claude-anthropic (X08-P2)', () => {
+describeIntegration('integration: dummy-claude-anthropic (X-08-P2)', () => {
   afterAll(async () => {
     await pruneStrayHarnessContainers();
   });

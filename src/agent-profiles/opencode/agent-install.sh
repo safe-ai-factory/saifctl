@@ -2,7 +2,7 @@
 # OpenCode agent setup script.
 #
 # Installs opencode-ai via npm into the saifctl unprivileged user's npm-global
-# prefix. See specification.md §4.1 X08-P7/P8 + /saifctl/saifctl-agent-helpers.sh.
+# prefix. See release-readiness/X-08-P7/P8 + /saifctl/saifctl-agent-helpers.sh.
 #
 # Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/opencode-ai
 

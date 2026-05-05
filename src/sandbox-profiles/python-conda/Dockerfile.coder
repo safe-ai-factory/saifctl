@@ -30,7 +30,7 @@ RUN conda update -n base -c conda-forge conda --yes \
 # Enable conda for login shells.
 RUN conda init bash
 
-# ─── Drop-privileges scaffold (X08-P2) ───────────────────────────────────────
+# ─── Drop-privileges scaffold (release-readiness/X-08-P2) ───────────────────────────────────────
 # Some agent CLIs (notably Claude Code with `--dangerously-skip-permissions`)
 # refuse to run as root. The container default stays root for Leash bootstrap
 # compatibility; per-agent scripts drop to this user via `runuser` for the

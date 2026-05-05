@@ -2,7 +2,7 @@
  * Tests for the critic-prompt mustache renderer (Block 4 of TODO_phases_and_critics).
  */
 
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,9 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   BUILTIN_FIX_TEMPLATE,
+  createSandboxFileResolver,
   CRITIC_PROMPT_VARS,
   CriticPromptRenderError,
-  createSandboxFileResolver,
   type CriticPromptVars,
   renderCriticPrompt,
 } from './critic-prompt.js';
@@ -126,9 +126,9 @@ describe('renderCriticPrompt — closed-var enforcement', () => {
     // unescaped form, which is identical to our identity-escape `{{phase.basRef}}`
     // — but the inner-token validator can't see the surrounding `{` to flag it
     // as a typo. Reject the syntax instead.
-    expect(() =>
-      renderCriticPrompt({ template: '{{{phase.id}}}', vars: baseVars }),
-    ).toThrow(/Triple-stash/);
+    expect(() => renderCriticPrompt({ template: '{{{phase.id}}}', vars: baseVars })).toThrow(
+      /Triple-stash/,
+    );
     expect(() =>
       renderCriticPrompt({ template: 'before {{{phase.basRef}}} after', vars: baseVars }),
     ).toThrow(/Triple-stash/);
@@ -232,8 +232,7 @@ describe("renderCriticPrompt — '{{> file <path>}}' partial", () => {
     const out = renderCriticPrompt({
       template: 'before\n{{> file self.md}}\nafter',
       vars: baseVars,
-      readFile: () =>
-        '<!-- include via {{> file self.md}} -->\nbody with {{phase.id}} reference',
+      readFile: () => '<!-- include via {{> file self.md}} -->\nbody with {{phase.id}} reference',
     });
     expect(out).toContain('include via {{> file self.md}}');
     // {{phase.id}} in partial content is also literal — partial content is

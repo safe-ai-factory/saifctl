@@ -5,8 +5,8 @@
 export { sandboxPassthroughArgs } from './cli/args.js';
 export type { SaifctlConfig } from './config/schema.js';
 export {
+  consola,
   type ConsolaInstance,
-  logger,
   LogLevels,
   outputCliData,
   setVerboseLogging,

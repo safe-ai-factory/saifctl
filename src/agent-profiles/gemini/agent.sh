@@ -7,7 +7,7 @@
 # CLI reference: https://geminicli.com/docs/reference/configuration/#command-line-arguments
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8).
+# for the shared scaffold (release-readiness/X-08-P7/P8).
 #
 # Model and API key:
 #   Gemini expects GEMINI_API_KEY. The factory provides LLM_API_KEY (generic) and

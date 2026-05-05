@@ -21,13 +21,12 @@ import { writeSync } from 'node:fs';
 
 import { type ConsolaInstance, createConsola, LogLevels } from 'consola';
 
-export const logger: ConsolaInstance = createConsola({
+const logger: ConsolaInstance = createConsola({
   defaults: {
     tag: 'saifctl',
   },
 });
 
-/** Same instance as {@link logger}; use either name. */
 export const consola: ConsolaInstance = logger;
 
 /** Level from env/reporter defaults on first load, before CLI overrides. */

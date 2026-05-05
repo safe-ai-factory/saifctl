@@ -5,7 +5,7 @@
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8).
+# for the shared scaffold (release-readiness/X-08-P7/P8).
 #
 # Kilo CLI is a fork of OpenCode and inherits its config/provider model.
 # CLI reference:    https://kilocode.ai/docs/cli

@@ -1,7 +1,7 @@
 #!/bin/bash
 # saifctl agent helpers — sourced by per-profile agent.sh / agent-install.sh
 # scripts inside the coder container. Provides shared drop-privileges
-# primitives so each agent profile doesn't re-implement them (X08-P7/P8).
+# primitives so each agent profile doesn't re-implement them (release-readiness/X-08-P7/P8).
 #
 # Mounted at /saifctl/saifctl-agent-helpers.sh by the orchestrator (see the
 # `coder-start.sh` co-mount list in src/orchestrator/sandbox.ts:421-426).

@@ -1,8 +1,14 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/validation/validate/*.ts!"],
+  "ignoreDependencies": ["@strongdm/leash"],
+  "ignoreBinaries": ["uv"],
   "ignoreFiles": [
-    "src/test-profiles/templates/**",
-    "src/orchestrator/sidecars/cli-over-http/**",
-    "saifctl/**"
+    "npm-tombstones/**",
+    "src/test-profiles/**",
+    "test/integration/harness/fixtures/**",
+    "vendor/**",
+    "vscode-ext/**",
+    "web/**"
   ]
 }

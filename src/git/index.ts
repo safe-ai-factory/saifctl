@@ -20,11 +20,6 @@ import { GitHubProvider } from './providers/github.js';
 import { GitLabProvider } from './providers/gitlab.js';
 import type { GitProvider } from './types.js';
 
-export { AzureReposProvider } from './providers/azure.js';
-export { BitbucketProvider } from './providers/bitbucket.js';
-export { GiteaProvider } from './providers/gitea.js';
-export { GitHubProvider } from './providers/github.js';
-export { GitLabProvider } from './providers/gitlab.js';
 export type { GitProvider, PullRequestOpts } from './types.js';
 
 const SUPPORTED_PROVIDERS = ['github', 'gitlab', 'bitbucket', 'azure', 'gitea'] as const;

@@ -7,7 +7,7 @@
 # CLI reference: https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8). Copilot runs as $SAIFCTL_UNPRIV_USER.
+# for the shared scaffold (release-readiness/X-08-P7/P8). Copilot runs as $SAIFCTL_UNPRIV_USER.
 #
 # Authentication:
 #   Copilot CLI uses a GitHub token for auth. It checks the following environment

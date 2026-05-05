@@ -185,14 +185,10 @@ describe('compilePhasesToSubtasks — critics', () => {
     await writeFile(join(featureDir, 'feature.yml'), `critics:\n  - { id: strict }\n`, 'utf8');
 
     const out = await compile();
-    const discover = out.find(
-      (s) => s.title === 'phase:01-core critic:strict round:1/1 discover',
-    );
+    const discover = out.find((s) => s.title === 'phase:01-core critic:strict round:1/1 discover');
     // Raw body — mustache tokens are still literals here. Block 4's loop
     // renderer expands them just before invoking the agent.
-    expect(discover?.content).toBe(
-      'AUDIT_BODY_TOKEN — phase {{phase.id}} round {{critic.round}}',
-    );
+    expect(discover?.content).toBe('AUDIT_BODY_TOKEN — phase {{phase.id}} round {{critic.round}}');
   });
 
   it('fix subtask content is the saifctl-owned BUILTIN_FIX_TEMPLATE (not the user critic body)', async () => {
@@ -220,13 +216,9 @@ describe('compilePhasesToSubtasks — critics', () => {
     );
 
     const out = await compile();
-    const r1d = out.find(
-      (s) => s.title === 'phase:01-core critic:paranoid round:1/2 discover',
-    );
+    const r1d = out.find((s) => s.title === 'phase:01-core critic:paranoid round:1/2 discover');
     const r1f = out.find((s) => s.title === 'phase:01-core critic:paranoid round:1/2 fix');
-    const r2d = out.find(
-      (s) => s.title === 'phase:01-core critic:paranoid round:2/2 discover',
-    );
+    const r2d = out.find((s) => s.title === 'phase:01-core critic:paranoid round:2/2 discover');
 
     expect(r1d?.phaseId).toBe('01-core');
     expect(r1d?.criticPrompt?.criticId).toBe('paranoid');
@@ -270,9 +262,7 @@ describe('compilePhasesToSubtasks — critics', () => {
     await writeFile(join(featureDir, 'feature.yml'), `critics:\n  - { id: strict }\n`, 'utf8');
 
     const out = await compile();
-    const discover = out.find(
-      (s) => s.title === 'phase:01-core critic:strict round:1/1 discover',
-    );
+    const discover = out.find((s) => s.title === 'phase:01-core critic:strict round:1/1 discover');
     const fix = out.find((s) => s.title === 'phase:01-core critic:strict round:1/1 fix');
     // Both gate on the same cumulative test set as the impl that wrote the code.
     expect(discover?.testScope).toEqual(fix?.testScope);
@@ -381,9 +371,7 @@ describe('compilePhasesToSubtasks — implementer prompt', () => {
     await makeCritic('strict', 'BODY');
     await writeFile(join(featureDir, 'feature.yml'), `critics:\n  - { id: strict }\n`, 'utf8');
     const out = await compile();
-    const critic = out.find(
-      (s) => s.title === 'phase:01-core critic:strict round:1/1 discover',
-    );
+    const critic = out.find((s) => s.title === 'phase:01-core critic:strict round:1/1 discover');
     // Paths live on criticPrompt.vars now (Block 4); content is the raw body.
     expect(critic?.criticPrompt?.vars.phase.spec).toBe(
       `/workspace/${SAIFCTL_DIR}/features/${FEATURE_NAME}/phases/01-core/spec.md`,

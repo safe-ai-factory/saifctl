@@ -412,4 +412,3 @@ After every item is addressed, verify that the tests at \`{{phase.tests}}\` stil
 
 This is round {{critic.round}} of {{critic.totalRounds}} for the '{{critic.id}}' critic.
 `;
-

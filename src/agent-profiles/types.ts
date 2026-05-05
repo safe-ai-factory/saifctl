@@ -43,9 +43,9 @@
  *
  * **Symmetric drop-privileges for every agent** is the desired end state
  * (least-privilege default; a bug or prompt-injection in any agent
- * shouldn't have root over `/workspace`). It's tracked as **X08-P8** in
+ * shouldn't have root over `/workspace`). It's tracked as **release-readiness/X-08-P8** in
  * `saifctl/features/release-readiness/specification.md` §4.1, deferred
- * until X-01's smoke matrix exercises every agent end-to-end so each can
+ * until release-readiness/X-01's smoke matrix exercises every agent end-to-end so each can
  * be migrated and validated together.
  *
  * The Dockerfile-side contract (`SAIFCTL_UNPRIV_USER`,

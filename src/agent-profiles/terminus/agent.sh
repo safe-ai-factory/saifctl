@@ -5,7 +5,7 @@
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8).
+# for the shared scaffold (release-readiness/X-08-P7/P8).
 #
 # Architecture: Terminus uses a single tmux session as its only tool — sends
 # keystrokes and reads back the screen. No tools other than bash + tmux.

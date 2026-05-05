@@ -9,7 +9,7 @@
  *
  *     LLM_SMOKE=1 pnpm vitest run src/llm-config.smoke.test.ts
  *
- * They verify the two D-05 dispatch paths against real endpoints:
+ * They verify the two release-readiness/D-05 dispatch paths against real endpoints:
  *
  *   1. **Native path** — Anthropic via `@ai-sdk/anthropic`, requires
  *      `ANTHROPIC_API_KEY`.

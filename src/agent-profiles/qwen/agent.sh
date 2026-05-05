@@ -7,7 +7,7 @@
 # CLI reference: https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8).
+# for the shared scaffold (release-readiness/X-08-P7/P8).
 #
 # Model and API key:
 #   Qwen Code supports multiple protocols, each with its own env vars:

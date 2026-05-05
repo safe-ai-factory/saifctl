@@ -1,7 +1,7 @@
 #!/bin/bash
 # Forge Code agent setup script — installs the forge binary as the saifctl
 # unprivileged user via the official curl install script. See
-# specification.md §4.1 X08-P7/P8 + /saifctl/saifctl-agent-helpers.sh.
+# release-readiness/X-08-P7/P8 + /saifctl/saifctl-agent-helpers.sh.
 #
 # Pinned release (checked GitHub 2026-03-21): https://github.com/antinomyhq/forge/releases
 # The upstream install script accepts a version argument:  curl … | sh -s -- vX.Y.Z

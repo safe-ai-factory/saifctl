@@ -7,7 +7,7 @@
 # CLI reference: https://developers.openai.com/codex/cli/reference
 #
 # Drop-privileges: claude/agent.sh and the helper at
-# /saifctl/saifctl-agent-helpers.sh document the shared scaffold (X08-P7/P8).
+# /saifctl/saifctl-agent-helpers.sh document the shared scaffold (release-readiness/X-08-P7/P8).
 # Codex runs as $SAIFCTL_UNPRIV_USER for the same least-privilege reason.
 #
 # Model and API key:

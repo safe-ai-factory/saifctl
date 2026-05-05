@@ -2,7 +2,7 @@
 # Kilo Code CLI agent setup script.
 #
 # Installs @kilocode/cli via npm into the saifctl unprivileged user's
-# npm-global prefix. See specification.md §4.1 X08-P7/P8 + the shared
+# npm-global prefix. See release-readiness/X-08-P7/P8 + the shared
 # helpers at /saifctl/saifctl-agent-helpers.sh.
 #
 # Requires Node.js 20.18.1+ (LTS) — the project's .nvmrc minimum.

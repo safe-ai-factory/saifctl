@@ -28,7 +28,11 @@ const NAMESPACE = 'runs';
  * @returns `RunStorage` instance, or null for "none" (no persistence)
  */
 export function createRunStorage(uriOrShorthand: string, projectDir: string): RunStorage | null {
-  const storage = createStorage<RunArtifact>(uriOrShorthand, projectDir, NAMESPACE);
+  const storage = createStorage<RunArtifact>({
+    uriOrShorthand,
+    projectDir,
+    namespace: NAMESPACE,
+  });
   if (!storage) return null;
   return new RunStorage(storage, uriOrShorthand);
 }

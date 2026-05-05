@@ -22,6 +22,22 @@
 #      This ensures the staging container does not exit while the test runner is active.
 set -eu
 
+# Diagnostic instrumentation — Linux runners hit a `cd /workspace` failure that
+# does not reproduce on macOS Docker Desktop (where bind-mount UIDs are
+# translated). Print enough state on every start so the failure mode is
+# obvious in CI logs without needing to commit-and-re-run. Errors are
+# swallowed individually so this never masks the real failure that follows.
+# Tracked: release-readiness/X-08-P3 follow-up (Linux UID/bind-mount compat for staging+test).
+echo "[staging-start] diag: id=$(id 2>&1)" >&2
+echo "[staging-start] diag: caps=$(grep -E '^Cap(Inh|Eff|Bnd|Prm)' /proc/self/status 2>/dev/null | tr '\n' ' ' || true)" >&2
+if [ -e /workspace ]; then
+  echo "[staging-start] diag: /workspace stat: $(stat -c 'mode=%a uid=%u gid=%g type=%F' /workspace 2>&1 || true)" >&2
+  echo "[staging-start] diag: /workspace ls (first 5):" >&2
+  ls -la /workspace 2>&1 | head -6 >&2 || true
+else
+  echo "[staging-start] diag: /workspace MISSING — bind mount did not materialise" >&2
+fi
+
 cd /workspace
 
 if [ -z "${SAIFCTL_STARTUP_SCRIPT:-}" ]; then

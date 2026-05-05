@@ -14,7 +14,7 @@
  * with `<projectDir>/<saifctlDir>/tests` (see
  * `src/orchestrator/resolve-subtasks.ts`). Without scaffolded helpers/infra/
  * example, that path stays empty in real projects and the project-level
- * always-immutable suite (per D-07 / X-08) has no on-ramp. Scaffolding from
+ * always-immutable suite (per release-readiness/D-07 / release-readiness/X-08) has no on-ramp. Scaffolding from
  * the same per-profile templates the feature dir uses keeps the two scopes
  * symmetrical.
  *
@@ -30,7 +30,7 @@
  * after `init tests --test-profile=node-playwright` while still respecting
  * any handcrafted edits.
  *
- * See specification.md §10 (X08-P6).
+ * See release-readiness/X-08-P6.
  */
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';

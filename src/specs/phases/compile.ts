@@ -242,11 +242,7 @@ function workspacePath(...segments: string[]): string {
  * (where `task.md` already lives) — distinct from the project's `saifctl/`
  * config dir.
  */
-function buildFindingsPath(opts: {
-  phaseId: string;
-  criticId: string;
-  round: number;
-}): string {
+function buildFindingsPath(opts: { phaseId: string; criticId: string; round: number }): string {
   return `/workspace/.saifctl/critic-findings/${opts.phaseId}--${opts.criticId}--r${opts.round}.md`;
 }
 

@@ -2,7 +2,7 @@
 # Codex agent setup script.
 #
 # Installs @openai/codex via npm into the saifctl unprivileged user's
-# npm-global prefix. See specification.md §4.1 X08-P7/P8 for why every
+# npm-global prefix. See release-readiness/X-08-P7/P8 for why every
 # agent runs unprivileged; the shared scaffold lives at
 # /saifctl/saifctl-agent-helpers.sh.
 #

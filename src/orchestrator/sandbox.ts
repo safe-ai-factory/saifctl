@@ -424,7 +424,7 @@ async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<v
     'staging-start.sh',
     'reviewer.sh',
     // Shared drop-privileges helpers; sourced by per-profile agent.sh /
-    // agent-install.sh. See specification.md §4.1 X08-P7/P8.
+    // agent-install.sh. See release-readiness/X-08-P7/P8.
     'saifctl-agent-helpers.sh',
   ] as const) {
     const dest = join(saifctlPath, name);
@@ -713,7 +713,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     'staging-start.sh',
     'reviewer.sh',
     // Shared drop-privileges helpers; sourced by per-profile agent.sh /
-    // agent-install.sh. See specification.md §4.1 X08-P7/P8.
+    // agent-install.sh. See release-readiness/X-08-P7/P8.
     'saifctl-agent-helpers.sh',
   ] as const) {
     const dest = join(saifctlPath, name);

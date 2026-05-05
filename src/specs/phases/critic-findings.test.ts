@@ -33,7 +33,9 @@ afterEach(async () => {
   await rm(codePath, { recursive: true, force: true });
 });
 
-function makeRow(overrides: Partial<RunSubtask['criticPrompt']> & { step?: 'discover' | 'fix' } = {}): RunSubtask {
+function makeRow(
+  overrides: Partial<RunSubtask['criticPrompt']> & { step?: 'discover' | 'fix' } = {},
+): RunSubtask {
   return {
     id: 'sub1',
     title: 'phase:01-core critic:strict round:1/1 fix',

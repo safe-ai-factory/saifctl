@@ -15,7 +15,7 @@
  * signal.
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -49,14 +49,18 @@ async function tryParseRunArgs(
   try {
     // parseRunArgs is typed against a citty-derived shape; the runtime only
     // reads the keys this test needs, so cast to any.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     await parseRunArgs(args as any);
     return { errors, exitCode: undefined, threwOther: null };
   } catch (e) {
     if (e instanceof Error && e.message === EXIT_SENTINEL && 'exitCode' in e) {
       return { errors, exitCode: (e as Error & { exitCode: number }).exitCode, threwOther: null };
     }
-    return { errors, exitCode: undefined, threwOther: e instanceof Error ? e : new Error(String(e)) };
+    return {
+      errors,
+      exitCode: undefined,
+      threwOther: e instanceof Error ? e : new Error(String(e)),
+    };
   } finally {
     errSpy.mockRestore();
     logSpy.mockRestore();

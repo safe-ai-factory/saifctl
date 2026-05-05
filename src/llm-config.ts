@@ -144,7 +144,7 @@ type CreateProviderFn = (opts: {
  *   read the provider name to pick API conventions) while collapsing 15
  *   `@ai-sdk/*` packages into a single shared dependency.
  *
- * Per Decision D-05 in `saifctl/features/release-readiness/specification.md`.
+ * Per release-readiness/D-05 in `saifctl/features/release-readiness/specification.md`.
  */
 type ProviderConfig =
   | {
@@ -530,7 +530,7 @@ function getZeroConfigDefault(): { model: string; apiKeyEnv: string } | undefine
 /**
  * Instantiates a Vercel AI SDK `LanguageModelV3` from a resolved `LlmConfig`.
  *
- * Dispatch (per Decision D-05):
+ * Dispatch (per release-readiness/D-05):
  *
  * - **Native**: Anthropic, OpenAI, Google, Google Vertex use their own SDKs
  *   (none of them expose an OpenAI-compatible chat-completions surface, except

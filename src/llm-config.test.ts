@@ -103,7 +103,7 @@ describe('llm-config', () => {
   });
 
   describe('createProviderModel', () => {
-    // Verifies the dispatch table from Decision D-05: native SDKs for the
+    // Verifies the dispatch table from release-readiness/D-05: native SDKs for the
     // four providers without OpenAI-compatible endpoints (Anthropic,
     // Google, Vertex, OpenAI), and `@ai-sdk/openai` with a baseURL for
     // every other registered provider plus unknown providers.

@@ -30,7 +30,7 @@
  *   - weekly:  SAIFCTL_INTEG=1 SAIFCTL_TEST_RETRY=2  (+ ANTHROPIC_API_KEY)
  *
  * Authoritative spec: saifctl/features/release-readiness/specification.md
- * §4.1, item X08-P3.
+ * §4.1, item release-readiness/X-08-P3.
  */
 import Docker from 'dockerode';
 import { describe, it } from 'vitest';
@@ -135,8 +135,4 @@ export function getAnthropicKey(): string {
     throw new Error('ANTHROPIC_API_KEY is required for this scenario but is not set');
   }
   return ANTHROPIC_KEY;
-}
-
-export function isIntegEnabled(): boolean {
-  return INTEG_ENABLED;
 }

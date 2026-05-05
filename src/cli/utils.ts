@@ -232,7 +232,7 @@ export function parseRunId(args: { runId?: string; _?: string[] }): string {
 }
 
 /** CLI-only: non-empty `--agent-env-file` raw string, or `undefined` if omitted. */
-export function readAgentEnvFileRawFromCli(args: FeatRunArgs): string | undefined {
+function readAgentEnvFileRawFromCli(args: FeatRunArgs): string | undefined {
   const raw = args['agent-env-file'];
   if (typeof raw !== 'string' || !raw.trim()) return undefined;
   return raw;
@@ -309,20 +309,6 @@ export function readAgentScriptPathFromCli(args: OrchestratorArgs): string | und
   return typeof v === 'string' ? v : undefined;
 }
 
-/** CLI-only: non-empty `--cedar` path, or `undefined` if omitted. */
-export function readCedarPolicyPathFromCli(args: FeatRunArgs): string | undefined {
-  const v = args.cedar;
-  if (typeof v === 'string' && v.trim()) return v.trim();
-  return undefined;
-}
-
-/** CLI-only: non-empty `--coder-image`, or `undefined` if omitted. */
-export function readCoderImageTagFromCli(args: FeatRunArgs): string | undefined {
-  const v = args['coder-image'];
-  if (typeof v === 'string' && v.trim()) return v.trim();
-  return undefined;
-}
-
 /** CLI-only: trimmed non-empty `--engine`, or `undefined` if omitted / empty. */
 export function readEngineCliFromCli(args: Pick<FeatRunArgs, 'engine'>): string | undefined {
   const raw = typeof args.engine === 'string' ? args.engine.trim() : '';
@@ -372,29 +358,10 @@ export function readDiscoveryCliReads(args: {
   return { mcpParts, toolPathRaw, promptInlineRaw, promptFileRaw };
 }
 
-/** CLI-only: positive integer from `--gate-retries`, or `undefined` if omitted. */
-export function readGateRetriesFromCli(args: FeatRunArgs): number | undefined {
-  const raw = args['gate-retries'];
-  if (typeof raw !== 'string') return undefined;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed) || parsed < 1) {
-    consola.error(`Invalid --gate-retries value: ${raw}. Must be a positive integer.`);
-    process.exit(1);
-  }
-  return parsed;
-}
-
 /** CLI-only: `--gate-script` when present as a string, or `undefined` if omitted. */
 export function readGateScriptPathFromCli(args: OrchestratorArgs): string | undefined {
   const v = args['gate-script'];
   return typeof v === 'string' ? v : undefined;
-}
-
-/** CLI-only: trimmed `--git-provider`, or `undefined` if omitted / empty. */
-export function readGitProviderIdFromCli(args: FeatRunArgs): string | undefined {
-  const raw = args['git-provider'];
-  if (typeof raw === 'string' && raw.trim()) return raw.trim();
-  return undefined;
 }
 
 /** CLI-only: trimmed `--indexer`, or `undefined` if omitted / empty. */
@@ -403,61 +370,10 @@ export function readIndexerProfileIdFromCli(args: { indexer?: string }): string 
   return raw || undefined;
 }
 
-/** CLI-only: positive integer from `--max-runs`, or `undefined` if omitted. */
-export function readMaxRunsFromCli(args: FeatRunArgs): number | undefined {
-  const raw = args['max-runs'];
-  if (typeof raw !== 'string') return undefined;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed) || parsed < 1) {
-    consola.error(`Invalid --max-runs value: ${raw}. Must be a positive integer.`);
-    process.exit(1);
-  }
-  return parsed;
-}
-
-/** CLI-only: `true` when `--pr` was passed; `undefined` if omitted. */
-export function readPrTrueFromCli(args: FeatRunArgs): boolean | undefined {
-  return args.pr === true ? true : undefined;
-}
-
 /** CLI-only: trimmed `--project-dir` segment, or `undefined` if omitted / empty. */
 export function readProjectDirFromCli(args: { 'project-dir'?: string }): string | undefined {
   const raw = args['project-dir'];
   if (typeof raw === 'string' && raw.trim()) return raw.trim();
-  return undefined;
-}
-
-/** CLI-only: `--push` string (trimmed) when present, or `undefined` if omitted / non-string. */
-export function readPushFromCli(args: FeatRunArgs): string | undefined {
-  const raw = args.push;
-  if (typeof raw === 'string') return raw.trim();
-  return undefined;
-}
-
-/** CLI-only: valid enum from `--resolve-ambiguity`, or `undefined` if omitted / invalid. */
-export function readResolveAmbiguityFromCli(
-  args: FeatRunArgs,
-): 'off' | 'prompt' | 'ai' | undefined {
-  const raw = args['resolve-ambiguity'];
-  if (raw === 'prompt' || raw === 'ai' || raw === 'off') return raw;
-  if (raw) {
-    consola.warn(`[cli] Unknown --resolve-ambiguity value "${raw}"; using stored/default.`);
-  }
-  return undefined;
-}
-
-/**
- * CLI-only: explicit reviewer disable (`false`) from `--no-reviewer` / `reviewer: false`; `undefined` if omitted.
- *
- * citty treats any `--no-<name>` as setting `<name>` to `false` before node:util sees it.
- * So `--no-reviewer` yields `args.reviewer === false`, not `no-reviewer: true`.
- */
-export function readReviewerEnabledFromCli(args: {
-  'no-reviewer'?: boolean;
-  reviewer?: boolean;
-}): boolean | undefined {
-  if (args['no-reviewer'] === true) return false;
-  if (args.reviewer === false) return false;
   return undefined;
 }
 
@@ -544,18 +460,6 @@ export function readTestImageTagFromCli(args: OrchestratorArgs): string | undefi
 export function readTestProfileIdFromCli(args: { 'test-profile'?: string }): string | undefined {
   const raw = typeof args['test-profile'] === 'string' ? args['test-profile'].trim() : '';
   return raw || undefined;
-}
-
-/** CLI-only: positive integer from `--test-retries`, or `undefined` if omitted. */
-export function readTestRetriesFromCli(args: FeatRunArgs): number | undefined {
-  const raw = args['test-retries'];
-  if (typeof raw !== 'string') return undefined;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed) || parsed < 1) {
-    consola.error(`Invalid --test-retries value: ${raw}. Must be a positive integer.`);
-    process.exit(1);
-  }
-  return parsed;
 }
 
 /** CLI-only: `--test-script` when present as a string, or `undefined` if omitted. */

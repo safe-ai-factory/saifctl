@@ -39,8 +39,3 @@ export function getHatchetClient(): HatchetPayload {
   _cachedClient = { hatchet: HatchetClient.init() as unknown as HatchetLike, isLocal: false };
   return _cachedClient;
 }
-
-/** Reset the cached client (for testing). */
-export function _resetHatchetClient(): void {
-  _cachedClient = undefined;
-}

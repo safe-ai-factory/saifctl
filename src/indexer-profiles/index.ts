@@ -8,19 +8,11 @@
 import { shotgunIndexerProfile } from './shotgun/profile.js';
 import type { IndexerProfile, SupportedIndexerProfileId } from './types.js';
 
-export {
-  type IndexerGetToolOpts,
-  type IndexerInitOpts,
-  type IndexerProfile,
-  SUPPORTED_INDEXER_PROFILE_IDS,
-} from './types.js';
+export type { IndexerGetToolOpts, IndexerInitOpts, IndexerProfile } from './types.js';
 
 const indexerProfiles: Record<SupportedIndexerProfileId, IndexerProfile> = {
   shotgun: shotgunIndexerProfile,
 };
-
-/** No indexer unless the user passes `--indexer` or sets `defaults.indexerProfile`. */
-export const DEFAULT_INDEXER_PROFILE: IndexerProfile | undefined = undefined;
 
 /**
  * Resolves an indexer profile by id. Returns `undefined` when id is empty, missing, or `none`.

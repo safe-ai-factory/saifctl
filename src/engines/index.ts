@@ -34,7 +34,6 @@ import { LocalEngine } from './local/index.js';
 import type { Engine } from './types.js';
 
 export type { EngineLogEvent, EngineLogSource, EngineOnLog } from './logs.js';
-export { defaultEngineLog } from './logs.js';
 
 /**
  * Factory: returns the correct engine for the given environment config.

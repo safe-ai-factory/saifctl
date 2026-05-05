@@ -14,7 +14,6 @@ import type {
   NormalizedStagingEnvironment,
 } from '../config/schema.js';
 import { runDesignTests } from '../design-tests/design.js';
-import { TestCatalogSchema } from '../design-tests/schema.js';
 import { generateTests } from '../design-tests/write.js';
 import { createEngine } from '../engines/index.js';
 import { defaultEngineLog } from '../engines/logs.js';
@@ -2059,28 +2058,6 @@ export async function resolveIterativeLoopTaskFromSubtask(opts: {
 // ---------------------------------------------------------------------------
 // Utilities (used by loop and by modes)
 // ---------------------------------------------------------------------------
-
-interface LoadCatalogOpts {
-  feature: Feature;
-}
-
-export async function loadCatalog(opts: LoadCatalogOpts) {
-  const { feature } = opts;
-  const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
-  if (!(await pathExists(testsJsonPath))) {
-    throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
-    );
-  }
-  const raw = JSON.parse(await readUtf8(testsJsonPath)) as unknown;
-  const result = TestCatalogSchema.safeParse(raw);
-  if (!result.success) {
-    throw new Error(
-      `tests.json schema validation failed:\n${JSON.stringify(result.error.issues, null, 2)}`,
-    );
-  }
-  return result.data;
-}
 
 interface PrepareTestRunnerOptsArgs {
   feature: Feature;

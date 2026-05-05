@@ -1,6 +1,6 @@
 #!/bin/bash
 # Aider agent setup script — installs Aider via uv tool install as the
-# saifctl unprivileged user. See specification.md §4.1 X08-P7/P8 + the
+# saifctl unprivileged user. See release-readiness/X-08-P7/P8 + the
 # shared helpers at /saifctl/saifctl-agent-helpers.sh for context.
 #
 # Pinned version (checked PyPI 2026-03-21):

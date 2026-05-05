@@ -2,7 +2,7 @@
 # Gemini CLI agent setup script.
 #
 # Installs @google/gemini-cli via npm into the saifctl unprivileged user's
-# npm-global prefix. See specification.md §4.1 X08-P7/P8 + the shared
+# npm-global prefix. See release-readiness/X-08-P7/P8 + the shared
 # helpers at /saifctl/saifctl-agent-helpers.sh.
 #
 # Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/@google/gemini-cli

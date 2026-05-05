@@ -30,12 +30,6 @@ export function getSaifctlPackageVersion(): string {
   return pkg.version;
 }
 
-/**
- * Workspace-relative path to the per-round agent task file (markdown).
- * Written by coder-start.sh before each inner gate round; read via `$SAIFCTL_TASK_PATH`.
- */
-export const SAIFCTL_TASK_FILE_RELATIVE = '.saifctl/task.md';
-
 /** Absolute path to the task file under a workspace root (sandbox `code/` or `/workspace` in-container). */
 export function saifctlTaskFilePath(workspaceRoot: string): string {
   return join(workspaceRoot, '.saifctl', 'task.md');

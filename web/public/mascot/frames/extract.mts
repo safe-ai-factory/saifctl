@@ -26,9 +26,10 @@
  *   npx tsx public/mascot/frames/extract.ts public/mascot/mascot-sheet.png 256 256
  */
 
-import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
+
+import sharp from 'sharp';
 
 function usage(): never {
   console.error('Usage: extract.ts <sheet.png> <frameWidth> <frameHeight> [outputDir]');

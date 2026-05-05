@@ -16,10 +16,24 @@ export default defineConfig(
   {
     ignores: [
       'dist/**',
+      'dist-pack/**',
       'node_modules/**',
       'coverage/**',
       '.venv/**',
       'test/integration/harness/fixtures/**',
+      // vscode-ext is a separate project with its own eslint.config.js
+      // and is linted independently in tests-extension.yml.
+      'vscode-ext/**',
+      // web is a separate Next.js project with its own deps (npm) and
+      // `next lint` — out of scope for the saifctl root lint pass.
+      'web/**',
+      // npm-tombstones/ are intentional stub packages (defensive name-squats)
+      // that just throw a redirect message; no linting needed.
+      'npm-tombstones/**',
+      // vendored submodules (saifdocs, etc.) have their own lint setups.
+      'vendor/**',
+      // Pre-migration docs material (release-readiness/NPM-18); transient until transplanted.
+      'docs_old/**',
     ],
   },
   // 3rd party configs

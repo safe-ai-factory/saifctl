@@ -15,26 +15,32 @@
 import { join } from 'node:path';
 
 import { LocalStorage } from './storages/local.js';
-import { MemoryStorage } from './storages/memory.js';
 import { S3Storage } from './storages/s3.js';
 import type { StorageImpl } from './types.js';
 import { parseStorageUri, type StorageConfig } from './uri.js';
 
+export interface CreateStorageOptions {
+  /** "local" | "none" | "file:///path" | "s3" | "s3://bucket/prefix" */
+  uriOrShorthand: string;
+  /** Used for default local path when uri is "local" */
+  projectDir: string;
+  /** Table/DB name (e.g. "runs") — appended to base path */
+  namespace: string;
+  /** Field on T used as storage key (default: "runId") */
+  idField?: string;
+}
+
 /**
  * Creates a generic storage from a URI or shorthand.
  *
- * @param uriOrShorthand - "local" | "none" | "file:///path" | "s3" | "s3://bucket/prefix"
- * @param projectDir - Used for default local path when uri is "local"
- * @param namespace - Table/DB name (e.g. "runs") — appended to base path
- * @param idField - Field on T used as storage key (default: "runId")
  * @returns StorageImpl instance, or null for "none" (no persistence)
  */
-export function createStorage<T>(
-  uriOrShorthand: string,
-  projectDir: string,
-  namespace: string,
+export function createStorage<T>({
+  uriOrShorthand,
+  projectDir,
+  namespace,
   idField = 'runId',
-): StorageImpl<T> | null {
+}: CreateStorageOptions): StorageImpl<T> | null {
   const defaultBasePath = join(projectDir, '.saifctl');
   const config = parseStorageUri(uriOrShorthand, defaultBasePath);
 
@@ -61,9 +67,5 @@ export function createStorage<T>(
   }
 }
 
-export { LocalStorage } from './storages/local.js';
-export { MemoryStorage } from './storages/memory.js';
-export { S3Storage } from './storages/s3.js';
 export type { StorageFilter, StorageImpl, StorageOverrides } from './types.js';
 export type { StorageConfig } from './uri.js';
-export { parseStorageUri } from './uri.js';

@@ -1,6 +1,6 @@
 /**
  * Tests for {@link assertHatchetReady} — the v0.1.0 Hatchet experimental gate
- * (per release-readiness Decision D-04).
+ * (per release-readiness/D-04).
  *
  * The gate is a pure function over `isLocal` and the
  * `SAIFCTL_EXPERIMENTAL_HATCHET` env var, so each case is one assertion.

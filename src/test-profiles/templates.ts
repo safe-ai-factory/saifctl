@@ -8,7 +8,7 @@
  *
  * Lifted out of `src/design-tests/write.ts` so the scaffolding for the
  * project-level always-immutable suite (saifctl/tests/) reuses the same
- * file-resolution path. See specification.md §10 (X08-P6).
+ * file-resolution path. See release-readiness/X-08-P6.
  */
 import { join } from 'node:path';
 

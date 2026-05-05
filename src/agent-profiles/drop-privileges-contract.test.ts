@@ -1,5 +1,5 @@
 /**
- * Cross-agent drop-privileges contract (X08-P7 enforcement, X08-P8 ratchet).
+ * Cross-agent drop-privileges contract (release-readiness/X-08-P7 enforcement, release-readiness/X-08-P8 ratchet).
  *
  * Today, dropping privileges in `agent.sh` is required only for `claude`
  * (Claude Code 2.x refuses `--dangerously-skip-permissions` as root). The
@@ -7,9 +7,9 @@
  *
  * **Symmetric drop-privileges across all agents** is the right long-term
  * default (least-privilege; a bug or prompt-injection in any agent shouldn't
- * have root in the workspace). It is filed as **X08-P8** — deferred until
- * X-01's smoke matrix exercises every agent end-to-end. See specification
- * §4.1 for the plan.
+ * have root in the workspace). It is filed as **release-readiness/X-08-P8** — deferred until
+ * release-readiness/X-01's smoke matrix exercises every agent end-to-end. See
+ * release-readiness/X-08 §4.1 for the plan.
  *
  * This test is the ratchet that prevents the contract from drifting in the
  * meantime. It enforces three facts:
@@ -19,7 +19,7 @@
  *      `DROPS_PRIVILEGES` set (its `agent.sh` `runuser`s into
  *      `$SAIFCTL_UNPRIV_USER`) **or** the `ROOT_OK_ALLOWLIST` set (a
  *      conscious decision to keep the agent running as root for now,
- *      tracked under X08-P8).
+ *      tracked under release-readiness/X-08-P8).
  *      Adding a new agent profile fails this test until the maintainer
  *      lists it in one of the two sets — forcing the question
  *      "should this agent run as root?" at PR time, instead of letting
@@ -43,7 +43,7 @@
  *     uses `runuser -l "$SAIFCTL_UNPRIV_USER"` plus the UID realignment
  *     block (copy from `src/agent-profiles/claude/agent.sh`).
  *
- * **How to graduate an agent from root to drop-privileges (X08-P8):**
+ * **How to graduate an agent from root to drop-privileges (release-readiness/X-08-P8):**
  *   Move its id from `ROOT_OK_ALLOWLIST` to `DROPS_PRIVILEGES`, rewrite
  *   its `agent.sh` + `agent-install.sh` accordingly, run the integration
  *   harness against it.
@@ -61,7 +61,7 @@ const PROFILES_DIR = join(getSaifctlRoot(), 'src', 'agent-profiles');
  * Agent profiles whose `agent.sh` drops privileges to `$SAIFCTL_UNPRIV_USER`
  * for the actual agent invocation. Required for any agent CLI that refuses
  * to run as root (Claude Code 2.x is the load-bearing case); also the
- * default for every agent post X08-P8 (least-privilege hygiene).
+ * default for every agent post release-readiness/X-08-P8 (least-privilege hygiene).
  */
 const DROPS_PRIVILEGES = new Set<string>([
   'aider',
@@ -83,7 +83,7 @@ const DROPS_PRIVILEGES = new Set<string>([
 /**
  * Agent profiles that intentionally run as root. The `debug` profile is the
  * only remaining one — it ships a minimal no-LLM agent that's used by the
- * X-08 integration harness to validate Docker plumbing without burning LLM
+ * release-readiness/X-08 integration harness to validate Docker plumbing without burning LLM
  * tokens, and it intentionally exercises the root code path so a regression
  * there surfaces in P1 instead of going unnoticed.
  *
@@ -122,7 +122,7 @@ function dropsPrivileges(content: string): boolean {
 
 function realignsUid(content: string): boolean {
   // Two acceptable shapes:
-  //   - inline `usermod -u <uid> <user>` (legacy, before X08-P8 helper)
+  //   - inline `usermod -u <uid> <user>` (legacy, before release-readiness/X-08-P8 helper)
   //   - sourcing the shared helper at /saifctl/saifctl-agent-helpers.sh
   //     and calling either `saifctl_realign_unpriv_uid` or
   //     `saifctl_drop_privs_init` (the latter calls the former).
@@ -131,12 +131,11 @@ function realignsUid(content: string): boolean {
   if (/\busermod\s+-u\b/.test(content)) return true;
   const sourcesHelper = /source\s+\/saifctl\/saifctl-agent-helpers\.sh/.test(content);
   const callsRealign =
-    /\bsaifctl_realign_unpriv_uid\b/.test(content) ||
-    /\bsaifctl_drop_privs_init\b/.test(content);
+    /\bsaifctl_realign_unpriv_uid\b/.test(content) || /\bsaifctl_drop_privs_init\b/.test(content);
   return sourcesHelper && callsRealign;
 }
 
-describe('agent drop-privileges contract (X08-P7 / X08-P8 ratchet)', () => {
+describe('agent drop-privileges contract (X-08-P7 / X-08-P8 ratchet)', () => {
   it('every agent profile is classified (DROPS_PRIVILEGES or ROOT_OK_ALLOWLIST)', async () => {
     const profiles = await loadAgentProfiles();
     const unclassified: string[] = [];
@@ -150,7 +149,7 @@ describe('agent drop-privileges contract (X08-P7 / X08-P8 ratchet)', () => {
       `New agent profile(s) without an explicit root/non-root decision: ${unclassified.join(', ')}\n` +
         `  Open src/agent-profiles/drop-privileges-contract.test.ts and add each id to either:\n` +
         `    DROPS_PRIVILEGES — if the agent CLI refuses to run as root (and update agent.sh accordingly)\n` +
-        `    ROOT_OK_ALLOWLIST — if it's fine running as root for now (X08-P8 will revisit)`,
+        `    ROOT_OK_ALLOWLIST — if it's fine running as root for now (release-readiness/X-08-P8 will revisit)`,
     ).toEqual([]);
   });
 
@@ -176,9 +175,9 @@ describe('agent drop-privileges contract (X08-P7 / X08-P8 ratchet)', () => {
   it('claude is canonical (must always be in DROPS_PRIVILEGES)', () => {
     expect(
       DROPS_PRIVILEGES.has('claude'),
-      'claude must remain in DROPS_PRIVILEGES — it is the load-bearing case for X08-P7. ' +
+      'claude must remain in DROPS_PRIVILEGES — it is the load-bearing case for release-readiness/X-08-P7. ' +
         'If you intend to remove drop-privileges from claude, you are about to re-introduce ' +
-        'the P2 hang documented in specification.md §4.1 X08-P7. Read that row first.',
+        'the P2 hang documented in release-readiness/X-08-P7. Read that row first.',
     ).toBe(true);
   });
 
@@ -221,7 +220,7 @@ describe('agent drop-privileges contract (X08-P7 / X08-P8 ratchet)', () => {
     // `cd` into `$SAIFCTL_WORKSPACE_BASE`, an agent told to read
     // `saifctl/features/foo/spec.md` will look for
     // `/home/saifctl/saifctl/features/foo/spec.md` and report "file does
-    // not exist". Observed live in X-08 P2: claude found nothing, gave up
+    // not exist". Observed live in release-readiness/X-08 P2: claude found nothing, gave up
     // after 16s with "I cannot find the specification file".
     //
     // Acceptable shapes (any one satisfies the test):
@@ -261,7 +260,7 @@ describe('agent drop-privileges contract (X08-P7 / X08-P8 ratchet)', () => {
     // REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE. Those vars carry Leash's MITM
     // CA wiring; without them, any outbound HTTPS from the unprivileged
     // shell (npm, pip, the agent CLI's own HTTP client) fails with
-    // `SELF_SIGNED_CERT_IN_CHAIN`. Observed live in X-08 P2 — the orchestrator
+    // `SELF_SIGNED_CERT_IN_CHAIN`. Observed live in release-readiness/X-08 P2 — the orchestrator
     // hung 15 min before vitest's testTimeout fired (and again at 74s once
     // the L1/L2 deadlock fix exposed the underlying agent-install failure).
     //

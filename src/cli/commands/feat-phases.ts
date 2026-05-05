@@ -295,7 +295,7 @@ async function readOptionalGateScript(
 // Composite
 // ---------------------------------------------------------------------------
 
-export const phasesCommand = defineCommand({
+const phasesCommand = defineCommand({
   meta: {
     name: 'phases',
     description: "Inspect or validate a feature's phase compilation without running it.",

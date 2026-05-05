@@ -60,24 +60,24 @@ const testImageArg = {
   description: 'Test runner Docker image tag (default: saifctl-test-<profile>:latest).',
 };
 
-export const engineArg = {
+const engineArg = {
   type: 'string' as const,
   description:
     'Override infra engines: `docker`, `local`, or `coding=docker,staging=helm`. Sets environments.*.engine for this run.',
 };
 
-export const profileArg = {
+const profileArg = {
   type: 'string' as const,
   description:
     'Sandbox profile for the project. Sets defaults for startup-script and stage-script.',
 };
 
-export const startupScriptArg = {
+const startupScriptArg = {
   type: 'string' as const,
   description:
     'Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.).',
 };
-export const stageScriptArg = {
+const stageScriptArg = {
   type: 'string' as const,
   description:
     'Path to a shell script mounted into the staging container. Must handle app startup.',
@@ -97,7 +97,7 @@ export const modelOverrideArgs = {
   },
 };
 
-export const verboseArg = {
+const verboseArg = {
   type: 'boolean' as const,
   alias: 'v' as const,
   description: 'Show verbose logs. Default: quiet logs.',
@@ -131,7 +131,7 @@ export const featTestsArgs = {
 };
 
 // Agent args — used by run start / inspect (coder container).
-export const featAgentArgs = {
+const featAgentArgs = {
   'gate-script': {
     type: 'string' as const,
     description:
@@ -196,29 +196,29 @@ export const runTestArgs = {
   verbose: verboseArg,
 };
 
-export const dangerousNoLeashArg = {
+const dangerousNoLeashArg = {
   type: 'boolean' as const,
   description:
     'Skip Leash; run the coder container with plain docker run (same image, mounts, env, and container name as Leash — no Cedar / Leash proxy). For no container, use `--engine local`',
 };
 
-export const cedarArg = {
+const cedarArg = {
   type: 'string' as const,
   description:
     'Absolute path to Cedar policy file for Leash (default: src/orchestrator/policies/default.cedar).',
 };
 
-export const coderImageArg = {
+const coderImageArg = {
   type: 'string' as const,
   description: 'Docker image for the coder container (default: from --profile).',
 };
 
-export const gateRetriesArg = {
+const gateRetriesArg = {
   type: 'string' as const,
   description: 'Max gate retries per run (default: 10).',
 };
 
-export const subtasksArg = {
+const subtasksArg = {
   type: 'string' as const,
   // Undocumented escape hatch (Block 3 of TODO_phases_and_critics). The
   // supported sources are `phases/` (preferred) or `subtasks.json` in the

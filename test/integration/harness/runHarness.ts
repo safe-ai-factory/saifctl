@@ -1,16 +1,16 @@
 /**
- * X-08 integration test harness — single in-process entry point for tests
+ * release-readiness/X-08 integration test harness — single in-process entry point for tests
  * that need to spin up a real Docker container, run the orchestrator end to
  * end, and assert on the resulting working tree / git history.
  *
  * Wraps `resolveOrchestratorOpts` + `runStart` (the same call site the CLI
  * uses at src/cli/commands/feat.ts:759). Tests do not shell out — that's
  * what makes orchestrator + sandbox engine modules reachable for coverage
- * (D-07, NPM-07).
+ * (release-readiness/D-07, release-readiness/NPM-07).
  *
- * Per the plan in specification.md §10 (X08-P1/P2): one knob set,
+ * Per the plan in release-readiness/X-08-P1/P2: one knob set,
  * one happy-path API. Generalisation across providers / sandbox profiles
- * is X-01's job, not this harness's.
+ * is release-readiness/X-01's job, not this harness's.
  */
 import { join } from 'node:path';
 
@@ -29,7 +29,7 @@ import { dockerAvailable } from './setup/env-gate.js';
 import { type CapturedStdio, startStdioCapture } from './setup/stdio-capture.js';
 import { createTmpProject, type TmpProject } from './setup/tmp-project.js';
 
-/** Hard-coded per X-08 plan locked decisions: one sandbox profile, one model. */
+/** Hard-coded per release-readiness/X-08 plan locked decisions: one sandbox profile, one model. */
 const DEFAULT_SANDBOX_PROFILE = 'node-pnpm';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
@@ -46,7 +46,7 @@ export interface HarnessRunOpts {
   /** Coding agent profile id. `'debug'` (no LLM) or `'claude'` (real LLM). */
   agent: 'debug' | 'claude';
   /**
-   * Real LLM provider. Hard-coded to `'anthropic'` per D-07. Required only when
+   * Real LLM provider. Hard-coded to `'anthropic'` per release-readiness/D-07. Required only when
    * `agent: 'claude'`; ignored for `'debug'`.
    */
   provider?: 'anthropic';
@@ -230,7 +230,7 @@ async function runOnce(
     projectNameFallback: 'saifctl-integ',
   });
 
-  // Harness-locked overrides. These match the X-08 plan ("don't loop", "no
+  // Harness-locked overrides. These match the release-readiness/X-08 plan ("don't loop", "no
   // reviewer", run the full pipeline including staging tests). The orchestrator
   // applies the agent's patch to a generated feature branch (saifctl/<feat>-…);
   // the harness reads the resulting file from that branch via `git show`.

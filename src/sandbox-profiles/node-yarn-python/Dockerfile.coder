@@ -36,7 +36,7 @@ RUN pipx install uv --python python3 \
 # Ensure pipx-managed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"
 
-# ─── Drop-privileges scaffold (X08-P2) ───────────────────────────────────────
+# ─── Drop-privileges scaffold (release-readiness/X-08-P2) ───────────────────────────────────────
 # Some agent CLIs (notably Claude Code with `--dangerously-skip-permissions`)
 # refuse to run as root. The container default stays root for Leash bootstrap
 # compatibility; per-agent scripts drop to this user via `runuser` for the

@@ -10,7 +10,7 @@
 # under src/sandbox-profiles/. The shared helpers at
 # /saifctl/saifctl-agent-helpers.sh take care of asserting these env vars
 # are set and realigning the user's UID for Linux strict bind-mount mapping
-# (X08-P7/P8).
+# (release-readiness/X-08-P7/P8).
 #
 # Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/@anthropic-ai/claude-code
 

@@ -15,7 +15,7 @@
  *
  * Used by the harness to:
  *   1. Verify secrets (`ANTHROPIC_API_KEY`) never appear in any log output
- *      the test process produced — D-07 / X08-P2 pitfall #4.
+ *      the test process produced — release-readiness/D-07 / release-readiness/X-08-P2 pitfall #4.
  *   2. Mirror every chunk to a disk file in real time when `mirrorPath` is
  *      set, so logs survive **vitest test timeouts** (the in-memory buffer
  *      is lost when the test fn is aborted; the file persists). This is the

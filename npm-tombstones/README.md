@@ -26,7 +26,7 @@ npm login
 ### 1. Real package: SaifCTL (repository root)
 
 From **`safe-ai-factory/`** (this repo root). The canonical publish flow
-(per Decision D-11) is to build a verified tarball locally, then publish
+(per release-readiness/D-11) is to build a verified tarball locally, then publish
 it bit-identically:
 
 ```bash

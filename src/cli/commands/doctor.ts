@@ -83,7 +83,7 @@ async function checkHatchet(): Promise<boolean> {
   }
 
   // Token is set. v0.1.0 gates the Hatchet path behind SAIFCTL_EXPERIMENTAL_HATCHET=1
-  // (per release-readiness Decision D-04). Without the flag, surface this proactively
+  // (per release-readiness/D-04). Without the flag, surface this proactively
   // so a green `doctor` doesn't mislead — `feat run` would otherwise throw at dispatch.
   if (!experimental) {
     warn(

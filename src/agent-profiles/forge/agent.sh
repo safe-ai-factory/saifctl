@@ -5,7 +5,7 @@
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
 # Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
-# for the shared scaffold (X08-P7/P8).
+# for the shared scaffold (release-readiness/X-08-P7/P8).
 #
 # Forge is a compiled Rust binary that runs fully headlessly with no
 # interactive prompts.
@@ -44,7 +44,7 @@
 #         override the orchestrator's auto-prefixed value.
 #   We do NOT switch to `$LLM_MODEL_ID` here because that would silently break
 #   the HuggingFace and OpenRouter paths that need the prefix preserved. See
-#   the analysis in specification.md §10 X08-P? for the full provider matrix.
+#   the analysis in release-readiness/X-08 (open sub-phase) for the full provider matrix.
 
 set -euo pipefail
 

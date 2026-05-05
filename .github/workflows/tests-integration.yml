@@ -25,7 +25,7 @@ name: Integration tests (per-PR, no LLM)
 # simple and self-contained.
 #
 # Authoritative spec: saifctl/features/release-readiness/specification.md
-# §4.1, item X08-P3.
+# release-readiness/X-08-P3.
 on:
   push:
     branches: [main]
@@ -61,13 +61,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -130,9 +130,22 @@ jobs:
 
       - name: Upload harness logs (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: harness-logs-pr-${{ github.run_id }}-${{ github.run_attempt }}
           path: .harness-logs/
           if-no-files-found: warn
           retention-days: 7
+
+      # The coder container runs the debug agent as root (release-readiness/X-08-P8 keeps debug
+      # rootful by design), so files it writes into the bind-mounted code dir
+      # are root-owned on the host. The runner user (UID 1001) cannot remove
+      # them, which on a hosted runner is harmless (the VM is wiped) but on a
+      # self-hosted runner would accumulate root-owned cruft across jobs and
+      # can also cause the harness's own cleanup to throw EACCES that masks
+      # the real test failure. `sudo rm` does the only honest cleanup.
+      # Always-run; never let cleanup fail the job.
+      - name: Cleanup root-owned tmp dirs
+        if: always()
+        run: |
+          sudo rm -rf /tmp/saifctl /tmp/saifctl-integ-* /tmp/leash.code.* 2>/dev/null || true

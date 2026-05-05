@@ -8,6 +8,7 @@
     "build": "npx tsx scripts/sync-docs.ts && next build",
     "start": "next start",
     "lint": "next lint",
+    "knip": "knip --exclude types",
     "mascot:sprites:build": "tsx public/mascot/frames/build.mts",
     "mascot:sprites:extract": "tsx public/mascot/frames/extract.mts"
   },
@@ -37,6 +38,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.27",
+    "knip": "^5.88.1",
     "postcss": "^8.5.8",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",

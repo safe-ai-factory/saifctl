@@ -9,12 +9,7 @@ import { pocDesignerProfile } from './poc/profile.js';
 import { shotgunDesignerProfile } from './shotgun/profile.js';
 import type { DesignerProfile, SupportedDesignerProfileId } from './types.js';
 
-export {
-  type DesignerBaseOpts,
-  type DesignerProfile,
-  type DesignerRunOpts,
-  SUPPORTED_DESIGNER_PROFILE_IDS,
-} from './types.js';
+export type { DesignerBaseOpts, DesignerProfile, DesignerRunOpts } from './types.js';
 
 const designerProfiles: Record<SupportedDesignerProfileId, DesignerProfile> = {
   poc: pocDesignerProfile,
