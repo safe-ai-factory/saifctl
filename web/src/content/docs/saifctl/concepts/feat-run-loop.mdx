@@ -1,0 +1,39 @@
+# The convergence loop
+
+When `saifctl feat run` finishes, your tests pass — not because the agent tried once and got lucky, but because it could not stop until they did. This page explains the mechanics of that guarantee.
+
+## What the loop is
+
+`feat run` puts the coding agent in a loop with a fixed contract: write code, face the gates, fix whatever fails, repeat. The agent has no path to exit the loop except through passing all three gates: the **Gate** (linters, type-checkers, static analysis), the **Reviewer** (an adversarial AI that checks the diff against your spec), and the **Holdout tests** (tests hidden from the agent, which it cannot read or game).
+
+Think of it like the compiler error loop you already live in: write, compile, fix the errors, repeat until it builds. The convergence loop is the same discipline applied to the full correctness surface — style, semantics, and behaviour — with an AI doing the fixing.
+
+## What the agent sees each iteration
+
+After each coding round, the Gate runs first. If it finds type errors, lint violations, or static-analysis failures, those results are fed back to the agent as the input for the next iteration. The agent sees the failure output; you do not. It must diagnose and fix the failures before it can proceed.
+
+This feedback cycle is the agent's only signal. It cannot read your holdout tests. It cannot ask you to relax a rule. It works from the same artefacts you would: the spec, the visible tests, and the gate output.
+
+## Why the agent cannot skip ahead
+
+The three gates run in sequence, and all three must pass before the run concludes. The Reviewer cannot sign off on code that failed the Gate. The Holdout tests run only after the Reviewer approves. A pass on one gate does not carry over if a subsequent gate fails — the loop restarts.
+
+This sequencing is what makes the guarantee mechanical rather than probabilistic. There is no configuration that lets the agent declare success while tests are red.
+
+For a detailed breakdown of what each gate checks and why all three are necessary, see [Gate, Reviewer, and Holdout tests](/product/saifctl/concepts/gate-reviewer-holdout).
+
+## When you are notified
+
+You hear about the run exactly once: when all three gates pass. At that point SaifCTL applies the winning patch to a new branch and, if you passed `--push` and `--pr`, opens a pull request. There is no intermediate "looks good, check it over" notification — the loop runs to completion without requiring your attention.
+
+If the loop exhausts its maximum run budget without a clean pass, the run fails and you get an error with a resume command. You are not asked to lower the bar mid-run.
+
+## What this means in practice
+
+You can start `feat run` and step away. Either it produces a branch where your tests are green and your spec is satisfied, or it tells you it could not. What it will not do is hand you code that half-works and leave the fixing to you.
+
+## See also
+
+- [Gate, Reviewer, and Holdout tests](/product/saifctl/concepts/gate-reviewer-holdout) — what each gate checks and why regressions are mechanically prevented
+- [`saifctl feat run` reference](/product/saifctl/references/commands/feat) — flags, `--max-runs`, `--gate-retries`, `--no-reviewer`, and resume behaviour
+- [Run your first feature](/product/saifctl/how-tos/run-first-feature) — end-to-end walkthrough from spec file to opened PR

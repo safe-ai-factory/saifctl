@@ -1,4 +1,37 @@
 {
   "product": "saifctl",
-  "sections": []
+  "sections": [
+    {
+      "type": "concepts",
+      "label": "Concepts",
+      "items": [
+        {
+          "slug": "concepts/feat-run-loop",
+          "title": "The convergence loop",
+          "path": "/product/saifctl/concepts/feat-run-loop"
+        },
+        {
+          "slug": "concepts/gate-reviewer-holdout",
+          "title": "Gate, Reviewer, and Holdout tests",
+          "path": "/product/saifctl/concepts/gate-reviewer-holdout"
+        }
+      ]
+    },
+    {
+      "type": "references",
+      "label": "Reference",
+      "items": [
+        {
+          "slug": "references/commands/doctor",
+          "title": "saifctl doctor",
+          "path": "/product/saifctl/references/commands/doctor"
+        },
+        {
+          "slug": "references/commands/sandbox",
+          "title": "saifctl sandbox",
+          "path": "/product/saifctl/references/commands/sandbox"
+        }
+      ]
+    }
+  ]
 }

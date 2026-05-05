@@ -64,7 +64,7 @@ const SECTION_LABELS: Record<ManifestEntryType, string> = {
 const SOURCES: DocSource[] = [
   {
     product: 'saifctl',
-    manifestPath: path.resolve(REPO_ROOT, 'vendor/saifdocs/docspec/.manifest.json'),
+    manifestPath: path.resolve(REPO_ROOT, 'docspec/.manifest.json'),
     docsRoot: path.resolve(REPO_ROOT, 'docs'),
   },
   {
@@ -306,7 +306,8 @@ function syncProduct(source: DocSource): WrittenPage[] {
   if (!fs.existsSync(manifestPath)) {
     fail(
       `ERROR: Manifest not found: ${path.relative(REPO_ROOT, manifestPath)}\n` +
-        'If vendor paths are git submodules, run: git submodule update --init --recursive',
+        'If vendor paths are git submodules, run: git submodule update --init --recursive\n' +
+        'If the saifdocs submodule manifest is missing, run: cd vendor/saifdocs && node dist/cli.js gen --dry-run',
     );
   }
   if (!fs.existsSync(docsRoot)) {

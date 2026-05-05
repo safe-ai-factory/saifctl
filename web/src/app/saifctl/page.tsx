@@ -1128,12 +1128,12 @@ const GUARANTEES = [
   {
     icon: '🎯',
     title: 'The AI builds exactly what you asked for.',
-    body: 'It is locked in a loop and physically cannot stop until your TDD tests pass.',
+    body: "It runs a bounded convergence loop; code that fails your TDD tests doesn't ship.",
   },
   {
     icon: '🛡️',
     title: "The AI can't break previously-built features.",
-    body: 'All features built with SaifCTL are protected by tests the AI cannot modify. Regressions are impossible.',
+    body: "All features built with SaifCTL are protected by tests the AI cannot modify. Regressions are mechanically prevented — code that breaks them can't ship.",
   },
   {
     icon: '🔒',
@@ -1424,12 +1424,10 @@ const RELIABILITY_ROWS: { threat: ReactNode; defense: ReactNode }[] = [
     threat: 'An agent accidentally deletes your staging or production database',
     defense: (
       <>
-        The agent never sees your real database. Its Docker network is physically isolated.
-        <br />
-        <br />
-        Instead of a real database, define ephemeral mock services in{' '}
-        <code className={codeCls}>docker-compose.yml</code>. If an ephemeral service crashes,
-        SaifCTL detects it via health checks and halts the run immediately.
+        The agent never sees your real database. Define ephemeral mock services in{' '}
+        <code className={codeCls}>docker-compose.yml</code>; with a Cedar deny-network policy in
+        place, the agent can only reach those mocks. If an ephemeral service crashes, SaifCTL
+        detects it via health checks and halts the run immediately.
       </>
     ),
   },

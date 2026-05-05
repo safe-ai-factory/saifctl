@@ -1,0 +1,59 @@
+# saifctl doctor
+
+Diagnose environment problems before running `feat run` or `sandbox`. Checks Docker, the Leash CLI, and optional Hatchet connectivity in sequence.
+
+## Usage
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBkb2N0b3I=" />
+
+No arguments or flags.
+
+## Checks
+
+Runs three checks in order. Any hard failure exits with code `1` and prints an error. All must pass for the final "All checks passed." message.
+
+| # | Check | Pass condition | Failure condition |
+|---|-------|---------------|-------------------|
+| 1 | **Docker** | `docker info` succeeds | Docker not running or not reachable → hard failure |
+| 2 | **Leash CLI** | Binary resolved and exists on disk | Path not found or binary missing → hard failure |
+| 3 | **Hatchet** | Token absent (local mode, warning only) **or** token set and client initialises in server mode | Token set but SDK throws, or client initialises in local mode → hard failure |
+
+### Hatchet check detail
+
+- **`HATCHET_CLIENT_TOKEN` unset** — prints a warning and continues. `saifctl` operates in local (in-process) mode. Not an error.
+- **`HATCHET_CLIENT_TOKEN` set** — initialises the Hatchet client. If the client reports local mode, the check fails. Otherwise success is logged with the resolved server address.
+
+## Environment variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `HATCHET_CLIENT_TOKEN` | No | — | Hatchet auth token. If unset, saifctl runs in local mode. If set, doctor tests client initialisation. |
+| `HATCHET_SERVER_URL` | No | `localhost:7077` | gRPC address shown in success output when the Hatchet check passes. |
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | All checks passed (including the case where `HATCHET_CLIENT_TOKEN` is unset). |
+| `1` | One or more hard checks failed (Docker down, Leash CLI missing, or Hatchet client error). |
+
+## Example output
+
+**Local mode** (Hatchet token not set):
+
+<DocCodeBlock lang="text" code="c2FpZmN0bCBkb2N0b3IKCiAg4pyUICBEb2NrZXIgaXMgcnVubmluZwogIOKclCAgTGVhc2ggQ0xJIE9LICgvcGF0aC90by9sZWFzaCkKICDimqAgIEhBVENIRVRfQ0xJRU5UX1RPS0VOIGlzIG5vdCBzZXQg4oCUIHNhaWZjdGwgd2lsbCBydW4gaW4gbG9jYWwgKGluLXByb2Nlc3MpIG1vZGUuCiAgICAgVG8gZW5hYmxlIEhhdGNoZXQgZHVyYWJpbGl0eSArIGRhc2hib2FyZCwgc2VlOiBkb2NzL2hhdGNoZXQubWQKCkFsbCBjaGVja3MgcGFzc2VkLg==" />
+
+**Full Hatchet setup:**
+
+<DocCodeBlock lang="text" code="c2FpZmN0bCBkb2N0b3IKCiAg4pyUICBEb2NrZXIgaXMgcnVubmluZwogIOKclCAgTGVhc2ggQ0xJIE9LICgvcGF0aC90by9sZWFzaCkKICDinJQgIEhBVENIRVRfQ0xJRU5UX1RPS0VOIGlzIHNldAogIOKclCAgSGF0Y2hldCBjbGllbnQgaW5pdGlhbGl6ZWQgKHNlcnZlcjogbG9jYWxob3N0OjcwNzcpCgpBbGwgY2hlY2tzIHBhc3NlZC4=" />
+
+**Docker not running:**
+
+<DocCodeBlock lang="text" code="c2FpZmN0bCBkb2N0b3IKCiAg4pyWICBEb2NrZXIgaXMgbm90IHJ1bm5pbmcgb3Igbm90IHJlYWNoYWJsZS4gU3RhcnQgRG9ja2VyIGFuZCB0cnkgYWdhaW4uCgpPbmUgb3IgbW9yZSBjaGVja3MgZmFpbGVkLiBTZWUgbWVzc2FnZXMgYWJvdmUu" />
+
+## See also
+
+- [Environment variables](../../env-vars.md)
+- [Hatchet integration](../../hatchet.md)
+- [feat run](/product/saifctl/references/commands/feat-run)
+- [sandbox](/product/saifctl/references/commands/sandbox)

@@ -1,0 +1,59 @@
+# Gate, Reviewer, and Holdout tests
+
+Before `saifctl feat run` opens a pull request, the diff must clear three gates in sequence. All three must pass — there is no configuration that lets the agent skip one or declare success while any gate is red. This page explains what each gate checks, why it exists, and why regressions are mechanically prevented rather than just unlikely.
+
+## Three gates, three failure modes
+
+A single test suite can tell you whether code behaves correctly, but it cannot tell you whether the code is well-formed, whether it drifts from the spec, or whether the agent quietly over-fitted to the visible test cases. Each gate targets a failure mode that the others cannot catch on their own.
+
+Think of it as three locks on a door. Turning one lock does not loosen the others. The agent must produce a diff that satisfies all three before the door opens.
+
+## The Gate: mechanical code quality
+
+The Gate runs your project's linters, type-checkers, and static-analysis tools — the same tools that would catch a type error or an unused import in your normal CI pipeline. Its verdict is deterministic: the same code always produces the same result.
+
+When the Gate finds a violation, the output is fed back to the agent as the input for its next iteration. The agent sees the failure; you do not. It must fix the issue before the run can advance to the Reviewer.
+
+Because the Gate is mechanical, it cannot be argued with or worked around. An agent that produces type errors will loop until it resolves them.
+
+## The Reviewer: adversarial spec check
+
+The Reviewer is a separate AI model whose sole job is to read your spec alongside the agent's diff and look for divergence. It is not a code-style check — it is a semantic check. Code that compiles cleanly and passes the Gate can still be wrong: it may implement the wrong behaviour, omit a case the spec requires, or introduce a side-effect the spec forbids.
+
+The Reviewer approaches the diff as an adversary, not a collaborator. It does not try to charitably interpret ambiguous changes; it flags them. If the diff does not match the spec, the Reviewer rejects it and the loop continues.
+
+Practically, this means the agent cannot drift from what you asked for and still pass. If your spec says "return an empty list when the input is empty" and the agent returns `null`, the Reviewer catches it — even if your visible tests happened not to cover that case.
+
+## Holdout tests: the hidden bar
+
+Holdout tests are test cases that are kept hidden from the agent for the entire run. The agent cannot read them, cannot inspect them, and cannot optimise its code to pass them selectively. They are your private oracle.
+
+This is the guarantee that prevents the most common failure mode in AI-assisted development: an agent that learns to satisfy tests rather than implement the spec. Because the agent has no visibility into holdout tests, the only way to pass them is to write code that actually works.
+
+You author the holdout tests before the run, alongside the spec. When the run completes, those tests execute against the agent's final patch. A pass means the code behaves correctly on cases the agent never saw.
+
+## Why the ordering matters
+
+The gates run in sequence: Gate, then Reviewer, then Holdout. This is not arbitrary.
+
+The Gate runs first because it is cheapest and fastest. Sending a diff with type errors to the Reviewer or to the test runner is wasteful — the Gate surfaces those issues immediately and cheaply.
+
+The Reviewer runs before Holdout tests because it can reject a semantically wrong diff before spending time executing tests. If the agent has already drifted from the spec, there is no point running the full test suite.
+
+Holdout tests run last because they are the ground truth. A diff that clears the Gate and satisfies the Reviewer but fails holdout tests gets sent back to the loop. All three passing is the only outcome that produces a branch and, optionally, a pull request.
+
+## What this means for your codebase
+
+You write the spec and the holdout tests. The agent does the implementation work. When the run finishes, you have a branch where:
+
+- your linters and type-checkers are satisfied,
+- the implementation matches what you specified, and
+- the test cases you defined — including the ones the agent never saw — pass.
+
+Regressions are not prevented by hoping the agent is careful. They are prevented because the agent cannot clear a holdout test it cannot read, cannot pass a Reviewer it cannot negotiate with, and cannot silence a Gate that is purely deterministic.
+
+## See also
+
+- [The convergence loop](/product/saifctl/concepts/feat-run-loop) — how the agent is driven through iterations until all three gates pass
+- [`saifctl feat run` reference](/product/saifctl/references/commands/feat) — flags, `--max-runs`, `--gate-retries`, `--no-reviewer`, and resume behaviour
+- [Run your first feature](/product/saifctl/how-tos/run-first-feature) — end-to-end walkthrough from spec file to opened PR

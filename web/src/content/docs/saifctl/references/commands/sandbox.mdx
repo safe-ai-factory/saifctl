@@ -1,0 +1,136 @@
+# saifctl sandbox
+
+Run an agent inside an isolated Docker container without the `feat run` pipeline (no gate, reviewer, or staging tests). Use for one-off tasks, ad hoc experimentation, and setting up agents manually.
+
+Nothing is written to your machine by default. Use `--extract` to apply the agent's changes to your working tree.
+
+## Usage
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IFtvcHRpb25zXQ==" />
+
+## Modes
+
+### Non-interactive (default)
+
+Pass a task and the agent runs it autonomously:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tdGFzayAiQWRkIGEgUkVBRE1FIHNlY3Rpb24gb24gY29udHJpYnV0aW5nIgpzYWlmY3RsIHNhbmRib3ggLS10YXNrLWZpbGUgYnJpZWYubWQKc2FpZmN0bCBzYW5kYm94IC0tc3VidGFza3MgbWFuaWZlc3QuanNvbg==" />
+
+### Interactive (`--interactive` / `-i`)
+
+Start the container, run startup and agent-install scripts, then drop you into a bash shell inside the container — no task, no agent loop:
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0taW50ZXJhY3RpdmU=" />
+
+You land directly in the container shell. When you type `exit` or press Ctrl+D, saifctl stops the container and (if `--extract` was passed) extracts any changes.
+
+Use interactive mode when you need to configure the agent manually before it runs — for example, registering Claude MCP servers with `claude mcp add …`.
+
+## Arguments
+
+### Required (non-interactive mode)
+
+Exactly one of the following must be set unless `--interactive` is also set:
+
+| Argument | Alias | Type | Description |
+|---|---|---|---|
+| `--task` | `-t` | string | Task prompt for the agent. |
+| `--task-file` | — | string | Path to a file whose contents become the task prompt (relative to `--project-dir` if not absolute). |
+| `--subtasks` | — | string | Path to a subtasks JSON manifest (same format as [`feat run --subtasks`](/product/saifctl/references/commands/feat-run#subtasks)). Cannot be combined with `--task` or `--task-file`. |
+
+### Mode
+
+| Argument | Alias | Type | Description |
+|---|---|---|---|
+| `--interactive` | `-i` | boolean | Start an interactive sandbox: runs startup and agent-install scripts, then idles until Ctrl+C. Mutually exclusive with `--task`, `--task-file`, and `--subtasks`. |
+
+### Output
+
+| Argument | Alias | Type | Description |
+|---|---|---|---|
+| `--extract` | — | boolean | After the run (or session), apply the agent's git changes to the host working tree as unstaged changes. Works in both interactive and non-interactive modes. |
+| `--extract-include` | — | string | Repo-relative path prefix: only extract changes under this path. Requires `--extract`. |
+| `--extract-exclude` | — | string | Repo-relative path prefix: exclude from the extracted patch. Requires `--extract-include`. |
+
+### Identity
+
+| Argument | Alias | Type | Description |
+|---|---|---|---|
+| `--name` | `-n` | string | Label for this sandbox run (kebab-case). Default: random `scratch-*`. |
+
+### Environment & agent
+
+These follow the same semantics as [`feat run`](/product/saifctl/references/commands/feat-run). See that page for full descriptions.
+
+| Argument | Description |
+|---|---|
+| `--agent` | Agent profile (default: `openhands`). |
+| `--agent-script` | Path to the agent run script. Overrides profile default. |
+| `--agent-install-script` | Path to the one-time agent install script. |
+| `--startup-script` | Shell script run once to install workspace dependencies. |
+| `--profile` | Sandbox profile (default: `node-pnpm-python`). |
+| `--coder-image` | Docker image for the coder container. |
+| `--agent-env` | Extra env vars for the agent container (`KEY=VALUE`). Repeatable. |
+| `--agent-env-file` | Path(s) to `.env` file(s) forwarded into the container. |
+| `--model` | LLM model override. |
+| `--project-dir` | Project directory (default: current directory). |
+| `--saifctl-dir` | Path to saifctl directory (default: `saifctl`). |
+| `--engine` | Engine override: `docker`, `local`, or `helm`. |
+| `--cedar` | Absolute path to Cedar policy file for Leash. |
+| `--include-dirty` | Include uncommitted and untracked files in the sandbox. |
+| `--verbose` | Enable verbose logging. |
+
+## Validation
+
+| Condition | Error |
+|---|---|
+| Neither `--task`, `--task-file`, `--subtasks`, nor `--interactive` provided | `Error: provide --task/-t, --task-file, --subtasks, or --interactive` |
+| `--interactive` combined with `--task`, `--task-file`, or `--subtasks` | `Error: --interactive cannot be combined with --task, --task-file, or --subtasks` |
+| `--task` and `--task-file` both set | `Error: use either --task or --task-file, not both` |
+| `--subtasks` combined with `--task` or `--task-file` | `Error: do not combine --subtasks with --task or --task-file` |
+| `--extract-exclude` without `--extract-include` | `Error: --extract-exclude requires --extract-include` |
+| `--extract-include` without `--extract` | `Error: --extract-include requires --extract` |
+| `--name` not kebab-case | `Error: --name must be kebab-case …` |
+
+## Examples
+
+**Non-interactive — one-shot task:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tdGFzayAiV3JpdGUgYSBDT05UUklCVVRJTkcubWQi" />
+
+**Non-interactive — extract changes to working tree:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tdGFzayAiUmVmYWN0b3IgdXRpbHMvZm9ybWF0LnRzIiAtLWV4dHJhY3Q=" />
+
+**Non-interactive — extract only a subdirectory:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tdGFzayAiVXBkYXRlIEFQSSBjbGllbnQiIC0tZXh0cmFjdCAtLWV4dHJhY3QtaW5jbHVkZSBzcmMvYXBpLw==" />
+
+**Non-interactive — multi-step subtasks manifest:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0tc3VidGFza3MgdGFza3MuanNvbiAtLWV4dHJhY3Q=" />
+
+**Interactive — configure agent manually, then exit:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0taW50ZXJhY3RpdmUKIyBZb3UgbGFuZCBpbiBhIGJhc2ggc2hlbGwgaW5zaWRlIHRoZSBjb250YWluZXIuCiMgRXhhbXBsZTogY2xhdWRlIG1jcCBhZGQgbXktc2VydmVyIC4uLgojIFR5cGUgZXhpdCBvciBwcmVzcyBDdHJsK0Qgd2hlbiBkb25lLg==" />
+
+**Interactive — configure agent, exit, and extract any files you created:**
+
+<DocCodeBlock lang="bash" code="c2FpZmN0bCBzYW5kYm94IC0taW50ZXJhY3RpdmUgLS1leHRyYWN0" />
+
+## What this command skips compared to `feat run`
+
+| Capability | `feat run` | `sandbox` |
+|---|---|---|
+| Gate script | Yes | No (noop gate) |
+| Reviewer | Yes | No |
+| Staging tests | Yes | No |
+| Multiple outer attempts | Yes (`--max-runs`) | No (always `maxRuns=1`) |
+| Run storage | Yes | No (`storage=none` by default) |
+
+## See also
+
+- [`feat run`](/product/saifctl/references/commands/feat-run) — full pipeline with gate, reviewer, and staging tests
+- [`run inspect`](/product/saifctl/references/commands/run-inspect) — open an idle container for a *saved run*
+- [Sandbox isolation](../../concepts/sandbox.md)
+- [Models](/product/saifctl/references/models)
