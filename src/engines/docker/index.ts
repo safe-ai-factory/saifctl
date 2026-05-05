@@ -1719,7 +1719,7 @@ function demuxDockerLogs(buffer: Buffer): { stdout: string; stderr: string } {
     const size = buffer.readUInt32BE(offset + 4);
     offset += 8;
     if (offset + size > buffer.length) break; // truncated buffer — stop cleanly
-    const payload = buffer.slice(offset, offset + size).toString('utf8');
+    const payload = buffer.subarray(offset, offset + size).toString('utf8');
     offset += size;
     if (streamType === 1) stdout += payload;
     else if (streamType === 2) stderr += payload;

@@ -518,9 +518,8 @@ export function resolveStorageOverrides(
   return { ...configOverrides, ...cliResult };
 }
 
-/* eslint-disable-next-line max-params -- (cli raw, projectDir, config) */
 /** Resolves run storage URI from optional CLI `--storage` + config defaults. */
-export function resolveRunStorage(
+export function resolveRunStorage( // eslint-disable-line max-params -- (cli raw, projectDir, config)
   cliRaw: string | undefined,
   projectDir: string,
   config?: SaifctlConfig,
@@ -733,12 +732,11 @@ export interface DiscoveryOptions {
   promptFile?: string;
 }
 
-/* eslint-disable-next-line max-params */
 /**
  * Merges `config.defaults` discovery fields with {@link readDiscoveryCliReads}.
  * Validates MCP `name=url` parts and mutual exclusivity of prompt vs prompt-file from CLI.
  */
-export function resolveDiscoveryOptions(
+export function resolveDiscoveryOptions( // eslint-disable-line max-params -- (reads, projectDir, config)
   reads: DiscoveryCliReads,
   projectDir: string,
   config?: SaifctlConfig,

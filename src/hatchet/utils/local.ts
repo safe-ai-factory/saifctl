@@ -61,10 +61,11 @@ interface WorkflowDef<I> {
 
 /**
  * Builder returned by `hatchet.workflow(...)`: collects task declarations and
- * an optional `onFailure` handler. Generic `O` mirrors the real SDK's
- * `StrictWorkflowOutputType` so call sites are interchangeable.
+ * an optional `onFailure` handler. Generic `_O` is unused in the class body
+ * but mirrors the real SDK's `StrictWorkflowOutputType` so call sites are
+ * interchangeable; the leading underscore satisfies `no-unused-vars`.
  */
-export class WorkflowDeclaration<I, O extends AnyRecord = AnyRecord> { // eslint-disable-line @typescript-eslint/no-unused-vars
+export class WorkflowDeclaration<I, _O extends AnyRecord = AnyRecord> {
   readonly name: string;
   readonly tasks: TaskDecl<I, unknown>[] = [];
   onFailureFn?: OnFailureFn<I>;

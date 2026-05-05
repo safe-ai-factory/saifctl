@@ -13,8 +13,7 @@ export interface WriteUtf8Options {
 }
 
 /** Write UTF-8 text; optional file mode (chmod). */
-/** eslint-disable-next-line max-params */
-export async function writeUtf8(
+export async function writeUtf8( // eslint-disable-line max-params -- (filePath, data, options)
   filePath: string,
   data: string,
   options?: WriteUtf8Options,
