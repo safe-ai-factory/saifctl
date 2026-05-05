@@ -1,10 +1,15 @@
 # npm tombstone packages
 
-Defensive placeholder packages so unscoped names **`safe-ai-factory`** and **`saifctl`** cannot be squatted on npm. Each tombstone has **no useful runtime**; install the real CLI as **`@safe-ai-factory/saifctl`**.
+Defensive placeholder packages so unscoped names cannot be squatted on npm:
 
-Publish order:
+- **`safe-ai-factory`** and **`saifctl`** — real CLI is **`@safe-ai-factory/saifctl`**.
+- **`saifdocs`** — real package is **`@safe-ai-factory/saifdocs`**.
 
-1. **`@safe-ai-factory/saifctl`** — from the repository root (real package).
+Each tombstone has **no useful runtime** (requiring it throws). Do not add a `bin` field to tombstones.
+
+## SaifCTL: publish order
+
+1. **`@safe-ai-factory/saifctl`** — from the **safe-ai-factory** repository root (real package).
 2. **`safe-ai-factory`** — from `npm-tombstones/safe-ai-factory/`.
 3. **`saifctl`** — from `npm-tombstones/saifctl/`.
 
@@ -18,18 +23,24 @@ Log in once:
 npm login
 ```
 
-### 1. Real package (repository root)
+### 1. Real package: SaifCTL (repository root)
 
-From **`safe-ai-factory/`** (this repo root), after tests and build succeed:
+From **`safe-ai-factory/`** (this repo root). The canonical publish flow
+(per Decision D-11) is to build a verified tarball locally, then publish
+it bit-identically:
 
 ```bash
 cd /path/to/safe-ai-factory
-pnpm install
-pnpm run build
-npm publish --access public
+pnpm install --frozen-lockfile
+pnpm run check         # tests, lint, validate
+bash scripts/package.sh  # builds + npm pack into dist-pack/
+npm publish dist-pack/safe-ai-factory-saifctl-*.tgz --access public
 ```
 
-(`prepublishOnly` runs `npm run build` if you use `npm publish`; using `pnpm` for install is fine.)
+The same flow is what `.github/workflows/publish-npm.yml` runs in CI on
+a `v*` tag — what you verify locally is bit-identical to what ships.
+(`prepublishOnly` was dropped; the script handles the build step
+explicitly.)
 
 ### 2. Tombstone: `safe-ai-factory`
 
@@ -49,7 +60,32 @@ npm publish
 npm deprecate saifctl@1.0.0 "Official package is @safe-ai-factory/saifctl. Install that instead."
 ```
 
+### 4. Real package: `@safe-ai-factory/saifdocs`
+
+From the **saifdocs** repo root, after `pnpm run check` succeeds:
+
+```bash
+cd /path/to/saifdocs
+pnpm install --frozen-lockfile
+pnpm run check
+npm publish --access public
+```
+
+Use your release process (e.g. Git tag + `publish-npm` workflow) if you publish from CI.
+
+### 5. Tombstone: `saifdocs`
+
+Run only after **`@safe-ai-factory/saifdocs`** exists on npm.
+
+```bash
+cd /path/to/safe-ai-factory/npm-tombstones/saifdocs
+npm publish
+npm deprecate saifdocs@1.0.0 "Official package is @safe-ai-factory/saifdocs. Install that instead."
+```
+
+(Use `npm deprecate saifdocs@"*"` if you prefer all versions.)
+
 ## Version bumps
 
 - Bump **`npm-tombstones/*/package.json`** `version` if you need to re-publish a tombstone (npm rejects duplicate versions).
-- The main app version lives in the root **`package.json`**.
+- The main SaifCTL app version lives in the **safe-ai-factory** root **`package.json`**.

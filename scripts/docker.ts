@@ -85,6 +85,127 @@ function validateImageTag(tag: string, flagName: string): void {
   }
 }
 
+interface PushConfig {
+  platforms: string;
+  imagePrefix: string;
+  extraTag?: string;
+  /** Dry-run: build via buildx for the given platforms but skip the push and the manifest inspect. */
+  dryRun: boolean;
+}
+
+interface BuildImageOptions {
+  dockerfilePath: string;
+  localTag: string;
+  cwd: string;
+  push?: PushConfig;
+}
+
+async function buildImage(opts: BuildImageOptions): Promise<void> {
+  const { dockerfilePath, localTag, cwd, push } = opts;
+
+  if (!push) {
+    await spawnAsync({
+      command: 'docker',
+      args: ['build', '-f', dockerfilePath, '-t', localTag, '.'],
+      cwd,
+      stdio: 'inherit',
+    });
+    return;
+  }
+
+  const imageName = localTag.split(':')[0]!;
+  const remoteLatest = `${push.imagePrefix}/${imageName}:latest`;
+  const remoteTags = [remoteLatest];
+  if (push.extraTag) remoteTags.push(`${push.imagePrefix}/${imageName}:${push.extraTag}`);
+
+  // Dry-run validates the build for all requested platforms without pushing.
+  // buildx with --platform and no --push/--load builds for every platform
+  // and discards the result — exactly what we want for "would this publish work?".
+  const buildxArgs = [
+    'buildx',
+    'build',
+    '--platform',
+    push.platforms,
+    '-f',
+    dockerfilePath,
+    ...remoteTags.flatMap((t) => ['-t', t]),
+    ...(push.dryRun ? [] : ['--push']),
+    '.',
+  ];
+
+  await spawnAsync({
+    command: 'docker',
+    args: buildxArgs,
+    cwd,
+    stdio: 'inherit',
+  });
+
+  if (push.dryRun) return;
+
+  await spawnAsync({
+    command: 'docker',
+    args: ['buildx', 'imagetools', 'inspect', remoteLatest],
+    cwd,
+    stdio: 'inherit',
+  });
+}
+
+function resolvePushConfig(args: Record<string, unknown>): PushConfig | undefined {
+  if (args.push !== true) {
+    if (args['dry-run'] === true) {
+      consola.error(
+        '--dry-run requires --push (it changes how --push behaves; without --push it has no effect).',
+      );
+      process.exit(1);
+    }
+    return undefined;
+  }
+
+  const prefixRaw = args['image-prefix'];
+  if (typeof prefixRaw !== 'string' || !prefixRaw.trim()) {
+    consola.error(
+      '--push requires --image-prefix (e.g. --image-prefix ghcr.io/safe-ai-factory/saifctl)',
+    );
+    process.exit(1);
+  }
+
+  const platformsRaw = args.platforms;
+  const extraRaw = args['extra-tag'];
+  const dryRun = args['dry-run'] === true;
+
+  return {
+    platforms:
+      typeof platformsRaw === 'string' && platformsRaw.trim() ? platformsRaw.trim() : 'linux/amd64',
+    imagePrefix: prefixRaw.trim().replace(/\/+$/, ''),
+    extraTag: typeof extraRaw === 'string' && extraRaw.trim() ? extraRaw.trim() : undefined,
+    dryRun,
+  };
+}
+
+const PUSH_ARGS = {
+  push: {
+    type: 'boolean',
+    description: 'Push to registry instead of building locally (uses buildx; multi-arch manifest)',
+  },
+  platforms: {
+    type: 'string',
+    description: 'Comma-separated platforms for --push (default: linux/amd64)',
+  },
+  'image-prefix': {
+    type: 'string',
+    description: 'Registry prefix for pushed tags, required with --push (e.g. ghcr.io/owner/repo)',
+  },
+  'extra-tag': {
+    type: 'string',
+    description: 'Additional tag to push alongside :latest (e.g. v0.1.0)',
+  },
+  'dry-run': {
+    type: 'boolean',
+    description:
+      'With --push: build via buildx for all platforms but skip the push and manifest inspect. Validates the build path without pushing to the registry.',
+  },
+} as const;
+
 // ── test build ───────────────────────────────────────────────────────────────
 
 const testBuildCommand = defineCommand({
@@ -100,22 +221,46 @@ const testBuildCommand = defineCommand({
       type: 'boolean',
       description: 'Skip build if the target image tag already exists locally',
     },
+    ...PUSH_ARGS,
   },
   async run({ args }) {
     const repoRoot = getSaifctlRoot();
     const buildAll = args.all === true;
     const skipExisting = args['skip-existing'] === true;
+    const push = resolvePushConfig(args as Record<string, unknown>);
+
+    if (push && skipExisting) {
+      consola.error(
+        '--skip-existing cannot be combined with --push (no local image is created when pushing).',
+      );
+      process.exit(1);
+    }
+    if (push && args['test-image']) {
+      consola.error('--test-image cannot be combined with --push (use the canonical tag).');
+      process.exit(1);
+    }
 
     const profilesToBuild: TestProfile[] = buildAll
       ? Object.values(SUPPORTED_PROFILES)
       : [args['test-profile'] ? resolveTestProfile(args['test-profile']) : DEFAULT_TEST_PROFILE];
 
+    const verb = push
+      ? push.dryRun
+        ? 'Building (dry-run, no push)'
+        : 'Building + pushing'
+      : 'Building';
     consola.log(
       buildAll
-        ? `\nBuilding all ${profilesToBuild.length} test runner images...`
-        : '\nBuilding test runner image...',
+        ? `\n${verb} all ${profilesToBuild.length} test runner images...`
+        : `\n${verb} test runner image...`,
     );
-    consola.log('  (this only needs to run once; images are cached locally)\n');
+    if (push) {
+      consola.log(
+        `  (multi-arch via buildx; platforms=${push.platforms}; prefix=${push.imagePrefix}${push.extraTag ? `; extra-tag=${push.extraTag}` : ''})\n`,
+      );
+    } else {
+      consola.log('  (this only needs to run once; images are cached locally)\n');
+    }
     if (skipExisting) {
       consola.log('  (--skip-existing: will not rebuild tags already present locally)\n');
     }
@@ -134,7 +279,7 @@ const testBuildCommand = defineCommand({
       const tag = buildAll
         ? `saifctl-test-${profile.id}:latest`
         : args['test-image']?.trim() || `saifctl-test-${profile.id}:latest`;
-      if (!buildAll) validateImageTag(tag, '--test-image');
+      if (!buildAll && !push) validateImageTag(tag, '--test-image');
 
       const dockerfilePath = resolveTestDockerfilePath(profile.id);
       if (!(await pathExists(dockerfilePath))) {
@@ -148,18 +293,17 @@ const testBuildCommand = defineCommand({
         continue;
       }
 
-      consola.log(`${progress}Building: ${tag}`);
+      consola.log(
+        `${progress}${push ? (push.dryRun ? 'Building (dry-run)' : 'Building + pushing') : 'Building'}: ${tag}`,
+      );
       consola.log(`${progress}  Dockerfile: ${dockerfilePath}`);
 
       try {
-        await spawnAsync({
-          command: 'docker',
-          args: ['build', '-f', dockerfilePath, '-t', tag, '.'],
-          cwd: repoRoot,
-          stdio: 'inherit',
-        });
+        await buildImage({ dockerfilePath, localTag: tag, cwd: repoRoot, push });
       } catch {
-        consola.error(`\n${progress}docker build failed for ${profile.id}`);
+        consola.error(
+          `\n${progress}docker ${push ? 'buildx push' : 'build'} failed for ${profile.id}`,
+        );
         process.exit(1);
       }
       consola.log(`${progress}  => ${tag}\n`);
@@ -171,9 +315,11 @@ const testBuildCommand = defineCommand({
     } else if (skipped > 0) {
       consola.log(`Test images: built ${built}, skipped ${skipped} (already exist).`);
     } else {
-      consola.log('Test image(s) built successfully.');
+      consola.log(
+        `Test image(s) ${push ? (push.dryRun ? 'built (dry-run; nothing pushed)' : 'built and pushed') : 'built'} successfully.`,
+      );
     }
-    if (!buildAll) {
+    if (!buildAll && !push) {
       const tag = args['test-image']?.trim() || `saifctl-test-${profilesToBuild[0]!.id}:latest`;
       consola.log(`Use it with: npx saifctl feat run --test-image ${tag}`);
     }
@@ -196,22 +342,46 @@ const coderBuildCommand = defineCommand({
       type: 'boolean',
       description: 'Skip build if the target image tag already exists locally',
     },
+    ...PUSH_ARGS,
   },
   async run({ args }) {
     const repoRoot = getSaifctlRoot();
     const buildAll = args.all === true;
     const skipExisting = args['skip-existing'] === true;
+    const push = resolvePushConfig(args as Record<string, unknown>);
+
+    if (push && skipExisting) {
+      consola.error(
+        '--skip-existing cannot be combined with --push (no local image is created when pushing).',
+      );
+      process.exit(1);
+    }
+    if (push && args['coder-image']) {
+      consola.error('--coder-image cannot be combined with --push (use the canonical tag).');
+      process.exit(1);
+    }
 
     const profilesToBuild: SandboxProfile[] = buildAll
       ? Object.values(SUPPORTED_SANDBOX_PROFILES)
       : [args.profile ? resolveSandboxProfile(args.profile) : DEFAULT_SANDBOX_PROFILE];
 
+    const verb = push
+      ? push.dryRun
+        ? 'Building (dry-run, no push)'
+        : 'Building + pushing'
+      : 'Building';
     consola.log(
       buildAll
-        ? `\nBuilding all ${profilesToBuild.length} coder images...`
-        : '\nBuilding coder image...',
+        ? `\n${verb} all ${profilesToBuild.length} coder images...`
+        : `\n${verb} coder image...`,
     );
-    consola.log('  (this only needs to run once; images are cached locally)\n');
+    if (push) {
+      consola.log(
+        `  (multi-arch via buildx; platforms=${push.platforms}; prefix=${push.imagePrefix}${push.extraTag ? `; extra-tag=${push.extraTag}` : ''})\n`,
+      );
+    } else {
+      consola.log('  (this only needs to run once; images are cached locally)\n');
+    }
     if (skipExisting) {
       consola.log('  (--skip-existing: will not rebuild tags already present locally)\n');
     }
@@ -230,7 +400,7 @@ const coderBuildCommand = defineCommand({
       const tag = buildAll
         ? profile.coderImageTag
         : args['coder-image']?.trim() || profile.coderImageTag;
-      if (!buildAll && args['coder-image']) validateImageTag(tag, '--coder-image');
+      if (!buildAll && args['coder-image'] && !push) validateImageTag(tag, '--coder-image');
 
       const dockerfilePath = resolveSandboxCoderDockerfilePath(profile.id);
       if (!(await pathExists(dockerfilePath))) {
@@ -244,19 +414,18 @@ const coderBuildCommand = defineCommand({
         continue;
       }
 
-      consola.log(`${progress}Building: ${tag}`);
+      consola.log(
+        `${progress}${push ? (push.dryRun ? 'Building (dry-run)' : 'Building + pushing') : 'Building'}: ${tag}`,
+      );
       consola.log(`${progress}  Profile:    ${profile.id} (${profile.displayName})`);
       consola.log(`${progress}  Dockerfile: ${dockerfilePath}`);
 
       try {
-        await spawnAsync({
-          command: 'docker',
-          args: ['build', '-f', dockerfilePath, '-t', tag, '.'],
-          cwd: repoRoot,
-          stdio: 'inherit',
-        });
+        await buildImage({ dockerfilePath, localTag: tag, cwd: repoRoot, push });
       } catch {
-        consola.error(`\n${progress}docker build failed for ${profile.id}`);
+        consola.error(
+          `\n${progress}docker ${push ? 'buildx push' : 'build'} failed for ${profile.id}`,
+        );
         process.exit(1);
       }
       consola.log(`${progress}  => ${tag}\n`);
@@ -268,9 +437,11 @@ const coderBuildCommand = defineCommand({
     } else if (coderSkipped > 0) {
       consola.log(`Coder images: built ${coderBuilt}, skipped ${coderSkipped} (already exist).`);
     } else {
-      consola.log('Coder image(s) built successfully.');
+      consola.log(
+        `Coder image(s) ${push ? (push.dryRun ? 'built (dry-run; nothing pushed)' : 'built and pushed') : 'built'} successfully.`,
+      );
     }
-    if (!buildAll) {
+    if (!buildAll && !push) {
       const profile = profilesToBuild[0]!;
       const tag = args['coder-image']?.trim() || profile.coderImageTag;
       consola.log(`Use it with: saifctl feat run --profile ${profile.id}`);

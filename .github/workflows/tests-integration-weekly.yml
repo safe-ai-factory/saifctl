@@ -1,0 +1,116 @@
+name: Integration tests (weekly, with LLM)
+
+# Weekly integration job — the only place in CI that makes a real Anthropic
+# API call. Spins up a real Docker container, runs the orchestrator end to
+# end against a fixture project using the `claude` agent profile + Anthropic
+# provider, and asserts the agent produced a conformant output file with no
+# API-key leaks in any captured log surface. Also runs the per-PR debug
+# smoke alongside, so a failure here pinpoints whether the regression is in
+# the LLM path or in the underlying container plumbing.
+#
+# Why scheduled, not on every PR:
+#   - keeps the API key off fork-PR runners (PRs from forks don't get
+#     access to repo secrets, so an LLM job there would silently no-op
+#     unless special-cased — better to not pretend)
+#   - bounds spend regardless of PR volume
+#
+# Why weekly, not nightly:
+#   - the LLM happy path moves slowly; daily signal is overkill for
+#     workflow-config drift on a stable feature
+#   - ~$0.05/run × 4 runs/mo ≈ $0.20/mo expected vs ~$1.50/mo nightly
+#   - well under the project-level Anthropic budget alert (~$20/mo
+#     tripwire) configured out-of-band in the Anthropic console
+#
+# Flake handling: SAIFCTL_TEST_RETRY=2 below gives the LLM scenario up to
+# 3 attempts within a single run, scoped to `itWithLLM` (the helper that
+# wraps LLM-bearing scenarios — see `test/integration/harness/setup/env-gate.ts`).
+# This is within-run retry, NOT "wait until next Monday to confirm" — a
+# real failure still surfaces on the same job. Debug-agent failures
+# ignore this knob since they're deterministic plumbing failures and
+# should fail on first hit.
+#
+# Manual re-run: workflow_dispatch is wired so we can fire on demand after
+# a fix without waiting for Monday.
+#
+# Authoritative spec: saifctl/features/release-readiness/specification.md
+# §4.1, item X08-P3.
+on:
+  schedule:
+    # Mondays 06:00 UTC (07/08 local depending on BST). Low-traffic window so
+    # a flaky run doesn't compete with morning PR runners.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  integration-llm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Same image set and rationale as the per-PR workflow: build the
+      # coder + test images locally from the in-tree Dockerfiles. A
+      # Dockerfile regression that landed mid-week surfaces here on Monday
+      # rather than hiding until the next image-publish workflow on release.
+      #
+      # Image choices are locked by the harness — see the per-PR workflow
+      # `tests-integration.yml` for the references into the source.
+      - name: Build coder image (saifctl-coder-node-pnpm:latest)
+        run: pnpm docker build coder --profile node-pnpm
+
+      - name: Build test image (saifctl-test-node-vitest:latest)
+        run: pnpm docker build test --test-profile node-vitest
+
+      # The pnpm script sets SAIFCTL_INTEG=1 only (see package.json
+      # `test:integration:llm`). SAIFCTL_NO_LLM is intentionally NOT set,
+      # so the LLM-bearing scenario runs against the live Anthropic API.
+      #
+      # If ANTHROPIC_API_KEY is missing or empty, the scenario fails loudly
+      # inside `getAnthropicKey()` rather than silent-skipping — silent skip
+      # on a missing secret is a footgun (CI would go green forever while
+      # not actually exercising the LLM path), so we deliberately don't
+      # support it.
+      #
+      # SAIFCTL_TEST_SKIP_NETWORK_PROBE is intentionally unset for the same
+      # reasoning as the per-PR workflow: GitHub-hosted runners have egress,
+      # the debug agent's network probe exercises Cedar/Leash NetworkConnect
+      # (the network-policy enforcement layer), and leaving it ON catches
+      # policy regressions.
+      - name: Run integration tests (debug + claude/anthropic)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SAIFCTL_TEST_RETRY: '2'
+        run: pnpm test:integration:llm
+
+      - name: Collect harness logs (on failure)
+        if: failure()
+        run: |
+          mkdir -p .harness-logs
+          shopt -s nullglob
+          for d in /tmp/saifctl-integ-*; do
+            if [ -f "$d/harness.log" ]; then
+              cp "$d/harness.log" ".harness-logs/$(basename "$d").log"
+            fi
+          done
+          ls -la .harness-logs || true
+
+      - name: Upload harness logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-logs-weekly-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .harness-logs/
+          if-no-files-found: warn
+          retention-days: 30

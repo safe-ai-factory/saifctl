@@ -1,0 +1,19 @@
+{
+  "name": "saifdocs",
+  "version": "1.0.0",
+  "description": "Tombstone: official package is published as @safe-ai-factory/saifdocs.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/safe-ai-factory/saifdocs.git"
+  },
+  "homepage": "https://www.npmjs.com/package/@safe-ai-factory/saifdocs",
+  "bugs": {
+    "url": "https://github.com/safe-ai-factory/saifdocs/issues"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ]
+}

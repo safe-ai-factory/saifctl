@@ -21,8 +21,12 @@ jobs:
       run:
         working-directory: web
     steps:
+      # Initialises vendor/saifdocs submodule.
+      # If the submodule is not initialised, sync-docs.ts exits non-zero and the build fails.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,7 +39,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: web/.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/src/**') }}
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/src/**', 'docs/**', 'vendor/saifdocs/docs/**') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('web/package-lock.json') }}-
 
@@ -48,6 +52,18 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${{ vars.NEXT_PUBLIC_PLAUSIBLE_DOMAIN }}
+
+      - name: Verify doc sync
+        run: |
+          for p in saifctl saifdocs; do
+            f="src/content/docs/${p}/nav.json"
+            if [ -f "$f" ]; then
+              echo "✓ Doc sync produced $f"
+            else
+              echo "::error::Doc sync failed — $f missing (run \`npm run sync-docs\` locally and commit, or fix vendor/docs paths)"
+              exit 1
+            fi
+          done
 
       - name: Verify Plausible in build
         run: |

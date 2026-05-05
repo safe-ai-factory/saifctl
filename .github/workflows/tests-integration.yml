@@ -1,0 +1,138 @@
+name: Integration tests (per-PR, no LLM)
+
+# Per-PR integration smoke. Spins up a real Docker container, runs the
+# orchestrator against a fixture project using the `debug` agent profile (a
+# no-LLM stub agent — see `src/agent-profiles/debug/`), asserts it boots,
+# does its work, and tears down cleanly.
+#
+# What this catches that unit tests don't:
+#   - Dockerfile.coder regressions (image won't build)
+#   - container plumbing breakage (mounts, env forwarding, leash bootstrap)
+#   - orchestrator end-to-end wiring (sandbox → coding → patch → branch)
+#
+# What it does NOT cover: real LLM behavior. That lives in the weekly
+# workflow (`tests-integration-weekly.yml`) which carries the Anthropic API
+# key — kept off PRs deliberately, both to avoid burning credit on every
+# push and to keep the secret out of fork-PR runners.
+#
+# Env gating (see `test/integration/harness/setup/env-gate.ts`):
+#   SAIFCTL_INTEG=1   — opt in to Docker-running scenarios
+#   SAIFCTL_NO_LLM=1  — explicit opt-out for any LLM-bearing scenario
+#
+# Wall-clock budget: ~5–8 min total (image builds dominate; the actual test
+# runs in ~7s once images exist). If this becomes a hot path, move to a
+# buildx GHA cache; until measured, plain `docker build` keeps the job
+# simple and self-contained.
+#
+# Authoritative spec: saifctl/features/release-readiness/specification.md
+# §4.1, item X08-P3.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'web/**'
+      - 'docs/**'
+      - 'docs_old/**'
+      - 'vscode-ext/**'
+      - 'vendor/**'
+      - 'safe-ai-factory/web/**'
+      - 'docspec/**'
+      - '**/*.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'web/**'
+      - 'docs/**'
+      - 'docs_old/**'
+      - 'vscode-ext/**'
+      - 'vendor/**'
+      - 'safe-ai-factory/web/**'
+      - 'docspec/**'
+      - '**/*.md'
+
+# Cancel superseded runs on the same PR/branch — image rebuilds are expensive
+# enough that letting a stale run finish wastes ~5 min of runner time.
+concurrency:
+  group: integ-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The integration harness expects two images present locally before
+      # any test runs: the coder image (the container the agent runs inside)
+      # and the test image (the container that runs the staging tests). The
+      # orchestrator does not pull from GHCR in this code path.
+      #
+      # We build from the in-tree Dockerfiles per run so that a Dockerfile
+      # regression in this PR fails this job, rather than hiding until the
+      # next image-publish workflow on release.
+      #
+      # Image choices are locked by the harness:
+      #   - sandbox profile `node-pnpm`  → coder image saifctl-coder-node-pnpm:latest
+      #     (see test/integration/harness/runHarness.ts, DEFAULT_SANDBOX_PROFILE)
+      #   - test profile `node-vitest`   → test image  saifctl-test-node-vitest:latest
+      #     (default in src/test-profiles/index.ts, DEFAULT_TEST_PROFILE)
+      - name: Build coder image (saifctl-coder-node-pnpm:latest)
+        run: pnpm docker build coder --profile node-pnpm
+
+      - name: Build test image (saifctl-test-node-vitest:latest)
+        run: pnpm docker build test --test-profile node-vitest
+
+      # The pnpm script sets SAIFCTL_INTEG=1 SAIFCTL_NO_LLM=1 (see package.json
+      # `test:integration`). The first turns the integration suite on; the
+      # second skips any LLM-bearing scenario, which is what keeps this job
+      # safe to run on PRs without a secret.
+      #
+      # Note on SAIFCTL_TEST_SKIP_NETWORK_PROBE: intentionally left UNSET. The
+      # debug agent's network probe exercises Cedar/Leash NetworkConnect (the
+      # network-policy enforcement layer that gates outbound traffic from
+      # agent containers). GitHub-hosted runners have egress, so leaving the
+      # probe enabled catches a Cedar policy regression on the same PR that
+      # introduces it. See `runHarness.ts` `debugSkipNetworkProbe` handling
+      # for the per-test escape hatch.
+      - name: Run integration tests (debug-agent smoke)
+        run: pnpm test:integration
+
+      # The harness mirrors stdout/stderr from each scenario into
+      # `<tmp-project-dir>/harness.log` via synchronous writeSync, so the
+      # logs survive even when vitest aborts a test for timeout (the
+      # in-memory log buffer is lost in that case). The tmp dirs live under
+      # /tmp on the runner and disappear when the job ends — so we copy
+      # the log files out as a job artifact for post-mortem triage.
+      - name: Collect harness logs (on failure)
+        if: failure()
+        run: |
+          mkdir -p .harness-logs
+          shopt -s nullglob
+          for d in /tmp/saifctl-integ-*; do
+            if [ -f "$d/harness.log" ]; then
+              cp "$d/harness.log" ".harness-logs/$(basename "$d").log"
+            fi
+          done
+          ls -la .harness-logs || true
+
+      - name: Upload harness logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-logs-pr-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .harness-logs/
+          if-no-files-found: warn
+          retention-days: 7

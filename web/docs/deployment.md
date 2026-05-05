@@ -31,7 +31,7 @@ GitHub Pages serves static HTML, CSS, and JavaScript. Next.js is configured for 
 
 ### Deployment Workflow
 
-The workflow lives at `.github/workflows/web-deploy.yml` (in the **safe-ai-factory** repo, not the parent agents repo).
+The workflow lives at `.github/workflows/publish-web.yml` (in the **safe-ai-factory** repo, not the parent agents repo).
 
 **Triggers:**
 
