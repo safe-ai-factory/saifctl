@@ -4,104 +4,84 @@
 # Part of the forge agent profile. Selected via --agent forge.
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
-# Forge is a compiled Rust binary that runs fully headlessly with no interactive prompts required.
+# Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
+# for the shared scaffold (X08-P7/P8).
 #
-# CLI reference:   https://forgecode.dev/docs/cli-reference/
-# Env config:      https://forgecode.dev/docs/environment-configuration/
-# Providers:       https://forgecode.dev/docs/custom-providers/
+# Forge is a compiled Rust binary that runs fully headlessly with no
+# interactive prompts.
 #
-# === Invocation ===
-#   forge -p "TASK"    Non-interactive mode: process the prompt and exit. Mutually
-#                      exclusive with piping. This is the correct headless mode.
+# CLI reference: https://forgecode.dev/docs/cli-reference/
+# Env config:    https://forgecode.dev/docs/environment-configuration/
 #
-# === All relevant CLI flags ===
-#   -p, --prompt TEXT  Pass a prompt directly; forge processes it and exits.
-#                      This is the primary headless interface for the factory.
-#   --agent AGENT_ID   Agent to use for this session. Forge has two built-in agents:
-#                      "forge" (full read-write execution — what we want for coding
-#                      tasks) and "muse" (read-only planning). Defaults to "forge".
-#                      Explicitly passing --agent forge makes the mode unambiguous.
-#   --verbose          Enable verbose output. Useful for factory log inspection.
-#   -C, --directory    Set working directory before starting. Not needed here as the
-#                      factory already runs agent.sh in the project root.
-#   --sandbox          Create an isolated git worktree. Not used — the factory
-#                      manages its own sandboxing via Leash.
-#   -r, --restricted   Use restricted bash shell. Not used — the factory container
-#                      is already sandboxed by Leash.
+# Invocation:
+#   forge -p "TASK"     Non-interactive mode.
+#   --agent forge       Full read-write execution agent (default; explicit for clarity).
+#   --verbose           Verbose output for factory log inspection.
 #
-# === Authentication & API keys ===
-#   Forge reads API keys directly from environment variables. The priority order is:
-#     1. FORGE_KEY          (Antinomy's own provider, OpenAI-compatible)
-#     2. OPENROUTER_API_KEY (OpenRouter — recommended; provides 300+ models)
-#     3. OPENAI_API_KEY     (Official OpenAI)
-#     4. ANTHROPIC_API_KEY  (Official Anthropic)
-#   The factory provides LLM_API_KEY as a generic credential. We map it as a
-#   fallback to all four in the order above. Native keys already set take precedence.
+# API keys (priority order — Forge reads these directly):
+#   FORGE_KEY → OPENROUTER_API_KEY → OPENAI_API_KEY → ANTHROPIC_API_KEY
 #
-# === Model selection ===
-#   Forge selects models interactively via /model or persistently via
-#   `forge config set model MODEL`. There is no --model CLI flag.
-#   We set the model via `forge config set model` before running the prompt when
-#   LLM_MODEL is provided. The config is stored in Forge's own config file.
+# Base URL: LLM_BASE_URL → OPENAI_URL (OpenAI-compatible). For Anthropic-
+# compatible endpoints set ANTHROPIC_URL directly.
 #
-# === Base URL / Custom endpoints ===
-#   Forge supports custom provider URLs via two env vars:
-#     OPENAI_URL      — Custom base URL for any OpenAI-compatible endpoint
-#                       (including OpenRouter alternatives, Azure, vLLM, Ollama, etc.)
-#     ANTHROPIC_URL   — Custom base URL for an Anthropic-compatible endpoint
-#   LLM_BASE_URL is forwarded to OPENAI_URL as the general-purpose override
-#   (OpenAI-compatible format is the most widely supported). If the endpoint
-#   is Anthropic-compatible, users should set ANTHROPIC_URL directly.
+# Model: Forge has no --model CLI flag — we use `forge config set model …`
+# inside the runuser shell to pin the model for this invocation.
 #
-# === Provider selection ===
-#   LLM_PROVIDER is used to choose which API key to surface as the primary one.
-#   For the most common cases:
-#     "openrouter"  → OPENROUTER_API_KEY
-#     "openai"      → OPENAI_API_KEY
-#     "anthropic"   → ANTHROPIC_API_KEY
-#   When unset, the factory falls back to the priority order above.
+#   GOTCHA — provider-dependent format. Forge's internal model registry
+#   accepts different shapes depending on which provider is configured:
+#     - OpenAI:           bare id      (e.g. `o1`, `gpt-5`)
+#     - HuggingFace-style: org/model    (e.g. `meta-llama/Llama-3.3-70B-Instruct`)
+#     - Anthropic:        bare id      (e.g. `claude-sonnet-4.5`)
+#   Saifctl's factory format is always `provider/model` (or `provider/org/model`
+#   for OpenRouter), and there is no universally-right translation. We pass
+#   `LLM_MODEL` through verbatim — that works for OpenRouter, HuggingFace, and
+#   any provider whose forge identifier already includes a slash. For OpenAI
+#   and Anthropic, the user must either:
+#     (a) pre-configure the model via .forge.toml (`[session] model_id = "o1"`),
+#         which takes precedence over this `forge config set` call when the
+#         `forge config set` invocation fails (the `|| true` guard below), OR
+#     (b) supply LLM_MODEL_ID directly via `--agent-env LLM_MODEL=<bare-id>` to
+#         override the orchestrator's auto-prefixed value.
+#   We do NOT switch to `$LLM_MODEL_ID` here because that would silently break
+#   the HuggingFace and OpenRouter paths that need the prefix preserved. See
+#   the analysis in specification.md §10 X08-P? for the full provider matrix.
 
 set -euo pipefail
 
 echo "[agent/forge] Starting agent forge in agent.sh..."
 
-# ---------------------------------------------------------------------------
-# API keys — map LLM_API_KEY as a fallback for all provider key vars.
-# Native provider keys take precedence if already set.
-# ---------------------------------------------------------------------------
-export FORGE_KEY="${FORGE_KEY:-$LLM_API_KEY}"
-export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$LLM_API_KEY}"
-export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
-
-# ---------------------------------------------------------------------------
-# Base URL — forward LLM_BASE_URL to OPENAI_URL (OpenAI-compatible format).
-# OPENAI_URL is respected by Forge for any OpenAI-compatible provider.
-# ---------------------------------------------------------------------------
-if [ -n "${LLM_BASE_URL:-}" ]; then
-  export OPENAI_URL="${OPENAI_URL:-$LLM_BASE_URL}"
-fi
-
-# ---------------------------------------------------------------------------
-# Model — Forge has no --model CLI flag. Set the model via config before
-# running the prompt so the setting persists for this invocation.
-# ---------------------------------------------------------------------------
-if [ -n "${LLM_MODEL:-}" ]; then
-  echo "[agent/forge] About to run: forge config set model \"${LLM_MODEL}\""
-  forge config set model "$LLM_MODEL" 2>/dev/null || true
-fi
+# shellcheck source=/dev/null
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
 
 _SAIFCTL_TASK_SNIP="$(cat "$SAIFCTL_TASK_PATH" 2>/dev/null || true)"
 if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
   _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/forge] About to run: forge --agent forge --verbose -p \"${_SAIFCTL_TASK_SNIP}\" (API keys from env, masked as ****)"
+echo "[agent/forge] About to run (as ${SAIFCTL_UNPRIV_USER}): forge --agent forge --verbose -p \"${_SAIFCTL_TASK_SNIP}\" (API keys/base-url from env, masked as ****)"
 
 _agent_exit=0
-forge \
-  --agent forge \
-  --verbose \
-  -p "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
+runuser -l "$SAIFCTL_UNPRIV_USER" \
+  --whitelist-environment="$(saifctl_unpriv_env_whitelist),FORGE_KEY,OPENAI_URL,ANTHROPIC_URL" \
+  -c '
+    set -euo pipefail
+    export PATH="$HOME/.local/bin:$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"
+    cd "${SAIFCTL_WORKSPACE_BASE:-/workspace}"  # see cwd gotcha in /saifctl/saifctl-agent-helpers.sh
+    export FORGE_KEY="${FORGE_KEY:-${LLM_API_KEY:-}}"
+    export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-${LLM_API_KEY:-}}"
+    export OPENAI_API_KEY="${OPENAI_API_KEY:-${LLM_API_KEY:-}}"
+    export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-${LLM_API_KEY:-}}"
+    if [ -n "${LLM_BASE_URL:-}" ]; then
+      export OPENAI_URL="${OPENAI_URL:-$LLM_BASE_URL}"
+    fi
+    if [ -n "${LLM_MODEL:-}" ]; then
+      forge config set model "$LLM_MODEL" 2>/dev/null || true
+    fi
+    forge \
+      --agent forge \
+      --verbose \
+      -p "$(cat "$SAIFCTL_TASK_PATH")"
+  ' < /dev/null || _agent_exit=$?
 
 echo "[agent/forge] Finished agent forge in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

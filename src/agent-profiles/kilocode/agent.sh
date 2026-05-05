@@ -4,60 +4,40 @@
 # Part of the kilocode agent profile. Selected via --agent kilocode.
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
+# Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
+# for the shared scaffold (X08-P7/P8).
+#
 # Kilo CLI is a fork of OpenCode and inherits its config/provider model.
 # CLI reference:    https://kilocode.ai/docs/cli
 # Config reference: https://opencode.ai/docs/config  (shared schema)
 #
 # === Invocation ===
-#   kilo run [message..]   Non-interactive subcommand: runs with a message and exits.
+#   kilo run [message..]   Non-interactive: runs with a message and exits.
 #   --auto                 Autonomous mode: disables all permission prompts. All
-#                          approval requests are handled automatically based on the
-#                          inline permission config (set to "allow" below). The agent
-#                          also auto-responds to any follow-up questions rather than
-#                          blocking. Required for headless factory use.
+#                          approval requests are handled automatically based on
+#                          the inline permission config (set to "allow" below).
+#                          Required for headless factory use.
 #
 # === Permissions ===
 #   Kilo uses a JSON "permission" config key rather than a CLI flag. We inject
-#   {"permission":"allow"} via OPENCODE_CONFIG_CONTENT, which sets all tools to
-#   allow without prompts. This is equivalent to --yolo in codex or
-#   --dangerously-skip-permissions in claude. Safe here because the factory
-#   container is already sandboxed by Leash.
-#   Docs: https://kilocode.ai/docs/cli#permissions
+#   {"permission":"allow"} via OPENCODE_CONFIG_CONTENT. Equivalent to --yolo.
 #
 # === Model / Provider / API key ===
-#   Kilo uses the OpenCode provider config format. The factory provides:
-#     LLM_API_KEY   — generic API key (mapped to the active provider below)
-#     LLM_MODEL     — model in provider/model format (e.g. "anthropic/claude-sonnet-4-5",
-#                     "openai/gpt-4o", "openrouter/anthropic/claude-sonnet-4-5")
-#     LLM_BASE_URL  — optional custom base URL for the provider (e.g. for OpenRouter,
-#                     local Ollama, or any OpenAI-compatible endpoint)
-#     LLM_PROVIDER  — optional explicit provider ID (e.g. "anthropic", "openai",
-#                     "openrouter"). When set, used as the config key for apiKey and
-#                     baseURL. When unset, the provider is inferred from the LLM_MODEL
-#                     prefix (e.g. "anthropic" from "anthropic/claude-sonnet-4-5").
-#
-#   We inject the full provider config via OPENCODE_CONFIG_CONTENT as JSON so that
-#   no config file needs to exist in the project. The {env:VAR} syntax used in
-#   kilo config files is only parsed from files, not from the env var — so we
-#   construct the JSON directly in the shell.
-#
-#   KILO_PROVIDER / KILO_API_KEY env vars are also documented for the kilocode
-#   provider integration, but OPENCODE_CONFIG_CONTENT gives us full control and
-#   works across all providers uniformly.
-#
-# === Auto-update ===
-#   autoupdate is set to false in the injected config to prevent kilo from trying
-#   to self-update during a factory run.
-#
-# No turn limit is set, so kilo runs until it naturally finishes the task.
+#   Kilo uses the OpenCode provider config format. We inject the full provider
+#   config via OPENCODE_CONFIG_CONTENT as JSON so no config file needs to exist
+#   in the project. Provider id comes from LLM_PROVIDER, falling back to the
+#   prefix of LLM_MODEL when in provider/model format.
 
 set -euo pipefail
 
 echo "[agent/kilocode] Starting agent kilocode in agent.sh..."
 
-# Determine the active provider ID.
-# Prefer the explicit LLM_PROVIDER; fall back to the prefix of LLM_MODEL when
-# it is in provider/model format (e.g. "anthropic/claude-sonnet-4-5").
+# shellcheck source=/dev/null
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
+
+# Build OPENCODE_CONFIG_CONTENT as root so we can use bash arrays / parameter
+# expansion comfortably; forward as a single env var into the runuser shell.
 if [ -n "${LLM_PROVIDER:-}" ]; then
   _provider="$LLM_PROVIDER"
 elif [ -n "${LLM_MODEL:-}" ] && [[ "$LLM_MODEL" == */* ]]; then
@@ -104,12 +84,20 @@ if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
   _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
 _kilo_cfg_redacted="$(printf '%s' "$OPENCODE_CONFIG_CONTENT" | sed 's/"apiKey":"[^"]*"/"apiKey":"****"/g; s/"baseURL":"[^"]*"/"baseURL":"****"/g')"
-echo "[agent/kilocode] About to run: OPENCODE_CONFIG_CONTENT='${_kilo_cfg_redacted}' kilo run --auto \"${_SAIFCTL_TASK_SNIP}\""
+echo "[agent/kilocode] About to run (as ${SAIFCTL_UNPRIV_USER}): OPENCODE_CONFIG_CONTENT='${_kilo_cfg_redacted}' kilo run --auto \"${_SAIFCTL_TASK_SNIP}\""
 
+# Forward the constructed config alongside the standard whitelist.
 _agent_exit=0
-kilo run \
-  --auto \
-  "$(cat "$SAIFCTL_TASK_PATH")" || _agent_exit=$?
+runuser -l "$SAIFCTL_UNPRIV_USER" \
+  --whitelist-environment="$(saifctl_unpriv_env_whitelist),OPENCODE_CONFIG_CONTENT" \
+  -c '
+    set -euo pipefail
+    export PATH="$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$HOME/.local/bin:$PATH"
+    cd "${SAIFCTL_WORKSPACE_BASE:-/workspace}"  # see cwd gotcha in /saifctl/saifctl-agent-helpers.sh
+    kilo run \
+      --auto \
+      "$(cat "$SAIFCTL_TASK_PATH")"
+  ' < /dev/null || _agent_exit=$?
 
 echo "[agent/kilocode] Finished agent kilocode in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

@@ -27,6 +27,29 @@ fi
 _WORKSPACE="${SAIFCTL_WORKSPACE_BASE:-/workspace}"
 _dummy_path="$_WORKSPACE/dummy.md"
 
+# Optional manual test: set SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK=1, wait 10s, assert pending-rules.
+# Path matches coder-start.sh (SAIFCTL_PENDING_RULES_PATH or pending-rules.md next to task).
+if [[ -n "${SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK:-}" ]]; then
+  _TASK="${SAIFCTL_TASK_PATH:-/workspace/.saifctl/task.md}"
+  _PENDING="${SAIFCTL_PENDING_RULES_PATH:-$(dirname "$_TASK")/pending-rules.md}"
+  _EXPECTED='Say hello in a comment in src/foo.ts'
+
+  echo "[agent/debug] Waiting 10s for human feedback at ${_PENDING} (run create rule in another terminal)..."
+  sleep 10
+
+  if [[ ! -f "$_PENDING" ]]; then
+    echo "[agent/debug] ERROR: expected human-feedback file not found: ${_PENDING}" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$_EXPECTED" "$_PENDING"; then
+    echo "[agent/debug] ERROR: ${_PENDING} does not contain: ${_EXPECTED}" >&2
+    echo "[agent/debug] File contents (first 2k):" >&2
+    head -c 2000 "$_PENDING" >&2 || true
+    exit 1
+  fi
+  echo "[agent/debug] OK: found expected text in ${_PENDING}"
+fi
+
 echo "[agent/debug] Writing placeholder dummy.md at ${_dummy_path} (task file: ${SAIFCTL_TASK_PATH:-<unset>})"
 
 cat > "$_dummy_path" <<'EOF'

@@ -29,3 +29,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
   && apt-get update && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/*
+
+# ─── Drop-privileges scaffold (X08-P2) ───────────────────────────────────────
+# Some agent CLIs (notably Claude Code with `--dangerously-skip-permissions`)
+# refuse to run as root. The container default stays root for Leash bootstrap
+# compatibility; per-agent scripts drop to this user via `runuser` for the
+# agent invocation only. See src/agent-profiles/claude/agent.sh.
+RUN useradd -m -s /bin/bash saifctl \
+  && mkdir -p /home/saifctl/.npm-global \
+  && chown -R saifctl:saifctl /home/saifctl
+ENV SAIFCTL_UNPRIV_USER=saifctl
+ENV SAIFCTL_UNPRIV_NPM_PREFIX=/home/saifctl/.npm-global

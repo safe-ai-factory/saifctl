@@ -4,7 +4,8 @@
 # Part of the aider agent profile. Selected via --agent aider.
 # coder-start.sh writes the current task to $SAIFCTL_TASK_PATH before each invocation.
 #
-# Aider is installed by agent-install.sh (pipx) before the loop begins.
+# Drop-privileges: see claude/agent.sh and /saifctl/saifctl-agent-helpers.sh
+# for the shared scaffold (X08-P7/P8).
 #
 # CLI reference: https://aider.chat/docs/config/options.html
 #
@@ -12,50 +13,51 @@
 #   Aider uses litellm and reads native provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY,
 #   OPENROUTER_API_KEY, GEMINI_API_KEY, etc.) automatically. The factory provides the
 #   generic LLM_API_KEY and LLM_MODEL. We export LLM_API_KEY as fallback for all common
-#   provider keys so the user only needs to provide LLM_API_KEY regardless of provider.
-#   If a native key is already set in the environment, it takes precedence.
+#   provider keys inside the runuser shell. Native keys take precedence.
 #
 #   LLM_BASE_URL is forwarded as OPENAI_API_BASE (used by litellm for custom endpoints).
-#   If OPENAI_API_BASE is already set in the environment, it takes precedence.
-#
-#   Model format is the user's responsibility — it must match whatever litellm/aider
-#   expects for the chosen provider (e.g. "anthropic/claude-sonnet-4-5",
-#   "openrouter/anthropic/claude-sonnet-4-5", "gpt-4o").
 #
 # Key flags:
 #   --model           Specify the model (env: AIDER_MODEL).
-#   --message-file    Read the task from a file; process it and exit (single-shot mode).
-#                     The factory loop calls this script once per inner round.
+#   --message-file    Read the task from a file; process and exit (single-shot mode).
 #   --yes             Auto-confirm all prompts (headless, non-interactive).
-#   --no-auto-commits Disable aider's own git commits. The factory loop extracts a patch
-#                     via `git diff HEAD` after the agent exits; if aider commits first,
-#                     the diff is empty and the factory sees "no changes made".
-#   --no-check-update Suppress the update-available banner and any interactive prompt.
-#   --no-suggest-shell-commands
-#                     Suppress suggestions to run shell commands (pointless headlessly).
+#   --no-auto-commits Disable aider's own git commits — the factory extracts a patch
+#                     via `git diff HEAD` after the agent exits.
+#   --no-check-update Suppress the update-available banner.
+#   --no-suggest-shell-commands  Suppress shell-command suggestions (pointless headlessly).
 
 set -euo pipefail
 
 echo "[agent/aider] Starting agent aider in agent.sh..."
 
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
-export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
-export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$LLM_API_KEY}"
-export GEMINI_API_KEY="${GEMINI_API_KEY:-$LLM_API_KEY}"
-if [ -n "${LLM_BASE_URL:-}" ]; then
-  export OPENAI_API_BASE="${OPENAI_API_BASE:-$LLM_BASE_URL}"
-fi
+# shellcheck source=/dev/null
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
 
-echo "[agent/aider] About to run: aider --model \"${LLM_MODEL}\" --message-file \"${SAIFCTL_TASK_PATH}\" --yes --no-auto-commits --no-check-update --no-suggest-shell-commands"
+echo "[agent/aider] About to run (as ${SAIFCTL_UNPRIV_USER}): aider --model \"${LLM_MODEL}\" --message-file \"${SAIFCTL_TASK_PATH}\" --yes --no-auto-commits --no-check-update --no-suggest-shell-commands"
 
 _agent_exit=0
-aider \
-  --model "$LLM_MODEL" \
-  --message-file "$SAIFCTL_TASK_PATH" \
-  --yes \
-  --no-auto-commits \
-  --no-check-update \
-  --no-suggest-shell-commands || _agent_exit=$?
+runuser -l "$SAIFCTL_UNPRIV_USER" \
+  --whitelist-environment="$(saifctl_unpriv_env_whitelist)" \
+  -c '
+    set -euo pipefail
+    export PATH="$HOME/.local/bin:$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"
+    cd "${SAIFCTL_WORKSPACE_BASE:-/workspace}"  # see cwd gotcha in /saifctl/saifctl-agent-helpers.sh
+    export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-${LLM_API_KEY:-}}"
+    export OPENAI_API_KEY="${OPENAI_API_KEY:-${LLM_API_KEY:-}}"
+    export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-${LLM_API_KEY:-}}"
+    export GEMINI_API_KEY="${GEMINI_API_KEY:-${LLM_API_KEY:-}}"
+    if [ -n "${LLM_BASE_URL:-}" ]; then
+      export OPENAI_API_BASE="${OPENAI_API_BASE:-$LLM_BASE_URL}"
+    fi
+    aider \
+      --model "$LLM_MODEL" \
+      --message-file "$SAIFCTL_TASK_PATH" \
+      --yes \
+      --no-auto-commits \
+      --no-check-update \
+      --no-suggest-shell-commands
+  ' < /dev/null || _agent_exit=$?
 
 echo "[agent/aider] Finished agent aider in agent.sh (exit code ${_agent_exit})."
 exit "${_agent_exit}"

@@ -1,8 +1,9 @@
 # Coder image — node-pnpm-python sandbox profile.
 #
-# Based on official Node.js image.
-# Adds pnpm and a Python toolchain so Python-based coder agents (OpenHands, Aider via pipx,
-# etc.) can be installed at runtime by agent-install.sh.
+# Multi-stage build: copies Python 3.12 from the official python image into the
+# official node image. Both are bookworm-slim so the shared libs are compatible.
+# This avoids any runtime Python downloads by uv (which would fail behind a
+# corporate MITM proxy like Leash that injects a custom CA).
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-pnpm-python/Dockerfile.coder \
@@ -10,28 +11,52 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-pnpm-python
+ARG PYTHON_VERSION=3.12
 ARG NODE_VERSION=25
+
+FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
+
 FROM node:${NODE_VERSION}-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Add common utilities and Python toolchain.
+# Copy Python 3.12 from the official python image. Both images share the same
+# bookworm-slim base so shared libraries are compatible.
+COPY --from=python-base /usr/local/bin/python3* /usr/local/bin/
+COPY --from=python-base /usr/local/bin/pip3* /usr/local/bin/
+COPY --from=python-base /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=python-base /usr/local/lib/libpython3* /usr/local/lib/
+COPY --from=python-base /usr/local/include/python3.12 /usr/local/include/python3.12
+
+# Add common utilities. python3/pip/pipx from apt are intentionally omitted —
+# we use the 3.12 binaries copied above instead.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   git \
-  python3 \
-  python3-venv \
-  python3-pip \
   pipx \
   && rm -rf /var/lib/apt/lists/*
+
+# Ensure the copied shared libs are visible to the dynamic linker.
+RUN ldconfig
 
 # Install pnpm globally.
 RUN npm install -g pnpm
 
-# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
-RUN pipx install uv --python python3 \
+# Install uv via pipx using the bundled Python 3.12.
+RUN pipx install uv --python python3.12 \
   && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure pipx-managed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"
+
+# ─── Drop-privileges scaffold (X08-P2) ───────────────────────────────────────
+# Some agent CLIs (notably Claude Code with `--dangerously-skip-permissions`)
+# refuse to run as root. The container default stays root for Leash bootstrap
+# compatibility; per-agent scripts drop to this user via `runuser` for the
+# agent invocation only. See src/agent-profiles/claude/agent.sh.
+RUN useradd -m -s /bin/bash saifctl \
+  && mkdir -p /home/saifctl/.npm-global \
+  && chown -R saifctl:saifctl /home/saifctl
+ENV SAIFCTL_UNPRIV_USER=saifctl
+ENV SAIFCTL_UNPRIV_NPM_PREFIX=/home/saifctl/.npm-global

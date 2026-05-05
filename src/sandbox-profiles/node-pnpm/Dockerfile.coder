@@ -24,3 +24,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install pnpm globally.
 RUN npm install -g pnpm
+
+# ─── Drop-privileges scaffold ────────────────────────────────────────────────
+# The container runs as root by default — Leash's bootstrap mounts (/leash,
+# /log, /cfg, /leash-private) are root-owned on the host and would be
+# unreadable to a non-root container. However, several agent CLIs (notably
+# Claude Code 2.x with `--dangerously-skip-permissions`) refuse to run as
+# root for security reasons. We pre-create a `saifctl` user with a writable
+# npm-global prefix so per-agent scripts (`agent.sh`) can `runuser -u saifctl`
+# for the agent invocation only, leaving Leash's privileged paths untouched.
+#
+# Pre-creating the user in the image (vs `useradd` at runtime in agent.sh)
+# avoids the ~200ms apt/useradd cost on every round and keeps the container
+# image as the single source of truth for "the unprivileged user is named
+# saifctl, has $HOME set, and has $NPM_CONFIG_PREFIX writable".
+RUN useradd -m -s /bin/bash saifctl \
+  && mkdir -p /home/saifctl/.npm-global \
+  && chown -R saifctl:saifctl /home/saifctl
+ENV SAIFCTL_UNPRIV_USER=saifctl
+ENV SAIFCTL_UNPRIV_NPM_PREFIX=/home/saifctl/.npm-global

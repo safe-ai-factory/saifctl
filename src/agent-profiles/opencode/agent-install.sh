@@ -1,7 +1,8 @@
 #!/bin/bash
 # OpenCode agent setup script.
 #
-# Installs opencode-ai via npm when the opencode binary is not on PATH.
+# Installs opencode-ai via npm into the saifctl unprivileged user's npm-global
+# prefix. See specification.md §4.1 X08-P7/P8 + /saifctl/saifctl-agent-helpers.sh.
 #
 # Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/opencode-ai
 
@@ -9,12 +10,12 @@ OPENCODE_CLI_VERSION='1.2.27'
 
 set -euo pipefail
 trap 'ec=$?; echo "[agent-install/opencode] Finished OpenCode setup (agent-install.sh, exit code ${ec})."' EXIT
-echo "[agent-install/opencode] Installing OpenCode (agent-install.sh)..."
 
-if command -v opencode &>/dev/null; then
-  echo "[agent-install/opencode] opencode is already available: $(opencode --version 2>/dev/null || echo 'unknown version')"
-  exit 0
-fi
+# shellcheck source=/dev/null
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
+
+echo "[agent-install/opencode] Installing OpenCode (agent-install.sh)..."
 
 if ! command -v npm &>/dev/null; then
   echo "[agent-install/opencode] ERROR: npm is not available in this image." >&2
@@ -22,6 +23,18 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-echo "[agent-install/opencode] Installing opencode-ai@${OPENCODE_CLI_VERSION} via npm..."
-npm install -g "opencode-ai@${OPENCODE_CLI_VERSION}"
-echo "[agent-install/opencode] opencode is available: $(opencode --version 2>/dev/null || echo 'unknown version')"
+_probe() {
+  runuser -l "$SAIFCTL_UNPRIV_USER" -c "PATH='${SAIFCTL_UNPRIV_NPM_PREFIX}/bin:\$PATH' command -v opencode >/dev/null 2>&1 && opencode --version 2>/dev/null" || true
+}
+
+_existing="$(_probe)"
+if [[ -n "$_existing" ]]; then
+  echo "[agent-install/opencode] opencode already available for ${SAIFCTL_UNPRIV_USER}: ${_existing}"
+  exit 0
+fi
+
+echo "[agent-install/opencode] Installing opencode-ai@${OPENCODE_CLI_VERSION} into ${SAIFCTL_UNPRIV_NPM_PREFIX} (as ${SAIFCTL_UNPRIV_USER})..."
+runuser -l "$SAIFCTL_UNPRIV_USER" -c "NPM_CONFIG_PREFIX='${SAIFCTL_UNPRIV_NPM_PREFIX}' npm install -g 'opencode-ai@${OPENCODE_CLI_VERSION}'"
+
+_after="$(_probe)"
+echo "[agent-install/opencode] opencode installed for ${SAIFCTL_UNPRIV_USER}: ${_after:-unknown version}"

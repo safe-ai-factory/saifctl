@@ -1,7 +1,10 @@
 #!/bin/bash
 # Kilo Code CLI agent setup script.
 #
-# Installs @kilocode/cli via npm if not already present.
+# Installs @kilocode/cli via npm into the saifctl unprivileged user's
+# npm-global prefix. See specification.md §4.1 X08-P7/P8 + the shared
+# helpers at /saifctl/saifctl-agent-helpers.sh.
+#
 # Requires Node.js 20.18.1+ (LTS) — the project's .nvmrc minimum.
 # Docs: https://kilocode.ai/docs/cli
 #
@@ -14,12 +17,12 @@ KILOCODE_CLI_VERSION='7.1.0'
 
 set -euo pipefail
 trap 'ec=$?; echo "[agent-install/kilocode] Finished Kilo Code CLI setup (agent-install.sh, exit code ${ec})."' EXIT
-echo "[agent-install/kilocode] Installing Kilo Code CLI (agent-install.sh)..."
 
-if command -v kilo &>/dev/null; then
-  echo "[agent-install/kilocode] kilo CLI is already installed: $(kilo --version 2>/dev/null || echo 'unknown version')"
-  exit 0
-fi
+# shellcheck source=/dev/null
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
+
+echo "[agent-install/kilocode] Installing Kilo Code CLI (agent-install.sh)..."
 
 if ! command -v npm &>/dev/null; then
   echo "[agent-install/kilocode] ERROR: npm is not available in this image." >&2
@@ -27,6 +30,18 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-echo "[agent-install/kilocode] Installing @kilocode/cli@${KILOCODE_CLI_VERSION} via npm..."
-npm install -g "@kilocode/cli@${KILOCODE_CLI_VERSION}"
-echo "[agent-install/kilocode] kilo CLI installed: $(kilo --version 2>/dev/null || echo 'unknown version')"
+_probe() {
+  runuser -l "$SAIFCTL_UNPRIV_USER" -c "PATH='${SAIFCTL_UNPRIV_NPM_PREFIX}/bin:\$PATH' command -v kilo >/dev/null 2>&1 && kilo --version 2>/dev/null" || true
+}
+
+_existing="$(_probe)"
+if [[ -n "$_existing" ]]; then
+  echo "[agent-install/kilocode] kilo already available for ${SAIFCTL_UNPRIV_USER}: ${_existing}"
+  exit 0
+fi
+
+echo "[agent-install/kilocode] Installing @kilocode/cli@${KILOCODE_CLI_VERSION} into ${SAIFCTL_UNPRIV_NPM_PREFIX} (as ${SAIFCTL_UNPRIV_USER})..."
+runuser -l "$SAIFCTL_UNPRIV_USER" -c "NPM_CONFIG_PREFIX='${SAIFCTL_UNPRIV_NPM_PREFIX}' npm install -g '@kilocode/cli@${KILOCODE_CLI_VERSION}'"
+
+_after="$(_probe)"
+echo "[agent-install/kilocode] kilo installed for ${SAIFCTL_UNPRIV_USER}: ${_after:-unknown version}"
