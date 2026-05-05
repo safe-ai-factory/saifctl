@@ -34,7 +34,7 @@ describe('MemoryStorage', () => {
     expect(failed[0].runId).toBe('run-1');
   });
 
-  it('deletes item', async () => {
+  it('removes a saved item so subsequent get returns null', async () => {
     const storage = new MemoryStorage<TestItem>();
     await storage.save('run-1', { runId: 'run-1', status: 'failed' });
     await storage.delete('run-1');

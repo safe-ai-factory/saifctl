@@ -4,12 +4,12 @@ This document tells an agent **how to think about, structure, and incrementally
 write a feature** under `saifctl/features/<name>/`. It captures the working
 methodology used to produce features like `_phases-and-critics` and
 `release-readiness`. If you point a fresh agent at this file with the
-prompt *"continue our feature work using SKILL.md"*, it should be able to
+prompt _"continue our feature work using SKILL.md"_, it should be able to
 reproduce the workflow without further hand-holding.
 
 The format follows saifctl's own filesystem-as-structure convention: every
 file under a feature dir means something specific (see §3 below). The
-*content* of those files follows the conventions in §4–§7.
+_content_ of those files follows the conventions in §4–§7.
 
 ---
 
@@ -70,8 +70,8 @@ When delegating to parallel sub-agents, use `Explore`-type agents for
 judgment. Always:
 
 - Brief each agent like a smart colleague who hasn't seen the
-  conversation: *what to investigate, why it matters, what shape the
-  report should take, how long*.
+  conversation: _what to investigate, why it matters, what shape the
+  report should take, how long_.
 - Give each one a **distinct, non-overlapping scope** so you don't pay
   for duplicated work.
 - Ask for a **structured report** with file:line citations. Pick the
@@ -103,9 +103,9 @@ every finding / requirement / user-stated constraint becomes a row in
 open questions; don't try to lock the phase breakdown. Capture, then
 refine.
 
-Note this in the file's preamble: *"This file is a working document.
+Note this in the file's preamble: _"This file is a working document.
 The first pass is a verbatim lift of the gathered context. Subsequent
-passes will refine."* That sets expectations for the user reading it.
+passes will refine."_ That sets expectations for the user reading it.
 
 ### Phase D — Iterative refinement (the conversation loop)
 
@@ -302,7 +302,7 @@ Format: `D-NN`, leading zero. Decisions migrate up from §6 questions.
 
 Each decision has:
 
-- A short name (e.g. *"Extension and CLI track independent SemVer trains"*)
+- A short name (e.g. _"Extension and CLI track independent SemVer trains"_)
 - A 1-3 paragraph rationale
 - A **Touches:** line listing work-item IDs the decision affects
 
@@ -340,7 +340,7 @@ that happens, add them and immediately escalate the block to the
 human.
 
 (Note on emoji semantics across the spec: ✅ means "actually completed
-work landed". For work *items* — not PREs — there's a separate 👍
+work landed". For work _items_ — not PREs — there's a separate 👍
 status meaning "decision made, work pending"; the work flips to ✅
 when the change ships. PREs skip 👍 because they don't carry decisions
 — they're either pending or done.)
@@ -353,14 +353,14 @@ When the user makes a decision during Phase D:
 
 1. **Add a §5 entry.** Pick the next `D-NN`. Write rationale.
    Include the **Touches:** line. If the decision creates new work
-   items, add them now (e.g. *"this decision implies a new
-   activation-time probe; add `VSX-11`"*).
+   items, add them now (e.g. _"this decision implies a new
+   activation-time probe; add `VSX-11`"_).
 2. **Update affected work-item rows.** Edit the item text to reference
-   the decision: *"... **Decision D-NN.**"*. Flip any tracking columns
+   the decision: _"... **Decision D-NN.**"_. Flip any tracking columns
    the spec uses to mark the row as resolved. This makes the spec
    self-explanatory without cross-referencing.
 3. **Update §6.** Mark the resolved question as `Q-NN → resolved as
-   D-NN`. Don't renumber other questions.
+D-NN`. Don't renumber other questions.
 4. **Update §9 (phase breakdown — or §8 if the spec skips
    Prerequisites).** If the decision shifts which work items belong
    to which phase, re-flow. If it just resolves an open question
@@ -385,7 +385,7 @@ When kicking off Phase B parallel audits, use these patterns:
   in `src/`", "Walk `docs/` and report which files are <500 bytes")
 - **`general-purpose`** for assessment tasks that need to compose
   evidence into a judgment. ("Audit whether the README's `14 Agentic
-  CLI tools` claim is backed by code.")
+CLI tools` claim is backed by code.")
 
 ### 7.2 Brief each agent self-containedly
 
@@ -425,7 +425,7 @@ release-readiness work.
    fix something, stop and just record the finding.
 
 2. **Pre-deciding things in the spec.** §5 is empty until the user
-   makes a decision. Don't write *"I'd suggest we…"* into §5;
+   makes a decision. Don't write _"I'd suggest we…"_ into §5;
    speculation belongs in §6 as an open question with options.
 
 3. **Renumbering IDs.** Once a row has an ID like `NPM-04`, that ID is
@@ -485,8 +485,8 @@ Two existing features, read in this order to internalize the workflow:
 4. `_phases-example/` (sibling) — a runnable template that exercises
    the conventions end-to-end.
 
-   *(Note: this feature also ships a `plan.md`. Treat it as a legacy
-   artifact, not a model to copy — see §3's "Note on `plan.md`".)*
+   _(Note: this feature also ships a `plan.md`. Treat it as a legacy
+   artifact, not a model to copy — see §3's "Note on `plan.md`".)_
 
 ---
 
@@ -494,12 +494,12 @@ Two existing features, read in this order to internalize the workflow:
 
 When in doubt:
 
-| You're about to… | Do this first |
-|------------------|---------------|
-| Propose a fix during audit | Stop. Just record the finding with file:line. |
-| Write a §5 decision | Confirm the user actually decided it; don't guess. |
-| Renumber an ID | Don't. Append a new ID. |
-| Delete a §6 question | Don't. Mark it `Q-NN → resolved as D-NN`. |
-| Cut a phase early | Wait until §5 is mostly populated. |
+| You're about to…                  | Do this first                                                          |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| Propose a fix during audit        | Stop. Just record the finding with file:line.                          |
+| Write a §5 decision               | Confirm the user actually decided it; don't guess.                     |
+| Renumber an ID                    | Don't. Append a new ID.                                                |
+| Delete a §6 question              | Don't. Mark it `Q-NN → resolved as D-NN`.                              |
+| Cut a phase early                 | Wait until §5 is mostly populated.                                     |
 | Write the whole spec from scratch | Start with audit, then §0–§2, then §3, then §6. §5, §8, and §9 follow. |
-| Audit four things in series | Stop. Run them in parallel via concurrent `Agent` calls. |
+| Audit four things in series       | Stop. Run them in parallel via concurrent `Agent` calls.               |

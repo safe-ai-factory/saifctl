@@ -460,7 +460,7 @@ describe('startRulesWatcher', () => {
 });
 
 describe('patchRunRule', () => {
-  it('updates fields', () => {
+  it('updates content and scope and advances updatedAt past createdAt', () => {
     const prev: RunRule[] = [
       { id: 'r1', content: 'old', scope: 'once', ...at('2025-01-01T00:00:00.000Z') },
     ];

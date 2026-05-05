@@ -1,2 +1,32 @@
 dist/
+dist-pack/
 coverage/
+node_modules/
+.venv/
+
+# Sub-projects with their own format:check
+vscode-ext/
+web/
+
+# Vendored submodules — formatted upstream
+vendor/
+
+# Stub packages — minimal, no formatting needed
+npm-tombstones/
+
+# In-flight migration material (NPM-18) — not authored to prettier rules
+docs_old/
+
+# Workflow YAMLs are validated by `lint:workflows` (node-actionlint), not prettier
+.github/
+
+# Generated test fixtures
+test/integration/harness/fixtures/
+
+# Lockfiles — managed by package manager
+pnpm-lock.yaml
+package-lock.json
+
+# Spec / design material consumed by the AI agent — keep authored shape
+saifctl/
+docspec/

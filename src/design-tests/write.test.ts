@@ -23,7 +23,7 @@ vi.mock('../design-tests/agents/tests-writer.js', () => ({
   runTestsWriterAgent: vi
     .fn()
     .mockResolvedValue(
-      `/* eslint-disable */\n// @ts-nocheck\nimport { describe, it, expect } from 'vitest';\ndescribe('mock', () => { it('placeholder', () => { expect(true).toBe(true); }); });\n`,
+      `/* eslint-disable */\n// @ts-nocheck\nimport { describe, it, expect } from 'vitest';\ndescribe('mock', () => { it('mocked agent stub passes a trivial assertion', () => { expect(true).toBe(true); }); });\n`,
     ),
 }));
 
